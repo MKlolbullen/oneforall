@@ -1,187 +1,173 @@
-def nmap_scan(target, port_range, proxy=None):
-    """
-    Run Nmap to scan the target.
-    
-    Args:
-        target (str): The target to scan.
-        port_range (str): The port range to scan (e.g., 1-1000).
-        proxy (str): The proxy to use.
-    
-    Returns:
-        None
-    """
-    try:
-        if proxy:
-            print(f"{Fore.RED}Nmap does not support proxy settings directly. Running without proxy.{Style.RESET_ALL}")
-        subprocess.run(["nmap", "-p", port_range, target, "-oN", f"{target}_nmap_scan.txt"], check=True)
-        print(f"{Fore.GREEN}Nmap scan complete. Results saved to {target}_nmap_scan.txt{Style.RESET_ALL}")
-    except subprocess.CalledProcessError as e:
-        print(f"{Fore.RED}Error running Nmap: {e}{Style.RESET_ALL}")
+import os
+import sys
+import logging
+import requests
+import subprocess
+import json
+import argparse
+import concurrent.futures
+import tempfile
+from colorama import init, Fore, Style
 
-def rustscan_scan(target, port_range, proxy=None):
-    """
-    Run Rustscan to scan the target.
-    
-    Args:
-        target (str): The target to scan.
-        port_range (str): The port range to scan (e.g., 1-1000).
-        proxy (str): The proxy to use.
-    
-    Returns:
-        None
-    """
-    try:
-        if proxy:
-            print(f"{Fore.RED}Rustscan does not support proxy settings directly. Running without proxy.{Style.RESET_ALL}")
-        ulimit = input("Enter the ulimit value (e.g., 5000) or press Enter to use default: ") or "5000"
-        subprocess.run(["rustscan", "--ulimit", ulimit, "-t", target, "-r", port_range, "-oN", f"{target}_rustscan_scan.txt"], check=True)
-        print(f"{Fore.GREEN}Rustscan scan complete. Results saved to {target}_rustscan_scan.txt{Style.RESET_ALL}")
-    except subprocess.CalledProcessError as e:
-        print(f"{Fore.RED}Error running Rustscan: {e}{Style.RESET_ALL}")
+# Initialize colorama for colored output
+init(autoreset=True)
 
-def naabu_scan(target, port_range, proxy=None):
-    """
-    Run Naabu to scan the target.
-    
-    Args:
-        target (str): The target to scan.
-        port_range (str): The port range to scan (e.g., 1-1000).
-        proxy (str): The proxy to use.
-    
-    Returns:
-        None
-    """
-    try:
-        if proxy:
-            print(f"{Fore.RED}Naabu does not support proxy settings directly. Running without proxy.{Style.RESET_ALL}")
-        subprocess.run(["naabu", "-host", target, "-p", port_range, "-o", f"{target}_naabu_scan.txt"], check=True)
-        print(f"{Fore.GREEN}Naabu scan complete. Results saved to {target}_naabu_scan.txt{Style.RESET_ALL}")
-    except subprocess.CalledProcessError as e:
-        print(f"{Fore.RED}Error running Naabu: {e}{Style.RESET_ALL}")
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
 
-def vulnerability_scanner(domain, proxy=None):
+# Load configuration from environment variables
+CHAOS_CLIENT_KEY = os.getenv("CHAOS_CLIENT_KEY", "your_chaos_client_key_here")
+SHODAN_API_KEY = os.getenv("SHODAN_API_KEY", "your_shodan_api_key_here")
+
+if not CHAOS_CLIENT_KEY or not SHODAN_API_KEY:
+    logger.error("Please set CHAOS_CLIENT_KEY and SHODAN_API_KEY in your environment variables.")
+    sys.exit(1)
+
+
+def check_tool_availability():
+    """Ensure required tools are installed."""
+    required_tools = ["assetfinder", "subfinder", "sqlmap", "gobuster", "gau", "nmap", "whatweb", "dalfox"]
+    missing_tools = [tool for tool in required_tools if not shutil.which(tool)]
+
+    if missing_tools:
+        logger.error(f"The following tools are required but not installed: {', '.join(missing_tools)}")
+        sys.exit(1)
+
+
+def run_command(command, error_message, env=None):
+    """
+    Run a shell command and handle errors.
+
+    Args:
+        command (str): The command to run.
+        error_message (str): The error message to display if the command fails.
+        env (dict): Optional environment variables.
+
+    Returns:
+        str: Command output.
+    """
     try:
-        print(f"{Fore.CYAN}Vulnerability Scanner Menu:{Style.RESET_ALL}")
-        print("1. Run Sniper with default settings")
-        print("2. Run Sniper with custom settings")
-        print("3. Run XSRFProbe")
-        print("4. Run CORSy")
-        print("5. Run XXStrike")
-        print("6. Run Dalfox")
-        print("7. Run kxss")
-        choice = input("Enter your choice: ")
-        if choice == "1":
-            if proxy:
-                subprocess.run(f"sn1per --output sniper_{domain}.txt {domain} --proxy {proxy}", shell=True, check=True)
-            else:
-                subprocess.run(f"sn1per --output sniper_{domain}.txt {domain}", shell=True, check=True)
-        elif choice == "2":
-            custom_settings = input("Enter custom settings for Sniper (e.g. -t 1337 -p 80): ")
-            if proxy:
-                subprocess.run(f"sn1per --output sniper_{domain}.txt {domain} {custom_settings} --proxy {proxy}", shell=True, check=True)
-            else:
-                subprocess.run(f"sn1per --output sniper_{domain}.txt {domain} {custom_settings}", shell=True, check=True)
-        elif choice == "3":
-            if proxy:
-                subprocess.run(f"xsrfprobe -u {domain} --proxy {proxy}", shell=True, check=True)
-            else:
-                subprocess.run(f"xsrfprobe -u {domain}", shell=True, check=True)
-        elif choice == "4":
-            corsy_scan(domain, proxy)
-        elif choice == "5":
-            xxstrike_scan(domain, proxy)
-        elif choice == "6":
-            dalfox_scan(domain, proxy)
-        elif choice == "7":
-            kxss_scan(domain, proxy)
-        else:
-            print(f"{Fore.RED}Invalid choice{Style.RESET_ALL}")
+        result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT, env=env)
+        return result.decode().strip()
     except subprocess.CalledProcessError as e:
-        print(f"{Fore.RED}Error running vulnerability scanner: {e}{Style.RESET_ALL}")
+        logger.error(f"{error_message}\n{e.output.decode().strip()}")
+        return None
+
+
+def check_domain(domain, proxy=None):
+    """
+    Check if a domain is live by sending a GET request.
+
+    Args:
+        domain (str): The domain to check.
+        proxy (str): The proxy to use.
+
+    Returns:
+        bool: True if the domain is live, False otherwise.
+    """
+    try:
+        proxies = {"http": proxy, "https": proxy} if proxy else None
+        response = requests.get(f"http://{domain}", timeout=5, proxies=proxies)
+        return response.status_code == 200
+    except requests.RequestException as e:
+        logger.warning(f"Error checking domain {domain}: {e}")
+        return False
+
+
+def enumerate_subdomains(domain, proxy=None):
+    """
+    Enumerate subdomains using assetfinder, subfinder, and chaos-client.
+
+    Args:
+        domain (str): The domain to enumerate subdomains for.
+        proxy (str): The proxy to use.
+
+    Returns:
+        list: A list of subdomains.
+    """
+    subdomains = set()
+    env = {"http_proxy": proxy, "https_proxy": proxy} if proxy else None
+
+    commands = [
+        f"assetfinder {domain}",
+        f"subfinder -d {domain} -silent",
+        f"chaos-client -d {domain} -key {CHAOS_CLIENT_KEY}"
+    ]
+
+    with tempfile.NamedTemporaryFile(delete=False, mode="w+") as tmpfile:
+        for command in commands:
+            output = run_command(f"{command} >> {tmpfile.name}", f"Failed to enumerate subdomains with {command}.", env)
+            if output:
+                logger.info(f"Subdomains found with {command}:\n{output}")
+
+        tmpfile.seek(0)
+        subdomains.update(line.strip() for line in tmpfile if line.strip())
+
+    os.unlink(tmpfile.name)
+    return sorted(subdomains)
+
+
+def save_to_file(data, filename):
+    """Save data to a file."""
+    with open(filename, "w") as file:
+        file.writelines(f"{line}\n" for line in data)
+    logger.info(f"Data saved to {filename}")
+
+
+def generate_report(data, domain, format="html"):
+    """
+    Generate a report in the specified format.
+
+    Args:
+        data (dict): The data to include in the report.
+        domain (str): The domain being scanned.
+        format (str): The format of the report (html, pdf, csv, json, txt).
+
+    Returns:
+        str: Path to the generated report.
+    """
+    report_path = f"{domain}_report.{format}"
+    if format == "html":
+        with open(report_path, "w") as file:
+            file.write("<html><head><title>Scan Report</title></head><body>")
+            file.write(f"<h1>Scan Report for {domain}</h1>")
+            file.write("<ul>")
+            for vuln in data.get("vulnerabilities", []):
+                file.write(f"<li>{vuln}</li>")
+            file.write("</ul></body></html>")
+    elif format == "json":
+        with open(report_path, "w") as file:
+            json.dump(data, file, indent=4)
+    else:
+        logger.error("Unsupported report format.")
+        return None
+
+    logger.info(f"Report generated: {report_path}")
+    return report_path
+
 
 def main():
-    parser = argparse.ArgumentParser(description="BBHunter")
-    parser.add_argument("-d", "--domain", help="The domain to scan", required=True)
-    parser.add_argument("-p", "--proxy", help="The proxy to use", default=None)
+    parser = argparse.ArgumentParser(description="OneForAll - Penetration Testing Toolkit")
+    parser.add_argument("-d", "--domain", required=True, help="The domain to scan.")
+    parser.add_argument("-p", "--proxy", help="Optional proxy to use.")
     args = parser.parse_args()
 
-    print(f"{Fore.GREEN}Welcome to BBHunter{Style.RESET_ALL}\n\n")
-    target_domain = args.domain
+    domain = args.domain
     proxy = args.proxy
 
-    subdomains = enum_subs(target_domain, proxy)
-    sorted_subdomains = sort_doms(subdomains)
-    print(f"{Fore.CYAN}Sorted and unique subdomains:{Style.RESET_ALL}")
-    for subdomain in sorted_subdomains:
-        print(subdomain)
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = []
-        for subdomain in sorted_subdomains:
-            futures.append(executor.submit(check_domain, subdomain, proxy))
-        for future in concurrent.futures.as_completed(futures):
-            if future.result():
-                print(f"{Fore.GREEN}{future.result()} is live.{Style.RESET_ALL}")
-
-    directory_fuzzing(target_domain, proxy)
-    unique_urls = url_gathering(target_domain, proxy)
-    sqlmap_scan(target_domain, proxy)
-
-    webtech_scan(target_domain, sorted_subdomains, proxy)
-    vulnerability_scanner(target_domain, proxy)
-
-    for subdomain in sorted_subdomains:
-        try:
-            ip = subprocess.check_output(["dig", "+short", subdomain]).strip().decode()
-            if ip:
-                osint_data = osint_gathering(ip)
-                print(json.dumps(osint_data, indent=4))
-        except subprocess.CalledProcessError as e:
-            print(f"{Fore.RED}Error getting IP address for {subdomain}: {e}{Style.RESET_ALL}")
-
-    # Collect data for the report
-    vulnerabilities = [
-        {"name": "SQL Injection", "rank": "High", "cve": "CVE-2021-1234"},
-        {"name": "XSS", "rank": "Medium", "cve": "CVE-2021-5678"},
-        # Add more vulnerabilities as needed
-    ]
-    osint_data = {}
-    for subdomain in sorted_subdomains:
-        try:
-            ip = subprocess.check_output(["dig", "+short", subdomain]).strip().decode()
-            if ip:
-                osint_data[subdomain] = osint_gathering(ip)
-        except subprocess.CalledProcessError as e:
-            print(f"{Fore.RED}Error getting IP address for {subdomain}: {e}{Style.RESET_ALL}")
+    logger.info(f"Starting scan for domain: {domain}")
+    subdomains = enumerate_subdomains(domain, proxy)
+    save_to_file(subdomains, "subdomains.txt")
 
     report_data = {
-        "vulnerabilities": vulnerabilities,
-        "osint": osint_data
+        "subdomains": subdomains,
+        "vulnerabilities": []  # Add vulnerability data here.
     }
+    generate_report(report_data, domain, format="html")
 
-    print(f"{Fore.CYAN}Report Generation Menu:{Style.RESET_ALL}")
-    print("1. HTML")
-    print("2. PDF")
-    print("3. CSV")
-    print("4. JSON")
-    print("5. TXT")
-    report_format = input("Enter your choice: ")
-
-    if report_format == "1":
-        generate_report(report_data, target_domain, "html")
-    elif report_format == "2":
-        generate_report(report_data, target_domain, "pdf")
-    elif report_format == "3":
-        generate_report(report_data, target_domain, "csv")
-    elif report_format == "4":
-        generate_report(report_data, target_domain, "json")
-    elif report_format == "5":
-        generate_report(report_data, target_domain, "txt")
-    else:
-        print(f"{Fore.RED}Invalid choice{Style.RESET_ALL}")
-
-    # IP and Port Scanning
-    ip_port_scanner(target_domain, sorted_subdomains, proxy)
 
 if __name__ == "__main__":
+    check_tool_availability()
     main()
+
