@@ -1,122 +1,198 @@
-# OneForAll - Penetration Testing Toolkit
+#OneForAll - Comprehensive Penetration Testing Toolkit
 
-**OneForAll** is a comprehensive penetration testing and reconnaissance framework designed for bug bounty hunters and security professionals. It automates various tasks like subdomain enumeration, vulnerability scanning, and reporting, combining multiple open-source tools into one cohesive workflow.
+OneForAll is an all-in-one penetration testing and reconnaissance framework designed to automate key tasks for bug bounty hunters and cybersecurity professionals. This toolkit consolidates subdomain enumeration, vulnerability assessment, directory fuzzing, and more into a cohesive workflow.
+
+
+---
 
 ## Features
 
-- **Subdomain Enumeration**: Utilize tools like `assetfinder`, `subfinder`, and `chaos-client`.
-- **Domain Live Check**: Verifies which subdomains are live.
-- **Directory Fuzzing**: Identifies hidden directories using `gobuster`.
-- **Vulnerability Scanning**:
-  - SQL Injection Detection with `sqlmap`.
-  - XSS Scanning with `dalfox`, `kxss`, and `XXStrike`.
-  - CORS Misconfiguration Detection with `corsy`.
-- **Web Technology Fingerprinting**: Tools like `whatweb` and `wappalyzer` are integrated.
-- **Port Scanning**: Supports `Nmap`, `Rustscan`, and `Naabu`.
-- **OSINT Gathering**: Fetches intelligence using the Shodan API.
-- **Automated Reporting**: Generates reports in HTML, JSON, and other formats.
+1. Subdomain Enumeration
+
+Tools: assetfinder, subfinder, chaos-client
+
+Automatically discovers subdomains and checks for live hosts.
+
+
+2. URL Gathering
+
+Tools: gau, urlfinder, katana, waybackpy, gospider
+
+Collects URLs from various sources for deeper analysis.
+
+
+3. Directory Fuzzing
+
+Tool: gobuster
+
+Identifies hidden directories on the target domain.
+
+
+4. Vulnerability Scanning
+
+Tools: sqlmap, dalfox, kxss, corsy, sniper, nuclei
+
+Detects vulnerabilities such as SQL Injection, XSS, and misconfigurations.
+
+
+5. Port Scanning
+
+Tools: Nmap, Rustscan, Naabu
+
+Comprehensive IP and port scanning for open services.
+
+
+6. OSINT Gathering
+
+Tool: Shodan API
+
+Fetches intelligence on target IPs to reveal exposed services and metadata.
+
+
+7. Reporting
+
+Generates reports in HTML, JSON, or other formats.
+
+Includes vulnerabilities, discovered URLs, and OSINT data.
+
+
+
+---
 
 ## Prerequisites
 
-### System Requirements
-- **Python**: 3.8 or higher
-- **Tools**: Ensure the following tools are installed on your system:
-  - `assetfinder`
-  - `subfinder`
-  - `sqlmap`
-  - `gobuster`
-  - `gau`
-  - `nmap`
-  - `whatweb`
-  - `dalfox`
+System Requirements
 
-### Python Dependencies
-Install Python dependencies using `pip`:
+Operating System: Linux (Ubuntu preferred)
 
-```bash
-pip install -r requirements.txt
-```
+Python Version: 3.8 or higher
 
-## Environment Variables
-
-Set the following environment variables for API keys:
-
-CHAOS_CLIENT_KEY: Your Chaos API key.
-
-SHODAN_API_KEY: Your Shodan API key.
+Tools: Bash, curl, git
 
 
-Example:
+Dependencies
 
-`
-export CHAOS_CLIENT_KEY="your_chaos_api_key"
-export SHODAN_API_KEY="your_shodan_api_key"
-`
-# Usage
+The following tools are required and automatically installed during setup:
 
-Basic Command
-
-Run the script with the target domain:
-
-`
-python oneforall.py -d example.com
-`
-
-### Optional Proxy Support
-
-Add a proxy with the -p flag:
-
-`
-python oneforall.py -d example.com -p http://127.0.0.1:8080
-`
-
-## Output
-
-The script generates various output files:
-
-subdomains.txt: List of discovered subdomains.
-
-Reports in multiple formats (e.g., HTML, JSON).
-
-
-#### Example Workflow
-
-1. Enumerate subdomains for example.com:
-
-`
-python oneforall.py -d example.com
-`
-
-2. Check which subdomains are live and perform directory fuzzing.
-
-
-3. Scan for vulnerabilities using integrated tools.
-
-
-4. Generate an HTML report for the findings.
+assetfinder, subfinder, sqlmap, gobuster, gau, katana, dalfox, gospider, nuclei, sniper, subjack, corsy
 
 ---
 
-## Contributing
+Installation
 
-Contributions are welcome! Feel free to fork the repository, make enhancements, and submit a pull request. Please ensure your code adheres to the following:
+1. Clone the repository:
+`
+git clone https://github.com/<your-username>/oneforall.git
+cd oneforall
+`
 
-PEP 8 coding standards.
+2. Run the setup script:
+`
+chmod +x setup.sh
+./setup.sh
+`
 
-Includes proper error handling and logging.
+3. Activate the Python virtual environment:
+
+`source oneforall-env/bin/activate`
 
 
-## License
+4. Set API keys for chaos-client and Shodan during setup.
+
+
+
+For more detailed instructions, see INSTALL.md.
+
+
+---
+
+Usage
+
+1. Basic Command Run the script with a target domain:
+
+`python oneforall.py -d example.com`
+
+
+2. Optional Proxy Support Use the -p flag to specify a proxy:
+
+`python oneforall.py -d example.com -p http://127.0.0.1:8080`
+
+
+3. Interactive Menu The script provides interactive menus for vulnerability scanning, port scanning, and more.
+
+
+
+
+---
+
+### Output
+
+Subdomains: subdomains.txt
+
+URLs: urls.txt
+
+Directories: directories.txt
+
+Reports: example.com_report.html
+
+
+
+---
+
+Contribution
+
+Contributions are welcome! Here’s how you can help:
+
+1. Fork the repository.
+
+
+2. Create a feature branch:
+
+`git checkout -b feature-name`
+
+3. Commit your changes:
+`git commit -m 'Add new feature'`
+
+
+4. Push to the branch:
+
+`git push origin feature-name`
+
+5. Open a pull request.
+
+---
+
+### License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
 
-## Acknowledgments
-
-This tool integrates the capabilities of various open-source tools and APIs. Special thanks to the creators of assetfinder, subfinder, sqlmap, dalfox, and others.
-
 
 ---
 
-Happy Hunting!
+### Acknowledgments
+
+This project integrates various open-source tools and APIs, including:
+
+assetfinder
+
+subfinder
+
+sqlmap
+
+dalfox
+
+gobuster
+
+katana
+
+nuclei
+
+sniper
+
+Shodan API
+
+
+Special thanks to the developers and maintainers of these tools for their contributions to the security community.
+
 
 ---
