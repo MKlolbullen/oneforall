@@ -1,4 +1,6 @@
-#OneForAll - Comprehensive Penetration Testing Toolkit
+# OneForAll - Comprehensive Bug Bounty/Penetration Testing Toolkit
+
+### This is a WIP (Work In Progress)
 
 OneForAll is an all-in-one penetration testing and reconnaissance framework designed to automate key tasks for bug bounty hunters and cybersecurity professionals. This toolkit consolidates subdomain enumeration, vulnerability assessment, directory fuzzing, and more into a cohesive workflow.
 
