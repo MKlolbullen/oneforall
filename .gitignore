@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtualenv
+oneforall-env/
+.venv/
+venv/
+
+# Workspace (per-target scan output)
+workspace/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store

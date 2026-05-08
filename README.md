@@ -1,200 +1,113 @@
-# OneForAll - Comprehensive Bug Bounty/Penetration Testing Toolkit
+# OneForAll v2
 
-### This is a WIP (Work In Progress)
+10-stage bug bounty / pentest automation, driven either from the CLI or from a Claude Code subagent (`.claude/agents/recon.md`).
 
-OneForAll is an all-in-one penetration testing and reconnaissance framework designed to automate key tasks for bug bounty hunters and cybersecurity professionals. This toolkit consolidates subdomain enumeration, vulnerability assessment, directory fuzzing, and more into a cohesive workflow.
+Each stage emits structured JSON into `workspace/<target>/findings.json` plus raw tool output under `workspace/<target>/raw/sNN/...`, so the next stage (or Claude) can read what the previous stage found and decide what to do next.
 
+## The 10 stages
 
----
+| # | Stage | What it does |
+|---|---|---|
+| 1 | Passive DNS recon | crt.sh, Shodan, Censys, FOFA, BeVigil, ipinfo |
+| 2 | Active DNS recon | subfinder, assetfinder, chaos-client, amass, nextnet + httpx liveness |
+| 3 | Tech stack & ports | naabu → nmap -sV → whatweb / wappalyzer |
+| 4 | Crawling | urlfinder, katana, photon, x8, arjun |
+| 5 | Secrets | cariddi, gf (json/secrets), jsubfinder, local regex fallback |
+| 6 | Content fuzzing | feroxbuster / ffuf / gobuster + hakrawler |
+| 7 | **API testing** *(gated)* | OpenAPI/Swagger probe, replay, method confusion, fake-bearer |
+| 8 | URL sorting | gf + heuristic classification into xss/ssrf/ssti/rce/sqli/lfi/redirect/idor |
+| 9 | **Vulnerability scanning** *(gated)* | xsstrike, dalfox, nuclei (severity + tag-based) |
+| 10 | Reporting | Markdown + HTML from findings.json |
 
-## Features
+Stages **7 and 9 are gated**: they refuse to run without both `--i-have-authorization` and a populated `scope.yaml`.
 
-1. Subdomain Enumeration
+## Install
 
-Tools: assetfinder, subfinder, chaos-client
-
-Automatically discovers subdomains and checks for live hosts.
-
-
-2. URL Gathering
-
-Tools: gau, urlfinder, katana, waybackpy, gospider
-
-Collects URLs from various sources for deeper analysis.
-
-
-3. Directory Fuzzing
-
-Tool: gobuster
-
-Identifies hidden directories on the target domain.
-
-
-4. Vulnerability Scanning
-
-Tools: sqlmap, dalfox, kxss, corsy, sniper, nuclei
-
-Detects vulnerabilities such as SQL Injection, XSS, and misconfigurations.
-
-
-5. Port Scanning
-
-Tools: Nmap, Rustscan, Naabu
-
-Comprehensive IP and port scanning for open services.
-
-
-6. OSINT Gathering
-
-Tool: Shodan API
-
-Fetches intelligence on target IPs to reveal exposed services and metadata.
-
-
-7. Reporting
-
-Generates reports in HTML, JSON, or other formats.
-
-Includes vulnerabilities, discovered URLs, and OSINT data.
-
-
-
----
-
-## Prerequisites
-
-System Requirements
-
-Operating System: Linux (Ubuntu preferred)
-
-Python Version: 3.8 or higher
-
-Tools: Bash, curl, git
-
-
-Dependencies
-
-The following tools are required and automatically installed during setup:
-
-assetfinder, subfinder, sqlmap, gobuster, gau, katana, dalfox, gospider, nuclei, sniper, subjack, corsy
-
----
-
-Installation
-
-1. Clone the repository:
-`
+```bash
 git clone https://github.com/MKlolbullen/oneforall.git
 cd oneforall
-`
+chmod +x setup.sh && ./setup.sh
+source oneforall-env/bin/activate
+```
 
-2. Run the setup script:
-`
-chmod +x setup.sh
-./setup.sh
-`
+Optional API keys (export to your shell to enable extra passive sources):
 
-3. Activate the Python virtual environment:
+```bash
+export SHODAN_API_KEY=...
+export CENSYS_API_ID=...
+export CENSYS_API_SECRET=...
+export FOFA_EMAIL=...
+export FOFA_KEY=...
+export BEVIGIL_API_KEY=...
+export IPINFO_TOKEN=...
+export CHAOS_CLIENT_KEY=...
+```
 
-`source oneforall-env/bin/activate`
+Stages skip any source whose key is missing.
 
+## Usage
 
-4. Set API keys for chaos-client and Shodan during setup.
+```bash
+# Full safe pipeline (no active probes)
+python -m oneforall run -d example.com --stages 1,2,3,4,5,6,8,10
 
+# Per stage
+python -m oneforall s01_passive -d example.com
+python -m oneforall s2 -d example.com           # short alias
+cat workspace/example.com/findings.json | jq '.subdomains | length'
 
+# Active stages — authorization required
+python -m oneforall init-scope -d example.com   # edit workspace/example.com/scope.yaml
+python -m oneforall run -d example.com --stages 7,9 --i-have-authorization
 
-For more detailed instructions, see INSTALL.md.
+# Final report
+python -m oneforall s10_report -d example.com
+open workspace/example.com/report/report.html
+```
 
+## Driving it from Claude Code
 
----
+The bundled subagent (`.claude/agents/recon.md`) teaches Claude how to chain the stages, read `findings.json` between them, and refuse to run active stages without authorization.
 
-Usage
+```
+> Use the recon subagent to do passive recon on example.com
+```
 
-1. Basic Command Run the script with a target domain:
+The subagent will:
+1. Lay out `workspace/example.com/`.
+2. Run s01 → s02 → s03 → s04 → s05 → s06 → s08 → s10.
+3. Stop before s07 / s09 unless you explicitly authorize active probes.
+4. Surface the path to `report.html` plus the top findings.
 
-`python oneforall.py -d example.com`
+## Workspace layout
 
+```
+workspace/example.com/
+├── findings.json        # canonical structured state
+├── scope.yaml           # required for s07 / s09
+├── raw/sNN/...          # raw tool output per stage
+├── logs/sNN.log         # one log per stage
+└── report/report.{md,html}
+```
 
-2. Optional Proxy Support Use the -p flag to specify a proxy:
+## Authorization & responsible use
 
-`python oneforall.py -d example.com -p http://127.0.0.1:8080`
+- Only run this against assets you own or have explicit written permission to test (bug bounty scope, a signed engagement, your own lab).
+- `scope.yaml` is the source of truth for what gets actively probed in stages 7 and 9; out-of-scope hosts are filtered before any request is sent.
+- Stages 1–6, 8, 10 are passive or read-only enough that they're fine on any target you have a legitimate reason to research.
 
+## Project layout
 
-3. Interactive Menu The script provides interactive menus for vulnerability scanning, port scanning, and more.
+```
+oneforall/
+├── oneforall/                 # the package
+│   ├── cli.py runner.py workspace.py tools.py auth.py schema.py
+│   └── stages/s01_*.py … s10_*.py
+├── templates/report.html.j2
+├── .claude/agents/recon.md    # the subagent
+└── setup.sh
+```
 
+## License
 
-
-
----
-
-### Output
-
-Subdomains: subdomains.txt
-
-URLs: urls.txt
-
-Directories: directories.txt
-
-Reports: example.com_report.html
-
-
-
----
-
-Contribution
-
-Contributions are welcome! Here’s how you can help:
-
-1. Fork the repository.
-
-
-2. Create a feature branch:
-
-`git checkout -b feature-name`
-
-3. Commit your changes:
-`git commit -m 'Add new feature'`
-
-
-4. Push to the branch:
-
-`git push origin feature-name`
-
-5. Open a pull request.
-
----
-
-### License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
-
-
----
-
-### Acknowledgments
-
-This project integrates various open-source tools and APIs, including:
-
-assetfinder
-
-subfinder
-
-sqlmap
-
-dalfox
-
-gobuster
-
-katana
-
-nuclei
-
-sniper
-
-Shodan API
-
-
-Special thanks to the developers and maintainers of these tools for their contributions to the security community.
-
-
----
+MIT.
