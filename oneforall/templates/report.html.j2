@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OneForAll report — {{ target }}</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+  h1 { border-bottom: 2px solid #333; padding-bottom: .25rem; }
+  h2 { margin-top: 2rem; color: #1a4480; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .9rem; }
+  th, td { border: 1px solid #ccc; padding: .35rem .6rem; text-align: left; vertical-align: top; }
+  th { background: #f4f4f4; }
+  .sev-critical { color: #fff; background: #b00020; padding: 2px 6px; border-radius: 3px; }
+  .sev-high { color: #fff; background: #d93025; padding: 2px 6px; border-radius: 3px; }
+  .sev-medium { color: #fff; background: #f9ab00; padding: 2px 6px; border-radius: 3px; }
+  .sev-low { color: #fff; background: #1a73e8; padding: 2px 6px; border-radius: 3px; }
+  .sev-info { color: #fff; background: #5f6368; padding: 2px 6px; border-radius: 3px; }
+  code { background: #f4f4f4; padding: 1px 4px; border-radius: 3px; font-size: .85rem; }
+  .pill { display: inline-block; background: #eef; color: #224; border-radius: 10px; padding: 1px 8px; margin: 1px; font-size: .8rem; }
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 1rem 0; }
+  .card { border: 1px solid #ccc; border-radius: 6px; padding: .8rem; text-align: center; }
+  .card .n { font-size: 2rem; font-weight: bold; color: #1a4480; }
+  .card .l { font-size: .85rem; color: #555; }
+</style>
+</head>
+<body>
+<h1>OneForAll report — {{ target }}</h1>
+<p>Generated {{ generated_at }} • Stages completed: {{ stages_completed | join(', ') }}</p>
+
+<div class="summary">
+  <div class="card"><div class="n">{{ subdomains | length }}</div><div class="l">subdomains</div></div>
+  <div class="card"><div class="n">{{ live_count }}</div><div class="l">live hosts</div></div>
+  <div class="card"><div class="n">{{ urls | length }}</div><div class="l">URLs</div></div>
+  <div class="card"><div class="n">{{ vulns | length }}</div><div class="l">vulns</div></div>
+</div>
+
+{% if vulns %}
+<h2>Vulnerabilities ({{ vulns | length }})</h2>
+<table>
+<tr><th>ID</th><th>Severity</th><th>URL</th><th>Tool</th><th>Evidence</th></tr>
+{% for v in vulns %}
+<tr>
+  <td><code>{{ v.id }}</code></td>
+  <td><span class="sev-{{ v.severity }}">{{ v.severity }}</span></td>
+  <td><a href="{{ v.url }}">{{ v.url }}</a></td>
+  <td>{{ v.tool }}</td>
+  <td>{{ v.evidence }}</td>
+</tr>
+{% endfor %}
+</table>
+{% endif %}
+
+{% if secrets %}
+<h2>Secrets ({{ secrets | length }})</h2>
+<table>
+<tr><th>Type</th><th>Confidence</th><th>File</th><th>Match</th></tr>
+{% for s in secrets %}
+<tr><td>{{ s.type }}</td><td>{{ s.confidence }}</td><td>{{ s.file }}</td><td><code>{{ s.match }}</code></td></tr>
+{% endfor %}
+</table>
+{% endif %}
+
+<h2>Subdomains ({{ subdomains | length }})</h2>
+<table>
+<tr><th>Host</th><th>Live</th><th>Status</th><th>Sources</th><th>IPs</th></tr>
+{% for s in subdomains %}
+<tr>
+  <td>{{ s.name }}</td>
+  <td>{{ "yes" if s.live else "no" }}</td>
+  <td>{{ s.status_code or "" }}</td>
+  <td>{% for src in s.sources %}<span class="pill">{{ src }}</span>{% endfor %}</td>
+  <td>{{ s.ips | join(", ") }}</td>
+</tr>
+{% endfor %}
+</table>
+
+{% if ports %}
+<h2>Open ports / tech ({{ ports | length }})</h2>
+<table>
+<tr><th>Host</th><th>Port</th><th>Service</th><th>Product</th><th>Tech</th></tr>
+{% for p in ports %}
+<tr>
+  <td>{{ p.host }}</td><td>{{ p.port }}</td><td>{{ p.service or "" }}</td>
+  <td>{{ p.product or "" }}</td>
+  <td>{% for t in p.tech %}<span class="pill">{{ t }}</span>{% endfor %}</td>
+</tr>
+{% endfor %}
+</table>
+{% endif %}
+
+{% if api_findings %}
+<h2>API findings ({{ api_findings | length }})</h2>
+<table>
+<tr><th>Kind</th><th>URL</th><th>Detail</th></tr>
+{% for a in api_findings %}
+<tr><td>{{ a.kind }}</td><td>{{ a.url }}</td><td><code>{{ a | tojson }}</code></td></tr>
+{% endfor %}
+</table>
+{% endif %}
+
+<h2>URLs ({{ urls | length }})</h2>
+<details><summary>Click to expand full list</summary>
+<ul>
+{% for u in urls %}<li>{{ u.url }}{% if u.params %} <span class="pill">params: {{ u.params | join(',') }}</span>{% endif %}</li>{% endfor %}
+</ul></details>
+
+</body>
+</html>

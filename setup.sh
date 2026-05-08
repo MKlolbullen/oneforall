@@ -1,62 +1,122 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# OneForAll v2 setup — installs Go + Python + recon tools.
+# Designed to be idempotent: re-running is safe.
 
-# OneForAll Setup Script
-# This script installs necessary tools, sets environment variables, creates a Python virtual environment, and installs dependencies.
+set -euo pipefail
 
-echo "Setting up OneForAll environment..."
+echo "[*] OneForAll v2 setup"
 
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
+command_exists() { command -v "$1" >/dev/null 2>&1; }
 
-# Update and install essential tools
-echo "Updating and installing dependencies..."
-sudo apt update
-sudo apt install -y python3 python3-pip python3-venv git curl nmap jq build-essential
-
-# Install Go for tools requiring Go environment
-if ! command_exists go; then
-    echo "Installing Go..."
-    wget https://go.dev/dl/go1.20.5.linux-amd64.tar.gz -O go.tar.gz
-    sudo tar -C /usr/local -xzf go.tar.gz
-    export PATH=$PATH:/usr/local/go/bin
-    echo 'export PATH=$PATH:/usr/local/go/bin' >>~/.bashrc
-    source ~/.bashrc
-    rm go.tar.gz
-else
-    echo "Go is already installed."
+# 1. System packages
+if command_exists apt; then
+  echo "[*] Installing system packages (apt)"
+  sudo apt update
+  sudo apt install -y python3 python3-pip python3-venv git curl jq nmap build-essential whatweb
 fi
 
-# Install required tools
-echo "Installing required tools..."
-go install github.com/tomnomnom/assetfinder@latest
-go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
-go install github.com/lc/gau/v2/cmd/gau@latest
-go install github.com/OJ/gobuster/v3@latest
-go install github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest
-go install github.com/hahwul/dalfox/v2@latest
-git clone https://github.com/sqlmapproject/sqlmap.git ~/sqlmap
-git clone https://github.com/haccer/subjack.git ~/subjack
-cd ~/subjack && go build && sudo mv subjack /usr/local/bin && cd ~
-pip3 install waybackpy
+# 2. Go
+if ! command_exists go; then
+  echo "[*] Installing Go 1.21"
+  curl -fsSL https://go.dev/dl/go1.21.5.linux-amd64.tar.gz -o /tmp/go.tgz
+  sudo tar -C /usr/local -xzf /tmp/go.tgz
+  rm /tmp/go.tgz
+fi
+export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"
+grep -q '/usr/local/go/bin' ~/.bashrc 2>/dev/null || echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin' >> ~/.bashrc
 
-# Set environment variables
-echo "Setting up environment variables..."
-read -p "Enter your Chaos API key: " chaos_key
-read -p "Enter your Shodan API key: " shodan_key
+# 3. Go-installed tools
+echo "[*] Installing Go tools"
+GO_TOOLS=(
+  "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"
+  "github.com/projectdiscovery/chaos-client/cmd/chaos-client@latest"
+  "github.com/projectdiscovery/naabu/v2/cmd/naabu@latest"
+  "github.com/projectdiscovery/katana/cmd/katana@latest"
+  "github.com/projectdiscovery/urlfinder/cmd/urlfinder@latest"
+  "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest"
+  "github.com/projectdiscovery/httpx/cmd/httpx@latest"
+  "github.com/tomnomnom/assetfinder@latest"
+  "github.com/lc/gau/v2/cmd/gau@latest"
+  "github.com/tomnomnom/gf@latest"
+  "github.com/tomnomnom/qsreplace@latest"
+  "github.com/tomnomnom/anew@latest"
+  "github.com/tomnomnom/unfurl@latest"
+  "github.com/hahwul/dalfox/v2@latest"
+  "github.com/hakluke/hakrawler@latest"
+  "github.com/haccer/subjack@latest"
+  "github.com/edoardottt/cariddi/cmd/cariddi@latest"
+  "github.com/ThreatUnkown/jsubfinder@latest"
+  "github.com/ffuf/ffuf/v2@latest"
+)
+for t in "${GO_TOOLS[@]}"; do
+  echo "  go install $t"
+  go install "$t" || echo "    !! failed: $t (skipping)"
+done
 
-echo "export CHAOS_CLIENT_KEY=\"$chaos_key\"" >>~/.bashrc
-echo "export SHODAN_API_KEY=\"$shodan_key\"" >>~/.bashrc
-source ~/.bashrc
+# gf patterns (gf-patterns repo)
+if [ ! -d "$HOME/.gf" ]; then
+  git clone --quiet https://github.com/1ndianl33t/Gf-Patterns.git "$HOME/.gf"
+fi
 
-# Create Python virtual environment and install dependencies
-echo "Creating Python virtual environment..."
+# 4. SecLists for wordlists
+if [ ! -d /usr/share/seclists ]; then
+  echo "[*] Cloning SecLists"
+  sudo git clone --depth 1 https://github.com/danielmiessler/SecLists /usr/share/seclists || true
+fi
+
+# 5. Python venv + the package itself
+echo "[*] Creating Python virtualenv"
 python3 -m venv oneforall-env
+# shellcheck disable=SC1091
 source oneforall-env/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-deactivate
+pip install -e .
 
-echo "Setup complete! To activate the virtual environment, use:"
-echo "source oneforall-env/bin/activate"
+# 6. Optional pip tools.
+#   - 'wappalyzer' is the actively maintained driver (s0md3v) on PyPI.
+#   - 'arjun', 'uro', 'photon' have proper PyPI packages.
+#   - XSStrike has no official PyPI package; install it from source if you need it:
+#       git clone https://github.com/s0md3v/XSStrike ~/XSStrike
+#       pip install -r ~/XSStrike/requirements.txt
+echo "[*] Installing optional Python tools"
+for pkg in arjun wappalyzer uro photon; do
+  pip install "$pkg" || echo "    !! pip install $pkg failed (skipping)"
+done
+
+# 7. API keys prompt — skipped in non-interactive runs (CI, scripts).
+if [ -t 0 ] && [ -z "${CI:-}" ]; then
+  read -r -p "Enter your Chaos API key (or empty to skip): " chaos_key
+  read -r -p "Enter your Shodan API key (or empty to skip): " shodan_key
+  add_export() {
+    local var="$1" val="$2"
+    [ -z "$val" ] && return 0
+    if grep -q "^export $var=" ~/.bashrc 2>/dev/null; then
+      sed -i "s|^export $var=.*|export $var=\"$val\"|" ~/.bashrc
+    else
+      echo "export $var=\"$val\"" >> ~/.bashrc
+    fi
+  }
+  add_export CHAOS_CLIENT_KEY "$chaos_key"
+  add_export SHODAN_API_KEY "$shodan_key"
+else
+  echo "[*] Non-interactive shell detected; skipping API key prompts."
+  echo "    Set CHAOS_CLIENT_KEY / SHODAN_API_KEY in your environment manually."
+fi
+
+cat <<'EOF'
+
+[*] Setup complete.
+
+Next steps:
+  source oneforall-env/bin/activate
+  python -m oneforall --help
+  python -m oneforall init-scope -d example.com
+  python -m oneforall s01_passive -d example.com
+
+Optional manual installs (not on Go/pip):
+  amass:        snap install amass / release binary
+  feroxbuster:  cargo install feroxbuster
+  x8:           cargo install x8
+  nextnet:      go install / release binary
+EOF
