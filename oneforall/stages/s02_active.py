@@ -77,15 +77,17 @@ def run(ws: Workspace, authorized: bool = False) -> None:
             cmds.append(("nextnet", f"nextnet -targets {cidr}"))
 
     for name, cmd in cmds:
-        rc, out = run(cmd, log_file=log, timeout=600)
+        _rc, out = run(cmd, log_file=log, timeout=600)
         (raw / f"{name}.txt").write_text(out)
-        added = anew([l for l in out.splitlines() if l.strip() and "." in l], subs_file)
+        candidates: list[str] = []
+        for raw_line in out.splitlines():
+            host = raw_line.strip().lower()
+            if host and (host == domain or host.endswith(f".{domain}")):
+                candidates.append(host)
+                ws.merge_subdomain(host, source=name)
+        added = anew(candidates, subs_file)
         with log.open("a") as f:
             f.write(f"[{name}] +{added} new\n")
-        for line in out.splitlines():
-            line = line.strip().lower()
-            if line.endswith(domain) or line.endswith(f".{domain}"):
-                ws.merge_subdomain(line, source=name)
 
     # Liveness probe
     all_subs = read_lines(subs_file)

@@ -69,7 +69,7 @@ open workspace/example.com/report/report.html
 
 The bundled subagent (`.claude/agents/recon.md`) teaches Claude how to chain the stages, read `findings.json` between them, and refuse to run active stages without authorization.
 
-```
+```text
 > Use the recon subagent to do passive recon on example.com
 ```
 
@@ -81,7 +81,7 @@ The subagent will:
 
 ## Workspace layout
 
-```
+```text
 workspace/example.com/
 ├── findings.json        # canonical structured state
 ├── scope.yaml           # required for s07 / s09
@@ -98,12 +98,12 @@ workspace/example.com/
 
 ## Project layout
 
-```
+```text
 oneforall/
 ├── oneforall/                 # the package
 │   ├── cli.py runner.py workspace.py tools.py auth.py schema.py
-│   └── stages/s01_*.py … s10_*.py
-├── templates/report.html.j2
+│   ├── stages/s01_*.py … s10_*.py
+│   └── templates/report.html.j2
 ├── .claude/agents/recon.md    # the subagent
 └── setup.sh
 ```

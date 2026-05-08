@@ -79,7 +79,7 @@ def run(ws: Workspace, authorized: bool = False) -> None:
     hosts_file = raw / "hosts.txt"
     hosts_file.write_text("\n".join(live_hosts) + "\n")
 
-    # naabu -> open ports per host
+    # naabu -> open ports per host (fall back to nmap-only if naabu fails or returns nothing)
     open_ports: dict[str, list[int]] = {}
     if have("naabu"):
         rc, out = run(
@@ -88,6 +88,10 @@ def run(ws: Workspace, authorized: bool = False) -> None:
         )
         (raw / "naabu.txt").write_text(out)
         open_ports = _parse_naabu(out)
+        if rc != 0 or not open_ports:
+            logger.warning("naabu returned rc=%s with %d hosts; falling back to nmap-only",
+                           rc, len(open_ports))
+            open_ports = {h: [] for h in live_hosts}
     else:
         logger.warning("naabu missing — falling back to nmap top-1000 directly")
         open_ports = {h: [] for h in live_hosts}
@@ -109,18 +113,16 @@ def run(ws: Workspace, authorized: bool = False) -> None:
             for p in ports:
                 ws.merge_port(host, p)
 
-    # whatweb (covers most tech-fingerprint needs; optional wappalyzer-cli on top)
+    # whatweb covers what we need for tech fingerprinting; the previous wappalyzer
+    # block wrote a file that nothing read, so it's been dropped.
     tech_map: dict[str, list[str]] = {}
     if have("whatweb"):
-        rc, out = run(
+        _rc, out = run(
             f"whatweb -i {hosts_file} --no-errors --color=never",
             log_file=log, timeout=1200,
         )
         (raw / "whatweb.txt").write_text(out)
         tech_map = _parse_whatweb(out)
-    if have("wappalyzer"):
-        rc, out = run(f"wappalyzer -i {hosts_file} -o {raw / 'wappalyzer.json'}",
-                      log_file=log, timeout=1200)
 
     for url, techs in tech_map.items():
         host = re.sub(r"^https?://", "", url).split("/")[0].split(":")[0]

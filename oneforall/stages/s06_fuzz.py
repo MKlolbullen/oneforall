@@ -5,11 +5,12 @@ Reads live hosts from findings.json, picks first available wordlist, runs agains
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from pathlib import Path
 
-from oneforall.tools import anew, have, read_lines, run
+from oneforall.tools import anew, have, read_lines, run as shell_run
 from oneforall.workspace import Workspace
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,16 @@ def _pick_wordlist() -> str | None:
         if os.path.exists(p):
             return p
     return None
+
+
+def _parse_ffuf(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return []
+    return [r["url"] for r in data.get("results", []) if r.get("url")]
 
 
 def run(ws: Workspace, authorized: bool = False) -> None:
@@ -51,27 +62,29 @@ def run(ws: Workspace, authorized: bool = False) -> None:
             url = f"https://{host}"
             if have("feroxbuster"):
                 out_path = raw / f"ferox_{host}.txt"
-                run(f"feroxbuster -u {url} -w {wordlist} -q -o {out_path} -k -t 50",
-                    log_file=log, timeout=1800)
+                shell_run(f"feroxbuster -u {url} -w {wordlist} -q -o {out_path} -k -t 50",
+                          log_file=log, timeout=1800)
                 if out_path.exists():
-                    anew([l.split()[-1] for l in read_lines(out_path) if l.startswith("2")],
+                    anew([line.split()[-1] for line in read_lines(out_path) if line.startswith("2")],
                          new_urls_file)
             elif have("ffuf"):
                 out_path = raw / f"ffuf_{host}.json"
-                run(f"ffuf -u {url}/FUZZ -w {wordlist} -mc 200,204,301,302,307,401,403 "
-                    f"-of json -o {out_path} -t 50", log_file=log, timeout=1800)
+                shell_run(f"ffuf -u {url}/FUZZ -w {wordlist} -mc 200,204,301,302,307,401,403 "
+                          f"-of json -o {out_path} -t 50", log_file=log, timeout=1800)
+                anew(_parse_ffuf(out_path), new_urls_file)
             elif have("gobuster"):
                 out_path = raw / f"gobuster_{host}.txt"
-                run(f"gobuster dir -u {url} -w {wordlist} -q -o {out_path} -k -t 50",
-                    log_file=log, timeout=1800)
+                shell_run(f"gobuster dir -u {url} -w {wordlist} -q -o {out_path} -k -t 50",
+                          log_file=log, timeout=1800)
                 if out_path.exists():
                     anew(read_lines(out_path), new_urls_file)
 
-    # hakrawler — pulls links from live hosts
+    # hakrawler — pulls links from live hosts. Feed via a tempfile, not echo+single-quote.
     if have("hakrawler"):
-        rc, out = run(f"echo '{','.join('https://' + h for h in live)}' | "
-                      f"hakrawler -d 2 -subs",
-                      log_file=log, timeout=900)
+        hak_in = raw / "hakrawler_input.txt"
+        hak_in.write_text("\n".join(f"https://{h}" for h in live) + "\n")
+        _rc, out = shell_run(f"cat {hak_in} | hakrawler -d 2 -subs",
+                             log_file=log, timeout=900)
         (raw / "hakrawler.txt").write_text(out)
         anew(out.splitlines(), new_urls_file)
 

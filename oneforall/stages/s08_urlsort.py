@@ -9,7 +9,7 @@ import logging
 import re
 from urllib.parse import urlparse, parse_qs
 
-from oneforall.tools import anew, have, run
+from oneforall.tools import anew, have, run as shell_run  # noqa: F401  (anew kept for future use)
 from oneforall.workspace import Workspace
 
 logger = logging.getLogger(__name__)
@@ -54,14 +54,14 @@ def run(ws: Workspace, authorized: bool = False) -> None:
     gf_buckets: dict[str, list[str]] = {}
     if have("gf"):
         for klass in CLASS_PATTERNS:
-            rc, out = run(f"cat {all_file} | gf {klass}", log_file=log, timeout=120)
-            buckets = [l.strip() for l in out.splitlines() if l.strip()]
+            _rc, out = shell_run(f"cat {all_file} | gf {klass}", log_file=log, timeout=120)
+            buckets = [line.strip() for line in out.splitlines() if line.strip()]
             if buckets:
                 gf_buckets[klass] = buckets
 
     # uro for dedup-by-shape
     if have("uro"):
-        rc, out = run(f"cat {all_file} | uro", log_file=log, timeout=300)
+        _rc, out = shell_run(f"cat {all_file} | uro", log_file=log, timeout=300)
         (raw / "uro.txt").write_text(out)
 
     # Always run our heuristic on top of gf so we don't miss anything

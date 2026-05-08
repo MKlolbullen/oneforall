@@ -39,15 +39,26 @@ def _in_scope(host: str, scope_in: list[str]) -> bool:
 
 
 def _swagger_probe(client: httpx.Client, host: str) -> list[dict]:
-    hits = []
-    for path in SWAGGER_PATHS:
-        url = f"https://{host}{path}"
-        try:
-            r = client.get(url, timeout=10.0, follow_redirects=True)
-            if r.status_code == 200 and ("openapi" in r.text.lower() or "swagger" in r.text.lower()):
-                hits.append({"url": url, "status": r.status_code, "len": len(r.text)})
-        except Exception:
-            pass
+    """Probe each SWAGGER_PATHS entry. Try https first, fall back to http per host."""
+    if host.startswith(("http://", "https://")):
+        bases = [host.rstrip("/")]
+    else:
+        bases = [f"https://{host}", f"http://{host}"]
+    hits: list[dict] = []
+    for base in bases:
+        any_succeeded = False
+        for path in SWAGGER_PATHS:
+            url = f"{base}{path}"
+            try:
+                r = client.get(url, timeout=10.0, follow_redirects=True)
+                any_succeeded = True
+                if r.status_code == 200 and ("openapi" in r.text.lower() or "swagger" in r.text.lower()):
+                    hits.append({"url": url, "status": r.status_code, "len": len(r.text)})
+            except Exception:
+                pass
+        # If https worked at all (any response), don't also waste requests on http.
+        if any_succeeded:
+            break
     return hits
 
 
@@ -107,8 +118,9 @@ def run(ws: Workspace, authorized: bool = False) -> None:
             findings_out.append({"kind": "replay", **_replay(client, u)})
 
     (raw / "api.json").write_text(json.dumps(findings_out, indent=2))
+    # Replace, not extend, so reruns are idempotent.
     data = ws.read_findings()
-    data.setdefault("api_findings", []).extend(findings_out)
+    data["api_findings"] = findings_out
     ws.write_findings(data)
 
     logger.info("[%s] %d api findings", STAGE_ID, len(findings_out))

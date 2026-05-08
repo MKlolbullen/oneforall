@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -54,15 +56,41 @@ class Workspace:
     def read_findings(self) -> dict[str, Any]:
         if not self.findings_path.exists():
             return empty_findings(self.target)
-        return json.loads(self.findings_path.read_text())
+        try:
+            return json.loads(self.findings_path.read_text())
+        except json.JSONDecodeError as e:
+            logger.error("findings.json at %s is corrupted (%s); starting fresh",
+                         self.findings_path, e)
+            return empty_findings(self.target)
 
     def write_findings(self, data: dict[str, Any]) -> None:
-        self.findings_path.write_text(json.dumps(data, indent=2, sort_keys=True))
+        # Atomic: write to a sibling temp file, fsync, then os.replace.
+        payload = json.dumps(data, indent=2, sort_keys=True)
+        d = self.findings_path.parent
+        d.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(prefix=".findings.", suffix=".tmp", dir=str(d))
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.write(payload)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, self.findings_path)
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except FileNotFoundError:
+                pass
+            raise
 
     def load_scope(self) -> dict[str, list[str]] | None:
         if not self.scope_path.exists():
             return None
-        return yaml.safe_load(self.scope_path.read_text())
+        try:
+            return yaml.safe_load(self.scope_path.read_text())
+        except yaml.YAMLError as e:
+            logger.error("scope.yaml at %s is invalid (%s); treating as missing",
+                         self.scope_path, e)
+            return None
 
     # ---- Merge helpers (each stage calls these) ----
 

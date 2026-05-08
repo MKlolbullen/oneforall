@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 STAGE_ID = "s10_report"
 
-TEMPLATE_DIR = Path(__file__).resolve().parents[2] / "templates"
+TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
 
 
 def _markdown(findings: dict, generated_at: str) -> str:

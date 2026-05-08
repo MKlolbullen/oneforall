@@ -10,7 +10,7 @@ import logging
 import re
 from urllib.parse import urlparse, parse_qs
 
-from oneforall.tools import anew, have, read_lines, run
+from oneforall.tools import anew, have, read_lines, run as shell_run
 from oneforall.workspace import Workspace
 
 logger = logging.getLogger(__name__)
@@ -40,12 +40,12 @@ def run(ws: Workspace, authorized: bool = False) -> None:
     urls_file = raw / "urls.txt"
 
     if have("urlfinder"):
-        rc, out = run(f"urlfinder -d {findings['target']} -silent", log_file=log, timeout=900)
+        rc, out = shell_run(f"urlfinder -d {findings['target']} -silent", log_file=log, timeout=900)
         (raw / "urlfinder.txt").write_text(out)
         anew(out.splitlines(), urls_file)
 
     if have("katana"):
-        rc, out = run(
+        rc, out = shell_run(
             f"katana -list {hosts_file} -d 3 -jc -jsl -silent -kf all",
             log_file=log, timeout=1800,
         )
@@ -56,7 +56,7 @@ def run(ws: Workspace, authorized: bool = False) -> None:
         # photon writes to a directory; use the first live host as seed
         seed = live[0]
         out_dir = raw / "photon"
-        run(f"photon -u http://{seed} -o {out_dir} -l 2 -t 10",
+        shell_run(f"photon -u http://{seed} -o {out_dir} -l 2 -t 10",
             log_file=log, timeout=1800)
         photon_urls = out_dir / "urls.txt"
         if photon_urls.exists():
@@ -65,7 +65,7 @@ def run(ws: Workspace, authorized: bool = False) -> None:
     # x8 — parameter discovery on each live host root
     if have("x8"):
         for host in live[:25]:  # cap so this doesn't run forever
-            rc, out = run(
+            rc, out = shell_run(
                 f"x8 -u https://{host}/ --output-format url --one-worker-per-host",
                 log_file=log, timeout=300,
             )
@@ -79,7 +79,7 @@ def run(ws: Workspace, authorized: bool = False) -> None:
             t_path = raw / "arjun_input.txt"
             t_path.write_text("\n".join(targets))
             out_json = raw / "arjun.json"
-            run(f"arjun -i {t_path} -oJ {out_json} -t 10",
+            shell_run(f"arjun -i {t_path} -oJ {out_json} -t 10",
                 log_file=log, timeout=1800)
             if out_json.exists():
                 try:

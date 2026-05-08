@@ -56,7 +56,6 @@ done
 # gf patterns (gf-patterns repo)
 if [ ! -d "$HOME/.gf" ]; then
   git clone --quiet https://github.com/1ndianl33t/Gf-Patterns.git "$HOME/.gf"
-  cp -r "$HOME/.gf"/*.json "$HOME/.gf"/ 2>/dev/null || true
 fi
 
 # 4. SecLists for wordlists
@@ -74,17 +73,36 @@ pip install --upgrade pip
 pip install -r requirements.txt
 pip install -e .
 
-# 6. Optional pip tools
+# 6. Optional pip tools.
+#   - 'wappalyzer' is the actively maintained driver (s0md3v) on PyPI.
+#   - 'arjun', 'uro', 'photon' have proper PyPI packages.
+#   - XSStrike has no official PyPI package; install it from source if you need it:
+#       git clone https://github.com/s0md3v/XSStrike ~/XSStrike
+#       pip install -r ~/XSStrike/requirements.txt
 echo "[*] Installing optional Python tools"
-pip install arjun xsstrike-cli wappalyzer-python uro photon || true
+for pkg in arjun wappalyzer uro photon; do
+  pip install "$pkg" || echo "    !! pip install $pkg failed (skipping)"
+done
 
-# 7. API keys prompt
-read -r -p "Enter your Chaos API key (or empty to skip): " chaos_key
-read -r -p "Enter your Shodan API key (or empty to skip): " shodan_key
-{
-  [ -n "$chaos_key" ]  && echo "export CHAOS_CLIENT_KEY=\"$chaos_key\""
-  [ -n "$shodan_key" ] && echo "export SHODAN_API_KEY=\"$shodan_key\""
-} >> ~/.bashrc
+# 7. API keys prompt — skipped in non-interactive runs (CI, scripts).
+if [ -t 0 ] && [ -z "${CI:-}" ]; then
+  read -r -p "Enter your Chaos API key (or empty to skip): " chaos_key
+  read -r -p "Enter your Shodan API key (or empty to skip): " shodan_key
+  add_export() {
+    local var="$1" val="$2"
+    [ -z "$val" ] && return 0
+    if grep -q "^export $var=" ~/.bashrc 2>/dev/null; then
+      sed -i "s|^export $var=.*|export $var=\"$val\"|" ~/.bashrc
+    else
+      echo "export $var=\"$val\"" >> ~/.bashrc
+    fi
+  }
+  add_export CHAOS_CLIENT_KEY "$chaos_key"
+  add_export SHODAN_API_KEY "$shodan_key"
+else
+  echo "[*] Non-interactive shell detected; skipping API key prompts."
+  echo "    Set CHAOS_CLIENT_KEY / SHODAN_API_KEY in your environment manually."
+fi
 
 cat <<'EOF'
 

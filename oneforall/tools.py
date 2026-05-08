@@ -44,6 +44,7 @@ def run(cmd: str, log_file: Path | None = None, env: dict | None = None,
         msg = f"timeout after {timeout}s: {cmd}"
         logger.error(msg)
         if log_file:
+            log_file.parent.mkdir(parents=True, exist_ok=True)
             with log_file.open("a") as f:
                 f.write(f"\n$ {cmd}\n[TIMEOUT]\n")
         return 124, msg
