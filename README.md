@@ -366,8 +366,8 @@ Do not expose this on the internet without real auth, TLS, runner isolation, rat
 
 ## Next milestones
 
-1. Add DAG artifact passing between steps instead of target-only templates.
+1. ~~Add DAG artifact passing between steps instead of target-only templates.~~ **Done.** See "DAG artifact passing" above.
 2. Add a typed artifact explorer with text/JSON/HTML/screenshot renderers.
-3. Add a real runner image with pinned tool versions and reproducible bootstrap.
-4. Add Alembic migrations before serious multi-user use.
+3. ~~Add a real runner image with pinned tool versions and reproducible bootstrap.~~ **Done.** `apps/api/Dockerfile.runner` pins ~30 recon tools via `go install <pkg>@vN.N.N`; `make runner-image` builds it. The `worker` compose service uses this image so live runs have the binaries available.
+4. ~~Add Alembic migrations before serious multi-user use.~~ **Done.** `apps/api/alembic/` with an initial migration; `init_db()` runs `alembic upgrade head` on startup. Generate new migrations via `make migration MSG="..."`.
 5. Add auth/RBAC and signed audit logs before any shared deployment.

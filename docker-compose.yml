@@ -75,7 +75,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: apps/api/Dockerfile.runner
     command: ["python", "-m", "app.worker"]
     env_file: .env
     environment:

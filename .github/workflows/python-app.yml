@@ -71,3 +71,32 @@ jobs:
         run: |
           cp .env.example .env
           docker compose config > /dev/null
+
+  runner-image-build:
+    name: build runner image
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build runner image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile.runner
+          push: false
+          load: true
+          tags: reconforge-runner:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test pinned binaries
+        run: |
+          set -eux
+          for bin in subfinder dnsx httpx naabu nuclei katana urlfinder \
+                     amass assetfinder gau hakrawler dalfox tlsx asnmap \
+                     gowitness ffuf cariddi crobat chaos uncover gospider \
+                     gauplus waybackurls jsubfinder qsreplace gf nmap; do
+            docker run --rm --entrypoint sh reconforge-runner:ci -c "command -v $bin" \
+              || { echo "missing binary in runner image: $bin"; exit 1; }
+          done

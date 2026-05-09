@@ -21,3 +21,11 @@ workspace/
 
 # OS
 .DS_Store
+
+# Local dev DBs
+reconforge.db
+reconforge-test.db
+*.sqlite
+
+# Alembic test scratch
+artifacts/
