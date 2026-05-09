@@ -1,0 +1,35 @@
+id: crobat
+name: Crobat
+category: reconnaissance
+description: Project Sonar-style passive subdomain lookups.
+binary: crobat
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - crobat
+  - -s
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- subdomain
+- passive
+install:
+  method: go_install
+  package: github.com/cgboal/sonarsearch/crobat@latest
+dry_run_output:
+- vpn.example.com
+- cdn2.example.com

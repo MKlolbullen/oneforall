@@ -1,0 +1,38 @@
+id: wpscan
+name: WPScan
+category: vulnerability-scanning
+description: WordPress vulnerability and exposure scan.
+binary: wpscan
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - wpscan
+  - --url
+  - https://{{target}}
+  - --format
+  - json
+  - --no-banner
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: true
+tags:
+- wordpress
+- cms
+- vulnerability
+install:
+  method: manual
+  notes: WPScan requires Ruby gem and API token for vulnerability database enrichment.
+dry_run_output:
+- '[low] WordPress readme exposed on https://blog.example.com/readme.html'

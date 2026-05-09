@@ -1,0 +1,21 @@
+id: high_risk_manual_approval
+name: High-Risk Manual Approval
+risk: high_active
+description: High-risk validation tools. Keep behind explicit approval/four-eyes policy in production.
+steps:
+- tool: masscan_top
+  timeout_seconds: 2400
+  max_retries: 1
+  continue_on_error: true
+- tool: sqlmap_crawl
+  timeout_seconds: 5400
+  max_retries: 1
+  continue_on_error: true
+- tool: commix_basic
+  timeout_seconds: 3600
+  max_retries: 1
+  continue_on_error: true
+- tool: interactsh_client
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true

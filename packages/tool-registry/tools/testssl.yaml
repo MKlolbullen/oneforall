@@ -1,0 +1,38 @@
+id: testssl
+name: testssl.sh
+category: tls-security
+description: Deep TLS configuration assessment.
+binary: testssl.sh
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - testssl.sh
+  - --fast
+  - --warnings
+  - batch
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- tls
+- ssl
+- misconfiguration
+install:
+  method: manual
+  notes: Install testssl.sh from distro package or official repo.
+dry_run_output:
+- '[LOW] TLS 1.0 not offered'
+- '[INFO] HSTS offered'

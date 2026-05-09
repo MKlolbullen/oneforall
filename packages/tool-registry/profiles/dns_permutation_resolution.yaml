@@ -1,0 +1,36 @@
+id: dns_permutation_resolution
+name: DNS Permutation + Resolution
+risk: low_active
+description: Generate candidate subdomains, resolve them, and reduce wildcard noise. Requires scope authorization.
+steps:
+- tool: alterx
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: dnsgen
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: gotator
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: dnsx
+  timeout_seconds: 1200
+  max_retries: 1
+- tool: puredns_resolve
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: puredns_bruteforce
+  timeout_seconds: 3600
+  max_retries: 1
+  continue_on_error: true
+- tool: shuffledns_resolve
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: dnsrecon
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true

@@ -1,0 +1,35 @@
+id: interactsh_client
+name: Interactsh Client
+category: oob-testing
+description: OOB interaction listener for workflows that need callback validation.
+binary: interactsh-client
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: oob_events
+  type: finding_list
+command:
+  argv:
+  - interactsh-client
+  - -json
+  - -v
+parser:
+  type: json_lines
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- oob
+- callback
+install:
+  method: go_install
+  package: github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest
+dry_run_output:
+- '{"protocol":"dns","full-id":"abc.oast.site","remote-address":"203.0.113.1"}'

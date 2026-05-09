@@ -1,0 +1,33 @@
+description: WebApp information gatherer.
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- fingerprinting
+- web
+install:
+  method: apt_or_pipx
+  package: wig
+dry_run_output:
+- 'wig: web fingerprint dry-run'
+id: wig
+name: wig
+category: fingerprinting
+binary: wig
+command:
+  argv:
+  - wig
+  - https://{{target}}

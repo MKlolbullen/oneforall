@@ -1,0 +1,36 @@
+description: Credential audit wrapper. High-risk and disabled unless explicitly approved.
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- credential-audit
+- high-risk
+install:
+  method: apt_or_pipx
+  package: brutespray
+dry_run_output:
+- brutespray dry-run only; no credential attempts performed
+id: brutespray
+name: brutespray
+category: credential-audit
+binary: brutespray
+command:
+  argv:
+  - brutespray
+  - --file
+  - /tmp/nmap.gnmap
+  - --threads
+  - '2'

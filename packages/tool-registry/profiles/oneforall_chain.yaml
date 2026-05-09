@@ -1,0 +1,36 @@
+id: oneforall_chain
+name: OneForAll legacy chain (safe)
+risk: passive
+description: |
+  Runs the legacy oneforall pipeline stage-by-stage in the order the bundled subagent
+  used: passive recon, active recon, tech scan, crawl, secrets, fuzz, urlsort, report.
+  The two gated stages (s07_api, s09_vuln) are intentionally omitted — invoke them
+  explicitly when you have authorization and a populated scope file.
+steps:
+- tool: oneforall_s01_passive
+  timeout_seconds: 1800
+  max_retries: 1
+- tool: oneforall_s02_active
+  timeout_seconds: 1800
+  max_retries: 1
+- tool: oneforall_s03_techscan
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true
+- tool: oneforall_s04_crawl
+  timeout_seconds: 1800
+  max_retries: 1
+- tool: oneforall_s05_secrets
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true
+- tool: oneforall_s06_fuzz
+  timeout_seconds: 3600
+  max_retries: 1
+  continue_on_error: true
+- tool: oneforall_s08_urlsort
+  timeout_seconds: 600
+  max_retries: 1
+- tool: oneforall_s10_report
+  timeout_seconds: 300
+  max_retries: 1

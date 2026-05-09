@@ -1,0 +1,35 @@
+description: Burp API scanner integration placeholder using configured host/port.
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- burp
+- dast
+- integration
+install:
+  method: external_service
+  service: Burp Suite Enterprise/Professional API
+dry_run_output:
+- 'burp: scan request would be queued'
+id: burp_scan
+name: Burp scanner integration
+category: dynamic-application-scanner
+binary: python3
+command:
+  argv:
+  - python3
+  - -c
+  - print("Burp scan integration placeholder for https://{{target}}")

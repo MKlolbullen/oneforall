@@ -1,0 +1,39 @@
+description: SMTP user enumeration check. High-sensitivity; approval required.
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- smtp
+- enum
+- high-risk
+install:
+  method: apt
+  package: smtp-user-enum
+dry_run_output:
+- smtp-user-enum dry-run only
+id: smtp_user_enum
+name: smtp-user-enum
+category: network-security
+binary: smtp-user-enum
+command:
+  argv:
+  - smtp-user-enum
+  - -M
+  - VRFY
+  - -U
+  - packages/wordlists/users-simple.txt
+  - -t
+  - '{{target}}'

@@ -1,0 +1,38 @@
+description: Nessus scanner integration placeholder.
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- nessus
+- scanner
+- integration
+install:
+  method: external_service
+  service: Nessus API
+  env:
+  - NESSUS_USERNAME
+  - NESSUS_PASSWORD
+dry_run_output:
+- 'nessus: scan would be queued'
+id: nessus_scan
+name: Nessus scan
+category: vulnerability-scanning
+binary: python3
+command:
+  argv:
+  - python3
+  - -c
+  - print("Nessus scan integration placeholder for {{target}}")

@@ -1,0 +1,25 @@
+id: cloud_takeover_exposure
+name: Cloud + Takeover Exposure
+risk: medium_active
+description: Subdomain takeover, cloud buckets and cloud inventory checks for authorized programs.
+steps:
+- tool: nuclei_takeovers
+  timeout_seconds: 2400
+  max_retries: 1
+  continue_on_error: true
+- tool: subzy
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true
+- tool: cloud_enum
+  timeout_seconds: 3600
+  max_retries: 1
+  continue_on_error: true
+- tool: s3scanner
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true
+- tool: cloudlist
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true

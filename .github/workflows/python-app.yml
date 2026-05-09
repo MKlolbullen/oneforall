@@ -1,7 +1,4 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
-
-name: Python application
+name: CI
 
 on:
   push:
@@ -13,27 +10,108 @@ permissions:
   contents: read
 
 jobs:
-  build:
-
+  legacy-oneforall:
+    name: legacy oneforall (pytest)
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.12"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Test with pytest
-      run: |
-        pytest
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install legacy package
+        working-directory: legacy
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pytest
+          pip install -r requirements.txt
+          pip install -e .
+      - name: Flake8 (syntax / undefined-name only)
+        working-directory: legacy
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - name: pytest
+        working-directory: legacy
+        run: pytest -v
+
+  reconforge-api:
+    name: reconforge api (import smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install API
+        working-directory: apps/api
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Install pytest deps
+        run: pip install pytest httpx
+      - name: Reconforge tests (registry, e2e dry-run, DAG artifact passing)
+        env:
+          DATABASE_URL: sqlite:///./reconforge.db
+          REDIS_URL: redis://localhost:6379/0
+          ARTIFACT_BACKEND: local
+          ARTIFACT_DIR: ./artifacts
+          EXECUTION_MODE: dry_run
+          ALLOW_LIVE_EXECUTION: "false"
+          RUNNER_MODE: in_process
+        run: python -m pytest tests/ -v
+
+  web-build:
+    name: web (tsc + vite build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install web deps
+        working-directory: apps/web
+        run: npm install --no-audit --no-fund
+      - name: Type-check + bundle
+        working-directory: apps/web
+        run: npm run build
+
+  compose-config:
+    name: docker compose config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose file
+        run: |
+          cp .env.example .env
+          docker compose config > /dev/null
+
+  runner-image-build:
+    name: build runner image
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build runner image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile.runner
+          push: false
+          load: true
+          tags: reconforge-runner:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test pinned binaries
+        run: |
+          set -eux
+          for bin in subfinder dnsx httpx naabu nuclei katana urlfinder \
+                     amass assetfinder gau hakrawler dalfox tlsx asnmap \
+                     gowitness ffuf cariddi crobat chaos uncover gospider \
+                     gauplus waybackurls jsubfinder qsreplace gf nmap; do
+            docker run --rm --entrypoint sh reconforge-runner:ci -c "command -v $bin" \
+              || { echo "missing binary in runner image: $bin"; exit 1; }
+          done

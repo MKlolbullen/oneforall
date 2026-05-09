@@ -1,0 +1,46 @@
+import type { Artifact, DashboardStats, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000';
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    ...init,
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`${response.status} ${response.statusText}: ${body}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+export const api = {
+  health: () => request<Record<string, unknown>>('/health'),
+  stats: () => request<DashboardStats>('/api/dashboard/stats'),
+  workspaces: () => request<Workspace[]>('/api/workspaces'),
+  createWorkspace: (payload: { name: string; description?: string }) =>
+    request<Workspace>('/api/workspaces', { method: 'POST', body: JSON.stringify(payload) }),
+  targets: (workspaceId?: string) =>
+    request<Target[]>(`/api/targets${workspaceId ? `?workspace_id=${workspaceId}` : ''}`),
+  createTarget: (payload: Partial<Target>) =>
+    request<Target>('/api/targets', { method: 'POST', body: JSON.stringify(payload) }),
+  runs: () => request<Run[]>('/api/runs'),
+  createRun: (payload: { workspace_id: string; target_id: string; profile_id: string }) =>
+    request<Run>('/api/runs', { method: 'POST', body: JSON.stringify(payload) }),
+  cancelRun: (runId: string) => request<Run>(`/api/runs/${runId}/cancel`, { method: 'POST' }),
+  runEvents: (runId: string) => request<RunEvent[]>(`/api/runs/${runId}/events`),
+  runSteps: (runId: string) => request<RunStep[]>(`/api/runs/${runId}/steps`),
+  runArtifacts: (runId: string) => request<Artifact[]>(`/api/runs/${runId}/artifacts`),
+  artifactContentUrl: (artifactId: string) => `${API_BASE_URL}/api/artifacts/${artifactId}/content`,
+  tools: () => request<Tool[]>('/api/tools'),
+  toolAvailability: (force = false) => request<ToolAvailability[]>(`/api/tools/availability${force ? '?force=true' : ''}`),
+  profileAvailability: (profileId: string, force = false) => request<ProfileAvailability>(`/api/tools/profiles/${profileId}/availability${force ? '?force=true' : ''}`),
+  profiles: () => request<Profile[]>('/api/tools/profiles'),
+  effectiveConfig: () => request<PlatformConfig>('/api/config/effective'),
+  grepPatterns: () => request<GrepPatternPack>('/api/config/grep-patterns'),
+  wordlists: () => request<WordlistInfo[]>('/api/config/wordlists'),
+  pluginMatrix: () => request<PluginToggle[]>('/api/config/plugin-matrix'),
+  reloadConfig: () => request<{ status: string }>('/api/config/reload', { method: 'POST' }),
+  wsUrl: (runId: string) => `${WS_BASE_URL}/ws/runs/${runId}`,
+};

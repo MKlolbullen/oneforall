@@ -1,0 +1,39 @@
+id: subfinder
+name: Subfinder
+category: reconnaissance
+description: ProjectDiscovery passive subdomain discovery.
+binary: subfinder
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - subfinder
+  - -all
+  - -recursive
+  - -silent
+  - -d
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- subdomain
+install:
+  method: go_install
+  package: github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+dry_run_output:
+- app.example.com
+- api.example.com
+- dev.example.com

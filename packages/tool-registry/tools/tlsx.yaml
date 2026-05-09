@@ -1,0 +1,39 @@
+id: tlsx
+name: tlsx
+category: tls-security
+description: ProjectDiscovery TLS probing, SAN extraction and certificate metadata.
+binary: tlsx
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: tls_assets
+  type: json_lines
+command:
+  argv:
+  - tlsx
+  - -silent
+  - -san
+  - -cn
+  - -tls-probe
+  - -host
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- tls
+install:
+  method: go_install
+  package: github.com/projectdiscovery/tlsx/cmd/tlsx@latest
+dry_run_output:
+- https://example.com
+- api.example.com

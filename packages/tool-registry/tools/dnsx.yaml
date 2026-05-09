@@ -1,0 +1,39 @@
+id: dnsx
+name: dnsx
+category: resolution
+description: ProjectDiscovery DNS resolution and validation.
+binary: dnsx
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: resolved_domains
+  type: domain_list
+command:
+  argv:
+  - dnsx
+  - -silent
+  - -a
+  - -aaaa
+  - -resp
+  - -d
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- dns
+install:
+  method: go_install
+  package: github.com/projectdiscovery/dnsx/cmd/dnsx@latest
+dry_run_output:
+- api.example.com
+- auth.example.com

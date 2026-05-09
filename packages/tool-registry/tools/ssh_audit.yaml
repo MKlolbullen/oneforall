@@ -1,0 +1,35 @@
+description: SSH server crypto posture audit.
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- ssh
+- crypto
+- network
+install:
+  method: pipx
+  package: ssh-audit
+dry_run_output:
+- SSH-2.0-OpenSSH_9.x
+- algorithm audit placeholder
+id: ssh_audit
+name: ssh-audit
+category: network-security
+binary: ssh-audit
+command:
+  argv:
+  - ssh-audit
+  - '{{target}}'

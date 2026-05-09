@@ -1,0 +1,43 @@
+id: katana
+name: Katana
+category: crawling
+description: ProjectDiscovery next-gen crawler for endpoints, forms and JS links.
+binary: katana
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - katana
+  - -silent
+  - -jc
+  - -kf
+  - all
+  - -d
+  - '3'
+  - -u
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- crawler
+- urls
+install:
+  method: go_install
+  package: github.com/projectdiscovery/katana/cmd/katana@latest
+dry_run_output:
+- https://www.example.com/login
+- https://www.example.com/static/app.js
+- https://api.example.com/v1/users

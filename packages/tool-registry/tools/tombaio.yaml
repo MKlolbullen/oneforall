@@ -1,0 +1,37 @@
+description: Tomba.io email/domain intelligence integration.
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- email
+- api
+- osint
+install:
+  method: python_stdlib
+  env:
+  - TOMBAIO_KEY
+  - TOMBAIO_SECRET
+dry_run_output:
+- 'tomba.io: dry-run email intelligence'
+id: tombaio
+name: Tomba.io
+category: external-intel
+binary: python3
+command:
+  argv:
+  - python3
+  - -c
+  - print("tomba.io integration placeholder for {{target}}")

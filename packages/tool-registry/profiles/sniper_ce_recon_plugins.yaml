@@ -1,0 +1,46 @@
+id: sniper_ce_recon_plugins
+name: Sn1per CE Recon Plugins
+risk: low_active
+description: 'Recon plugin profile inspired by CE toggles: passive sources, permutations,
+  DNS validation and takeover checks.'
+config_profile: sniper_inspired_default
+steps:
+- tool: subfinder
+  timeout_seconds: 900
+  max_retries: 1
+- tool: amass_passive
+  timeout_seconds: 1800
+  continue_on_error: true
+- tool: sublist3r
+  timeout_seconds: 900
+  continue_on_error: true
+- tool: findomain
+  timeout_seconds: 900
+  continue_on_error: true
+- tool: crtsh
+  timeout_seconds: 900
+  continue_on_error: true
+- tool: dnsgen
+  timeout_seconds: 600
+  continue_on_error: true
+- tool: alterx
+  timeout_seconds: 600
+  continue_on_error: true
+- tool: altdns
+  timeout_seconds: 900
+  continue_on_error: true
+- tool: puredns_resolve
+  timeout_seconds: 1200
+  max_retries: 1
+- tool: dnsx
+  timeout_seconds: 1200
+  max_retries: 1
+- tool: subzy
+  timeout_seconds: 900
+  continue_on_error: true
+- tool: subjack
+  timeout_seconds: 900
+  continue_on_error: true
+- tool: subover
+  timeout_seconds: 900
+  continue_on_error: true

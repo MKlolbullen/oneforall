@@ -1,0 +1,42 @@
+id: oneforall_s06_fuzz
+name: "OneForAll s06_fuzz"
+category: reconnaissance
+description: "Content fuzzing: feroxbuster / ffuf / gobuster + hakrawler"
+binary: python
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: json
+command:
+  argv:
+  - python
+  - -m
+  - oneforall
+  - s06_fuzz
+  - -d
+  - '{{target}}'
+  - --workspace
+  - /app/artifacts/oneforall
+  - --i-have-authorization
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- oneforall
+- legacy
+- s06_fuzz
+install:
+  method: pip_install
+  package: -e ./legacy
+dry_run_output:
+- "[s06_fuzz] start"
+- "[s06_fuzz] done"

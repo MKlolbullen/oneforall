@@ -1,0 +1,38 @@
+id: sublist3r
+name: Sublist3r
+category: reconnaissance
+description: Classic passive subdomain discovery fallback.
+binary: sublist3r
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - sublist3r
+  - -d
+  - '{{target}}'
+  - -o
+  - '-'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- subdomain
+- passive
+- legacy
+install:
+  method: manual
+  notes: Install from github.com/aboul3la/Sublist3r or pip in a dedicated venv.
+dry_run_output:
+- old.example.com
+- mail.example.com

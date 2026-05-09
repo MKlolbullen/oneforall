@@ -1,0 +1,11 @@
+id: port_service
+name: Port and Service Inventory
+risk: medium_active
+description: Port inventory with ProjectDiscovery naabu and Nmap service detection.
+steps:
+- tool: naabu
+  timeout_seconds: 1800
+  max_retries: 1
+- tool: nmap_top
+  timeout_seconds: 3600
+  max_retries: 0

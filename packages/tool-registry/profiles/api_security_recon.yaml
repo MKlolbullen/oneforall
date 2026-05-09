@@ -1,0 +1,29 @@
+id: api_security_recon
+name: API Security Recon
+risk: medium_active
+description: API route discovery, parameter discovery, GraphQL fingerprinting/checks and JWT inspection.
+steps:
+- tool: kiterunner
+  timeout_seconds: 3600
+  max_retries: 1
+  continue_on_error: true
+- tool: kiterunner_routes
+  timeout_seconds: 3600
+  max_retries: 1
+  continue_on_error: true
+- tool: arjun
+  timeout_seconds: 2400
+  max_retries: 1
+  continue_on_error: true
+- tool: graphql_cop
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true
+- tool: graphw00f
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: jwt_tool
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true

@@ -1,0 +1,35 @@
+id: subzy
+name: Subzy
+category: takeover
+description: Subdomain takeover fingerprint scanner.
+binary: subzy
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - subzy
+  - run
+  - --target
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- takeover
+- subdomain
+install:
+  method: go_install
+  package: github.com/LukaSikic/subzy@latest
+dry_run_output:
+- '[VULNERABLE] old.example.com - unclaimed service detected'

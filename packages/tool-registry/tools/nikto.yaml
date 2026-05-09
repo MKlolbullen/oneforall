@@ -1,0 +1,36 @@
+id: nikto
+name: Nikto
+category: vulnerability-scanning
+description: Classic web server misconfiguration scanner.
+binary: nikto
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - nikto
+  - -h
+  - https://{{target}}
+  - -nointeractive
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- web
+- misconfiguration
+- legacy
+install:
+  method: apt
+  package: nikto
+dry_run_output:
+- '+ Server leaks inodes via ETags, header found with file /, inode: 1234'

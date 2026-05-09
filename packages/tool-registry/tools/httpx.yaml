@@ -1,0 +1,48 @@
+id: httpx
+name: httpx
+category: probing
+description: ProjectDiscovery HTTP probing, title, status, tech-detect, TLS and favicon
+  metadata.
+binary: httpx
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - httpx
+  - -silent
+  - -json
+  - -ip
+  - -td
+  - -title
+  - -status-code
+  - -server
+  - -cname
+  - -tls-probe
+  - -csp-probe
+  - -favicon
+  - -u
+  - https://{{target}}
+parser:
+  type: json_lines
+  entity: http_service
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- http
+- tech-detect
+install:
+  method: go_install
+  package: github.com/projectdiscovery/httpx/cmd/httpx@latest
+dry_run_output:
+- '{"url":"https://www.example.com","status_code":200,"title":"Example"}'
+- '{"url":"https://api.example.com","status_code":401,"tech":["nginx"]}'

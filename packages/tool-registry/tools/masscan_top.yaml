@@ -1,0 +1,38 @@
+id: masscan_top
+name: masscan Top Ports
+category: port-scanning
+description: Very fast TCP top-port scan. Dangerous without rate limits.
+binary: masscan
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: ports
+  type: port_list
+command:
+  argv:
+  - masscan
+  - '{{target}}'
+  - --top-ports
+  - '100'
+  - --rate
+  - '500'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- ports
+- high-risk
+- active
+install:
+  method: apt
+  package: masscan
+dry_run_output:
+- Discovered open port 443/tcp on 203.0.113.10

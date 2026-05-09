@@ -1,0 +1,33 @@
+description: DNSDumpster-style passive DNS integration placeholder.
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- external-intel
+- dns
+install:
+  method: python_stdlib
+dry_run_output:
+- 'dnsdumpster: mx.example.com'
+id: dnsdumpster
+name: DNSDumpster adapter
+category: external-intel
+binary: python3
+command:
+  argv:
+  - python3
+  - -c
+  - print("dnsdumpster placeholder for {{target}}")

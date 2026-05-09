@@ -1,0 +1,34 @@
+description: RPC service listing.
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- rpc
+- network
+install:
+  method: apt
+  package: rpcbind
+dry_run_output:
+- 100000 portmapper tcp 111
+id: rpcinfo
+name: rpcinfo
+category: network-security
+binary: rpcinfo
+command:
+  argv:
+  - rpcinfo
+  - -p
+  - '{{target}}'

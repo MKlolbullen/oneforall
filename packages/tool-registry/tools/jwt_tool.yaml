@@ -1,0 +1,36 @@
+id: jwt_tool
+name: jwt_tool
+category: api-security
+description: JWT inspection and weak configuration checks; active attack modes must remain disabled unless
+  approved.
+binary: jwt_tool
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - jwt_tool
+  - -t
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- jwt
+- api
+- token
+install:
+  method: manual
+  notes: Install ticarpi/jwt_tool in isolated runner.
+dry_run_output:
+- '[INFO] No token supplied; configure token param for real checks'

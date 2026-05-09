@@ -1,0 +1,36 @@
+id: eyewitness
+name: EyeWitness
+category: screenshots
+description: Screenshot and HTTP service report collector.
+binary: eyewitness
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: screenshots
+  type: artifact_list
+command:
+  argv:
+  - eyewitness
+  - --web
+  - --single
+  - https://{{target}}
+  - --no-prompt
+parser:
+  type: line_based
+  entity: artifact
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- screenshot
+- visual-recon
+install:
+  method: manual
+  notes: Install EyeWitness from trusted repo/package; run in isolated runner.
+dry_run_output:
+- '[*] Web Screenshot taken: https://www.example.com'

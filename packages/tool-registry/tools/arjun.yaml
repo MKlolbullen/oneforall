@@ -1,0 +1,39 @@
+id: arjun
+name: Arjun
+category: parameter-discovery
+description: HTTP parameter discovery.
+binary: arjun
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: parameters
+  type: parameter_list
+command:
+  argv:
+  - arjun
+  - -u
+  - https://{{target}}
+  - --stable
+  - -oT
+  - '-'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- parameters
+- active
+- api
+install:
+  method: pipx
+  package: arjun
+dry_run_output:
+- '[+] Valid parameter found: id'
+- '[+] Valid parameter found: redirect'

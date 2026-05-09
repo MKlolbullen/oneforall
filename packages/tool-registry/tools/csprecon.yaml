@@ -1,0 +1,36 @@
+id: csprecon
+name: csprecon
+category: fingerprinting
+description: CSP header analysis and third-party relationship extraction placeholder.
+binary: csprecon
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: relationships
+  type: url_list
+command:
+  argv:
+  - csprecon
+  - -u
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- csp
+- headers
+- relationship-graph
+install:
+  method: manual
+  notes: Wire to local CSP parser or csprecon-compatible script.
+dry_run_output:
+- https://cdn.example.com
+- https://analytics.example.net

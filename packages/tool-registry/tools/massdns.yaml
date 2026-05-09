@@ -1,0 +1,37 @@
+description: High-throughput DNS resolution. Keep rate limits sane.
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- dns
+- resolver
+install:
+  method: apt_or_source
+  package: massdns
+dry_run_output:
+- api.example.com. A 192.0.2.10
+id: massdns
+name: massdns
+category: resolution
+binary: massdns
+command:
+  argv:
+  - massdns
+  - -r
+  - /tmp/resolvers.txt
+  - -t
+  - A
+  - /tmp/subdomains.txt

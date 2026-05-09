@@ -1,0 +1,20 @@
+id: ports_services_deep
+name: Ports + Services Deep
+risk: medium_active
+description: Authorized port discovery and service fingerprinting with multiple engines.
+steps:
+- tool: naabu
+  timeout_seconds: 2400
+  max_retries: 1
+- tool: rustscan
+  timeout_seconds: 2400
+  max_retries: 1
+  continue_on_error: true
+- tool: nmap_top
+  timeout_seconds: 3600
+  max_retries: 1
+  continue_on_error: true
+- tool: nmap_vuln_safe
+  timeout_seconds: 5400
+  max_retries: 1
+  continue_on_error: true

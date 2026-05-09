@@ -1,0 +1,40 @@
+id: sqlmap_crawl
+name: sqlmap Crawl
+category: injection-testing
+description: SQL injection validation profile. High-risk; approval-gated by design.
+binary: sqlmap
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - sqlmap
+  - -u
+  - https://{{target}}/?id=1
+  - --batch
+  - --crawl=1
+  - --level=1
+  - --risk=1
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 5400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- sqli
+- high-risk
+- active
+install:
+  method: apt
+  package: sqlmap
+dry_run_output:
+- '[INFO] testing connection to the target URL'
+- '[WARNING] no injectable parameters found'

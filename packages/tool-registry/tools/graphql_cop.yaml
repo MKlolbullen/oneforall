@@ -1,0 +1,36 @@
+id: graphql_cop
+name: GraphQL Cop
+category: api-security
+description: GraphQL endpoint security checks.
+binary: graphql-cop
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - graphql-cop
+  - -t
+  - https://{{target}}/graphql
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- graphql
+- api
+- active
+install:
+  method: manual
+  notes: Install graphql-cop in a Python venv or container.
+dry_run_output:
+- '[INFO] Introspection disabled'
+- '[LOW] GraphQL endpoint detected'

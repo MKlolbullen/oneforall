@@ -1,0 +1,48 @@
+id: web_surface_fingerprint
+name: Web Surface Fingerprint
+risk: low_active
+description: HTTP liveness, TLS, WAF/CDN, technologies, screenshots and visual reconnaissance.
+steps:
+- tool: httpx
+  timeout_seconds: 1200
+  max_retries: 1
+- tool: httprobe
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: tlsx
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: sslscan
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: testssl
+  timeout_seconds: 2400
+  max_retries: 1
+  continue_on_error: true
+- tool: whatweb
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: wafw00f
+  timeout_seconds: 600
+  max_retries: 1
+  continue_on_error: true
+- tool: favirecon
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: csprecon
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: gowitness
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true
+- tool: eyewitness
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true

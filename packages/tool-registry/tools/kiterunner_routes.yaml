@@ -1,0 +1,37 @@
+id: kiterunner_routes
+name: Kiterunner Routes
+category: api-security
+description: API route discovery against known route dictionaries.
+binary: kr
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: api_routes
+  type: url_list
+command:
+  argv:
+  - kr
+  - scan
+  - https://{{target}}
+  - -A=apiroutes-210228
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- api
+- routes
+- wordlist
+install:
+  method: manual
+  notes: Install assetnote/kiterunner and route dictionaries in runner image.
+dry_run_output:
+- https://api.example.com/v1/users [200]
+- https://api.example.com/v1/admin [403]

@@ -1,0 +1,39 @@
+id: gospider
+name: GoSpider
+category: crawling
+description: Fast web spider/crawler for authorized targets.
+binary: gospider
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - gospider
+  - -s
+  - https://{{target}}
+  - -q
+  - -d
+  - '2'
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- crawler
+- urls
+- javascript
+install:
+  method: go_install
+  package: github.com/jaeles-project/gospider@latest
+dry_run_output:
+- https://www.example.com/app.js
+- https://www.example.com/api/v1/me

@@ -1,0 +1,39 @@
+id: ffuf
+name: ffuf
+category: content-discovery
+description: Fast web fuzzer for directories/files using controlled wordlists.
+binary: ffuf
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - ffuf
+  - -u
+  - https://{{target}}/FUZZ
+  - -w
+  - /wordlists/common.txt
+  - -of
+  - json
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- fuzzing
+- content
+install:
+  method: go_install
+  package: github.com/ffuf/ffuf/v2@latest
+dry_run_output:
+- https://www.example.com/admin
+- https://www.example.com/api

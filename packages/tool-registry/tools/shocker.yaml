@@ -1,0 +1,33 @@
+description: Shellshock-focused scanner. Legacy/high-signal only, approval required.
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- shellshock
+- legacy
+install:
+  method: source
+  package: Shocker
+dry_run_output:
+- 'shocker: dry-run only'
+id: shocker
+name: Shocker
+category: vulnerability-scanning
+binary: shocker
+command:
+  argv:
+  - shocker
+  - https://{{target}}/cgi-bin/test.cgi

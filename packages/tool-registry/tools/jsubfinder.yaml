@@ -1,0 +1,38 @@
+id: jsubfinder
+name: JSubFinder
+category: javascript-analysis
+description: Find subdomains and URLs from JavaScript files.
+binary: jsubfinder
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: urls
+  type: url_list
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - jsubfinder
+  - search
+  - -u
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- javascript
+- urls
+install:
+  method: go_install
+  package: github.com/ThreatUnkown/jsubfinder@latest
+dry_run_output:
+- https://api.example.com/v2/internal
+- assets.example.com

@@ -1,0 +1,33 @@
+id: uro
+name: uro
+category: url-normalization
+description: URL deduplication and noise reduction.
+binary: uro
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: normalized_urls
+  type: url_list
+command:
+  argv:
+  - uro
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- url-normalization
+- utility
+install:
+  method: pipx
+  package: uro
+dry_run_output:
+- https://www.example.com/search?q=1

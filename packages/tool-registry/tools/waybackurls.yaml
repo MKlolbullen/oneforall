@@ -1,0 +1,34 @@
+id: waybackurls
+name: waybackurls
+category: url-discovery
+description: Fetch historical URLs from the Wayback Machine.
+binary: waybackurls
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - waybackurls
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- urls
+- archive
+install:
+  method: go_install
+  package: github.com/tomnomnom/waybackurls@latest
+dry_run_output:
+- https://www.example.com/old-admin
+- https://cdn.example.com/app.js

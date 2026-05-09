@@ -1,0 +1,35 @@
+description: Web crawler/spider for mapping application surface.
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- crawler
+- spider
+install:
+  method: go_install_or_source
+  package: blackwidow
+dry_run_output:
+- https://example.com/login
+- https://example.com/api
+id: blackwidow
+name: BlackWidow
+category: crawling
+binary: blackwidow
+command:
+  argv:
+  - blackwidow
+  - -u
+  - https://{{target}}

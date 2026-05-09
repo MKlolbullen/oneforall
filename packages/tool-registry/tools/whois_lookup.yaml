@@ -1,0 +1,34 @@
+description: WHOIS registration lookup.
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- whois
+- osint
+install:
+  method: apt
+  package: whois
+dry_run_output:
+- 'Domain Name: EXAMPLE.COM'
+- 'Registrar: Example Registrar'
+id: whois_lookup
+name: whois
+category: osint
+binary: whois
+command:
+  argv:
+  - whois
+  - '{{target}}'

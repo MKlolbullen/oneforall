@@ -1,0 +1,35 @@
+id: dalfox
+name: Dalfox
+category: xss-testing
+description: XSS scanner for authorized parameter testing.
+binary: dalfox
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url_or_domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - dalfox
+  - url
+  - https://{{target}}
+  - --silence
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- xss
+- vulnerability
+install:
+  method: go_install
+  package: github.com/hahwul/dalfox/v2@latest
+dry_run_output:
+- '[POC][G][Low] Reflected parameter candidate: https://www.example.com/search?q=x'

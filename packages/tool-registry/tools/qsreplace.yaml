@@ -1,0 +1,34 @@
+id: qsreplace
+name: qsreplace
+category: payload-prep
+description: Query-string value replacement utility for payload pipelines.
+binary: qsreplace
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: payload_urls
+  type: url_list
+command:
+  argv:
+  - qsreplace
+  - FUZZ
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 300
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- payload-prep
+- utility
+- tomnomnom
+install:
+  method: go_install
+  package: github.com/tomnomnom/qsreplace@latest
+dry_run_output:
+- https://www.example.com/search?q=FUZZ

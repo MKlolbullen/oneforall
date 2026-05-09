@@ -1,0 +1,19 @@
+id: sniper_grep_patterns
+name: Sn1per-inspired interesting parameter and path patterns
+version: 0.2.0
+settings:
+  static_grep_search: true
+  max_lines: 10
+patterns:
+  interesting_subdomains: "admin|jenkins|test|proxy|stage|dev|devops|staff|db|qa|internal"
+  interesting_extensions: "\\.action|\\.adr|\\.ascx|\\.asmx|\\.axd|\\.backup|\\.bak|\\.bkf|\\.bkp|\\.cfg|\\.cfm|\\.cgi|\\.cnf|\\.conf|\\.config|\\.crt|\\.csr|\\.csv|\\.dat|\\.doc|\\.docx|\\.eml|\\.env|\\.exe|\\.gz|\\.ica|\\.inf|\\.ini|\\.java|\\.json|\\.key|\\.log|\\.lst|\\.md|\\.mdb|\\.old|\\.ora|\\.pac|\\.passwd|\\.pcf|\\.pdf|\\.pem|\\.pgp|\\.pl|\\.pwd|\\.rdp|\\.reg|\\.rtf|\\.sql|\\.swf|\\.tpl|\\.txt|\\.url|\\.xls|\\.xlsx|\\.xml|\\.xsd|\\.ya?ml"
+  xss: "q=|s=|search=|lang=|keyword=|query=|page=|keywords=|view=|email=|type=|name=|p=|callback=|jsonp=|api_key=|api=|token=|username=|csrf_token=|id=|item=|url=|terms=|categoryid=|key="
+  ssrf: "access|admin|dbg|debug|edit|grant|test|alter|clone|create|delete|disable|enable|exec|execute|load|make|modify|rename|reset|shell|toggle|adm|root|cfg|dest|redirect|uri|path|continue|url|window|next|data|reference|site|html|val|validate|domain|callback|return|page|feed|host|port|to|out|view|dir|show|navigation|open"
+  redirect: "forward=|dest=|redirect=|uri=|path=|continue=|url=|window=|to=|out=|view=|dir=|show=|navigation=|Open=|file=|val=|validate=|domain=|callback=|return=|page=|feed=|host=|port=|next=|data=|reference=|site=|html="
+  rce: "daemon|upload|dir|execute|download|log|ip|cli|cmd"
+  idor: "id|user|account|number|order|no|doc|key|email|group|profile|edit|report"
+  sql: "id|select|report|role|update|query|user|name|sort|where|search|params|process|row|view|table|from|sel|results|sleep|fetch|order|keyword|column|field|delete|string|number|filter"
+  lfi: "file|document|folder|root|path|pg|style|pdf|template|php_path|doc"
+  ssti: "template|preview|id|view|activity|name|content|redirect"
+  debug: "access|admin|dbg|debug|edit|grant|test|alter|clone|create|delete|disable|enable|exec|execute|load|make|modify|rename|reset|shell|toggle|adm|root|cfg|config"
+  high_value_parameters: "template=|preview=|id=|view=|activity=|name=|content=|redirect=|access=|admin=|debug=|edit=|grant=|test=|alter=|clone=|create=|delete=|disable=|enable=|exec=|execute=|load=|make=|modify=|rename=|reset=|shell=|toggle=|root=|cfg=|dest=|uri=|path=|continue=|url=|window=|next=|data=|reference=|site=|html=|val=|validate=|domain=|callback=|return=|feed=|host=|port=|to=|out=|dir=|open=|file=|document=|folder=|pg=|style=|doc=|img=|filename=|select=|report=|role=|update=|query=|user=|sort=|where=|search=|params=|process=|table=|from=|sleep=|fetch=|order=|keyword=|column=|field=|filter="

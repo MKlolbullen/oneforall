@@ -1,0 +1,42 @@
+id: oneforall_s07_api
+name: "OneForAll s07_api"
+category: reconnaissance
+description: "API testing (gated): OpenAPI/Swagger probe, replay, method confusion"
+binary: python
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: json
+command:
+  argv:
+  - python
+  - -m
+  - oneforall
+  - s07_api
+  - -d
+  - '{{target}}'
+  - --workspace
+  - /app/artifacts/oneforall
+  - --i-have-authorization
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- oneforall
+- legacy
+- s07_api
+install:
+  method: pip_install
+  package: -e ./legacy
+dry_run_output:
+- "[s07_api] start"
+- "[s07_api] done"

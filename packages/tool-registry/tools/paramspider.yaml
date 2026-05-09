@@ -1,0 +1,37 @@
+id: paramspider
+name: ParamSpider
+category: parameter-discovery
+description: Parameterized URL discovery from public archives.
+binary: paramspider
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: parameterized_urls
+  type: url_list
+command:
+  argv:
+  - paramspider
+  - -d
+  - '{{target}}'
+  - --quiet
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- parameters
+- archives
+- passive
+install:
+  method: manual
+  notes: Install from github.com/devanshbatham/ParamSpider in a runner venv.
+dry_run_output:
+- https://www.example.com/search?q=FUZZ
+- https://api.example.com/item?id=FUZZ

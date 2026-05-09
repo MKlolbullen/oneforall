@@ -1,0 +1,38 @@
+id: cloud_enum
+name: cloud_enum
+category: cloud-security
+description: Cloud asset and bucket enumeration for authorized organizations.
+binary: cloud_enum
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - cloud_enum
+  - -k
+  - '{{target}}'
+  - --disable-azure
+  - --disable-gcp
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- cloud
+- s3
+- azure
+- gcp
+install:
+  method: manual
+  notes: Install cloud_enum in isolated Python venv.
+dry_run_output:
+- 'OPEN S3 BUCKET: example-public-assets'

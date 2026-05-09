@@ -1,0 +1,37 @@
+id: xnlinkfinder
+name: xnLinkFinder
+category: javascript-analysis
+description: Extended link and endpoint finder for JavaScript-heavy targets.
+binary: xnLinkFinder
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: endpoints
+  type: url_list
+command:
+  argv:
+  - xnLinkFinder
+  - -i
+  - https://{{target}}
+  - -o
+  - cli
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- javascript
+- endpoints
+install:
+  method: pipx
+  package: xnLinkFinder
+dry_run_output:
+- https://www.example.com/api/admin
+- https://www.example.com/graphql

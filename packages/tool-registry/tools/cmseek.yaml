@@ -1,0 +1,35 @@
+description: CMS detection and lightweight security checks.
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- cms
+- fingerprinting
+install:
+  method: source
+  package: CMSeeK
+dry_run_output:
+- 'CMS: unknown'
+id: cmseek
+name: CMSeeK
+category: cms-security
+binary: cmseek
+command:
+  argv:
+  - cmseek
+  - -u
+  - https://{{target}}
+  - --random-agent

@@ -1,0 +1,34 @@
+id: corsy
+name: Corsy
+category: cors-testing
+description: CORS misconfiguration scanner.
+binary: corsy
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - corsy
+  - -u
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- cors
+- misconfiguration
+install:
+  method: manual
+  notes: Install Corsy in a dedicated Python venv.
+dry_run_output:
+- '[Low] Wildcard ACAO not detected'

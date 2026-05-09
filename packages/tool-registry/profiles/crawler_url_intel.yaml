@@ -1,0 +1,56 @@
+id: crawler_url_intel
+name: Crawler + URL Intelligence
+risk: low_active
+description: Archive URLs, crawling, JavaScript endpoint extraction and URL normalization.
+steps:
+- tool: gau
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: gauplus
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: waybackurls
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: waymore
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true
+- tool: katana
+  timeout_seconds: 2400
+  max_retries: 1
+- tool: gospider
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true
+- tool: hakrawler
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: urlfinder
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: paramspider
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true
+- tool: linkfinder
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: xnlinkfinder
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: jsfinder
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: uro
+  timeout_seconds: 600
+  max_retries: 1
+  continue_on_error: true

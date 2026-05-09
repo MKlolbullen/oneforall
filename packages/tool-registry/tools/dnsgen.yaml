@@ -1,0 +1,34 @@
+id: dnsgen
+name: dnsgen
+category: permutation
+description: DNS permutation generator for candidate subdomains.
+binary: dnsgen
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: candidate_subdomains
+  type: domain_list
+command:
+  argv:
+  - dnsgen
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- dns
+- permutation
+install:
+  method: pipx
+  package: dnsgen
+dry_run_output:
+- beta.example.com
+- test.example.com

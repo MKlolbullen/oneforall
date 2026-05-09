@@ -1,0 +1,34 @@
+id: assetfinder
+name: Assetfinder
+category: reconnaissance
+description: Passive subdomain discovery from common public sources.
+binary: assetfinder
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - assetfinder
+  - --subs-only
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- subdomain
+install:
+  method: go_install
+  package: github.com/tomnomnom/assetfinder@latest
+dry_run_output:
+- cdn.example.com
+- static.example.com

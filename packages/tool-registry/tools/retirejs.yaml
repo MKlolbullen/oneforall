@@ -1,0 +1,35 @@
+id: retirejs
+name: Retire.js
+category: supply-chain
+description: Client-side JavaScript dependency vulnerability scanner.
+binary: retire
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - retire
+  - --url
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- javascript
+- dependencies
+- cve
+install:
+  method: npm
+  package: retire
+dry_run_output:
+- jquery 1.12.4 has known vulnerabilities

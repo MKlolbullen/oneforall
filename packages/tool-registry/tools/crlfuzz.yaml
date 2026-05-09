@@ -1,0 +1,35 @@
+id: crlfuzz
+name: crlfuzz
+category: injection-testing
+description: CRLF injection scanner for authorized URLs.
+binary: crlfuzz
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - crlfuzz
+  - -u
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- crlf
+- injection
+- active
+install:
+  method: go_install
+  package: github.com/dwisiswant0/crlfuzz/cmd/crlfuzz@latest
+dry_run_output:
+- '[VULN] CRLF candidate https://www.example.com/redirect'

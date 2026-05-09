@@ -1,0 +1,39 @@
+id: ffuf_params
+name: ffuf Parameter Discovery
+category: parameter-discovery
+description: Parameter name brute forcing against authorized endpoints.
+binary: ffuf
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: parameters
+  type: parameter_list
+command:
+  argv:
+  - ffuf
+  - -u
+  - https://{{target}}/?FUZZ=test
+  - -w
+  - /wordlists/params/common.txt
+  - -of
+  - json
+parser:
+  type: json_lines
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- parameters
+- ffuf
+- active
+install:
+  method: go_install
+  package: github.com/ffuf/ffuf/v2@latest
+dry_run_output:
+- '{"url":"https://www.example.com/?debug=test","status":200}'

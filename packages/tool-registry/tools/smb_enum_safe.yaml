@@ -1,0 +1,36 @@
+description: Safe SMB service enumeration metadata collection.
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- smb
+- network
+install:
+  method: apt
+  package: smbclient
+dry_run_output:
+- Disk|IPC$|Remote IPC
+id: smb_enum_safe
+name: SMB enum safe
+category: network-security
+binary: smbclient
+command:
+  argv:
+  - smbclient
+  - -L
+  - //{{target}}
+  - -N
+  - -g

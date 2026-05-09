@@ -1,0 +1,38 @@
+id: hakrawler
+name: hakrawler
+category: crawling
+description: Fast web crawler for URLs and assets.
+binary: hakrawler
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - hakrawler
+  - -url
+  - https://{{target}}
+  - -depth
+  - '2'
+  - -plain
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- crawler
+- urls
+install:
+  method: go_install
+  package: github.com/hakluke/hakrawler@latest
+dry_run_output:
+- https://www.example.com/account
+- https://www.example.com/logout

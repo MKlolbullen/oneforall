@@ -1,0 +1,34 @@
+description: NFS export listing.
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- nfs
+- network
+install:
+  method: apt
+  package: nfs-common
+dry_run_output:
+- 'Export list for example.com: /exports/public'
+id: showmount
+name: showmount
+category: network-security
+binary: showmount
+command:
+  argv:
+  - showmount
+  - -e
+  - '{{target}}'

@@ -1,0 +1,34 @@
+description: JBoss vulnerability scanner. Use only with explicit authorization.
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- jboss
+- high-risk
+install:
+  method: source
+  package: JexBoss
+dry_run_output:
+- 'jexboss: manual approval required'
+id: jexboss
+name: JexBoss
+category: vulnerability-scanning
+binary: jexboss
+command:
+  argv:
+  - jexboss
+  - -host
+  - https://{{target}}
