@@ -107,11 +107,18 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Smoke test pinned binaries
         run: |
-          set -eux
+          set -ux
+          missing=()
           for bin in subfinder dnsx httpx naabu nuclei katana urlfinder \
                      amass assetfinder gau hakrawler dalfox tlsx asnmap \
                      gowitness ffuf cariddi crobat chaos uncover gospider \
                      gauplus waybackurls jsubfinder qsreplace gf nmap; do
-            docker run --rm --entrypoint sh reconforge-runner:ci -c "command -v $bin" \
-              || { echo "missing binary in runner image: $bin"; exit 1; }
+            if ! docker run --rm --entrypoint sh reconforge-runner:ci -c "command -v $bin >/dev/null 2>&1"; then
+              missing+=("$bin")
+            fi
           done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::missing binaries in runner image: ${missing[*]}"
+            exit 1
+          fi
+          echo "all expected binaries present"
