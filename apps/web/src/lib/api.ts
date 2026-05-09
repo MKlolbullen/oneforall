@@ -1,4 +1,4 @@
-import type { Advice, Artifact, Asset, DashboardStats, Finding, GrepPatternPack, HttpExchangeDetail, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
+import type { Advice, Artifact, Asset, DashboardDetailed, DashboardStats, Finding, FindingPage, GrepPatternPack, HttpExchangeDetail, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000';
@@ -18,6 +18,28 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<Record<string, unknown>>('/health'),
   stats: () => request<DashboardStats>('/api/dashboard/stats'),
+  dashboardDetailed: () => request<DashboardDetailed>('/api/dashboard/detailed'),
+  findings: (opts: {
+    workspace_id?: string;
+    severity?: string;
+    status?: string;
+    tool?: string;
+    target_id?: string;
+    q?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(opts)) {
+      if (v != null && v !== '') p.set(k, String(v));
+    }
+    const qs = p.toString();
+    return request<FindingPage>(`/api/findings${qs ? `?${qs}` : ''}`);
+  },
+  updateFindingStatus: (findingId: string, status: string) =>
+    request<Finding>(`/api/findings/${findingId}`, {
+      method: 'PATCH', body: JSON.stringify({ status }),
+    }),
   workspaces: () => request<Workspace[]>('/api/workspaces'),
   createWorkspace: (payload: { name: string; description?: string }) =>
     request<Workspace>('/api/workspaces', { method: 'POST', body: JSON.stringify(payload) }),
