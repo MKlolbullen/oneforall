@@ -1,4 +1,4 @@
-import type { Advice, Artifact, Asset, DashboardStats, Finding, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
+import type { Advice, Artifact, Asset, DashboardStats, Finding, GrepPatternPack, HttpExchangeDetail, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000';
@@ -65,4 +65,25 @@ export const api = {
     request<Advice | null>(`/api/advisor/findings/${findingId}/explain`),
   explainFinding: (findingId: string) =>
     request<Advice>(`/api/advisor/findings/${findingId}/explain`, { method: 'POST' }),
+
+  runNetwork: (runId: string, opts: {
+    host?: string;
+    method?: string;
+    status?: number;
+    step?: number;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.host) params.set('host', opts.host);
+    if (opts.method) params.set('method', opts.method);
+    if (opts.status != null) params.set('status', String(opts.status));
+    if (opts.step != null) params.set('step', String(opts.step));
+    if (opts.limit != null) params.set('limit', String(opts.limit));
+    if (opts.offset != null) params.set('offset', String(opts.offset));
+    const qs = params.toString();
+    return request<NetworkPage>(`/api/runs/${runId}/network${qs ? `?${qs}` : ''}`);
+  },
+  runExchange: (runId: string, exchangeId: string) =>
+    request<HttpExchangeDetail>(`/api/runs/${runId}/network/${exchangeId}`),
 };

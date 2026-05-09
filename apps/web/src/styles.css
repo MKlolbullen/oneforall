@@ -116,6 +116,22 @@ button { cursor: pointer; }
 .finding-body { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid #1f2937; margin-top: 10px; }
 .finding-evidence { background: #02060f; border: 1px solid #0e7490; border-radius: 8px; padding: 10px 12px; color: #cbd5e1; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }
 
+/* Network tab — Burp-style HTTP traffic browser */
+.network-tab { gap: 12px; }
+.network-toolbar .input { padding: 6px 8px; font-size: 12.5px; }
+.network-table th, .network-table td { padding: 6px 8px; font-size: 12.5px; }
+.network-row { cursor: pointer; }
+.network-row:hover { background: rgba(8,145,178,.08); }
+.network-row.selected { background: rgba(8,145,178,.18); }
+.ellipsis-cell { max-width: 480px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.network-detail-row td { background: rgba(2,6,23,.6); border-top: 1px solid #1f2937; padding: 12px; }
+.network-detail { gap: 16px; }
+.exchange-block { background: #02060f; border: 1px solid #164e63; border-radius: 8px; padding: 10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11.5px; color: #cbd5e1; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; margin: 6px 0; }
+.exchange-body { background: #02060f; border: 1px solid #0e7490; border-radius: 8px; padding: 10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11.5px; color: #e0f2fe; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; margin-top: 8px; }
+[data-theme="pd-cloud"] .network-row:hover { background: var(--pd-cyan-soft); }
+[data-theme="pd-cloud"] .network-row.selected { background: var(--pd-pink-soft); }
+[data-theme="pd-cloud"] .exchange-block, [data-theme="pd-cloud"] .exchange-body { font-family: 'JetBrains Mono', ui-monospace, monospace; border-color: var(--pd-pink); }
+
 /* Claude advisor panel */
 .advice-panel { border: 1px solid #1f2937; border-radius: 12px; padding: 12px 14px; background: linear-gradient(180deg, rgba(34,211,238,.05), rgba(2,6,23,.42)); display: grid; gap: 10px; margin-top: 10px; }
 .advice-summary { white-space: pre-wrap; color: #e5e7eb; font-size: 13.5px; line-height: 1.55; }

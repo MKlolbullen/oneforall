@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 
-from app.api.routes import advisor as advisor_routes, assets, auth as auth_routes, config, dashboard, runs, targets, tools, workspaces, ws
+from app.api.routes import advisor as advisor_routes, assets, auth as auth_routes, config, dashboard, network as network_routes, runs, targets, tools, workspaces, ws
 from app.core.config import get_settings
 from app.db import engine, init_db
 from app.models import Target, Workspace
@@ -43,6 +43,7 @@ app.include_router(tools.router, prefix="/api")
 app.include_router(runs.router, prefix="/api")
 app.include_router(assets.router, prefix="/api")
 app.include_router(advisor_routes.router, prefix="/api")
+app.include_router(network_routes.router, prefix="/api")
 app.include_router(ws.router)
 
 

@@ -189,6 +189,37 @@ class APIKey(SQLModel, table=True):
     revoked_at: datetime | None = None
 
 
+class HttpExchange(SQLModel, table=True):
+    """One captured HTTP exchange — the proxify JSONL line for a single
+    request/response pair. Bodies are capped at MAX_BODY_BYTES (64KB) and
+    flagged truncated; stash the full body separately if the use case ever
+    demands it.
+
+    `step_index` is the run-step that was running when the exchange was
+    observed, derived from timestamp at parse time. It can be None if the
+    exchange landed before any step started or after the last step finished.
+    """
+    id: str = Field(default_factory=lambda: new_id("ex"), primary_key=True)
+    run_id: str = Field(index=True, foreign_key="run.id")
+    workspace_id: str = Field(index=True, foreign_key="workspace.id")
+    step_index: int | None = Field(default=None, index=True)
+    tool_id: str | None = Field(default=None, index=True, max_length=64)
+    method: str = Field(index=True, max_length=10)
+    url: str = Field(max_length=2048)
+    host: str = Field(index=True, max_length=255)
+    request_headers: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    request_body: str = ""
+    request_body_truncated: bool = False
+    response_status: int | None = Field(default=None, index=True)
+    response_headers: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    response_body: str = ""
+    response_body_truncated: bool = False
+    response_size_bytes: int | None = None
+    duration_ms: int | None = None
+    error: str | None = None
+    started_at: datetime = Field(default_factory=now_utc, index=True)
+
+
 class Advice(SQLModel, table=True):
     """A stored Claude advisor response.
 

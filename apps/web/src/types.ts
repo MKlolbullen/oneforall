@@ -207,6 +207,37 @@ export type TargetTech = {
   by_url: TargetTechRow[];
 };
 
+export type HttpExchangeSummary = {
+  id: string;
+  started_at: string;
+  method: string;
+  url: string;
+  host: string;
+  response_status: number | null;
+  response_size_bytes: number | null;
+  duration_ms: number | null;
+  step_index: number | null;
+  tool_id: string | null;
+  error: string | null;
+};
+
+export type HttpExchangeDetail = HttpExchangeSummary & {
+  request_headers: Record<string, unknown>;
+  request_body: string;
+  request_body_truncated: boolean;
+  response_headers: Record<string, unknown>;
+  response_body: string;
+  response_body_truncated: boolean;
+};
+
+export type NetworkPage = {
+  total: number;
+  items: HttpExchangeSummary[];
+  hosts: string[];
+  methods: string[];
+  statuses: number[];
+};
+
 export type Advice = {
   id: string;
   workspace_id: string;

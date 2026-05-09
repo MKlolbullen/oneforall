@@ -6,6 +6,7 @@ import { ArtifactExplorer } from './lib/ArtifactExplorer';
 import { classifyArtifact } from './lib/artifactKind';
 import { TargetDetail } from './lib/TargetDetail';
 import { AdvicePanel } from './lib/AdvicePanel';
+import { NetworkTab } from './lib/NetworkTab';
 import { applyTheme, loadTheme, persistTheme, THEMES, type Theme } from './lib/theme';
 import type { Artifact, DashboardStats, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from './types';
 
@@ -218,11 +219,14 @@ function RunTable({ runs, onSelect }: { runs: Run[]; onSelect?: (run: Run) => vo
   </tbody></table>;
 }
 
+type RunTab = 'console' | 'steps' | 'network' | 'artifacts' | 'advisor';
+
 function RunConsole({ run, onChanged }: { run: Run; onChanged?: () => void }) {
   const [events, setEvents] = useState<RunEvent[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [steps, setSteps] = useState<RunStep[]>([]);
   const [selected, setSelected] = useState<Artifact | null>(null);
+  const [tab, setTab] = useState<RunTab>('console');
 
   const reloadArtifacts = () => api.runArtifacts(run.id).then(setArtifacts).catch(console.error);
   const reloadSteps = () => api.runSteps(run.id).then(setSteps).catch(console.error);
@@ -252,46 +256,77 @@ function RunConsole({ run, onChanged }: { run: Run; onChanged?: () => void }) {
 
   const canCancel = run.status === 'queued' || run.status === 'running';
 
+  const tabs: { id: RunTab; label: string; badge?: string | number }[] = [
+    { id: 'console', label: 'Console' },
+    { id: 'steps', label: 'Steps', badge: steps.length },
+    { id: 'network', label: 'Network' },
+    { id: 'artifacts', label: 'Artifacts', badge: artifacts.length },
+    { id: 'advisor', label: 'Advisor' },
+  ];
+
   return <div className="grid">
     <div className="row space">
       <span className={`badge ${run.status === 'completed' ? 'ok' : run.status === 'failed' || run.status === 'cancelled' ? 'bad' : 'passive'}`}>{run.status}</span>
       <button className="btn danger" disabled={!canCancel} onClick={cancel}>Cancel run</button>
     </div>
-    <div>
-      <div className="row space"><strong>Steps</strong><span className="muted">timeout / retry policy</span></div>
-      <table className="table compact"><thead><tr><th>#</th><th>Tool</th><th>Status</th><th>Try</th><th>Timeout</th></tr></thead><tbody>
-        {steps.map((step) => <tr key={step.id}><td>{step.index}</td><td>{step.tool_name}</td><td><span className={`badge ${step.status === 'completed' ? 'ok' : step.status === 'failed' || step.status === 'timed_out' || step.status === 'cancelled' ? 'bad' : 'passive'}`}>{step.status}</span></td><td>{step.attempt}/{step.max_retries + 1}</td><td>{step.timeout_seconds}s</td></tr>)}
-      </tbody></table>
+    <div className="row" role="tablist">
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          aria-selected={tab === t.id}
+          className={`btn small ${tab === t.id ? '' : 'disabledish'}`}
+          onClick={() => setTab(t.id)}
+        >
+          {t.label}{t.badge !== undefined && <span className="badge passive" style={{ marginLeft: 6 }}>{t.badge}</span>}
+        </button>
+      ))}
     </div>
-    <div className="console">{events.map((e) => <div key={e.id} className={`console-line ${e.level}`}>[{e.sequence.toString().padStart(3, '0')}] {e.type}: {e.message}</div>)}</div>
-    <AdvicePanel
-      label="Triage with Claude"
-      refKey={run.id}
-      fetchCached={() => api.getRunTriage(run.id)}
-      invoke={() => api.triageRun(run.id)}
-    />
-    <div>
-      <div className="row space"><strong>Artifacts</strong><span className="muted">{artifacts.length} files · click to preview</span></div>
-      <div className="artifact-list">{artifacts.map((artifact) => {
-        const kind = classifyArtifact(artifact);
-        const isSelected = selected?.id === artifact.id;
-        return (
-          <button
-            key={artifact.id}
-            className={`artifact ${isSelected ? 'selected' : ''}`}
-            onClick={() => setSelected(isSelected ? null : artifact)}
-            type="button"
-          >
-            <span className="row">
-              <span className="badge passive">{kind}</span>
-              <span className="mono">{artifact.name}</span>
-            </span>
-            <small>{artifact.storage_backend} · {(artifact.size_bytes / 1024).toFixed(1)} KB</small>
-          </button>
-        );
-      })}</div>
-      {selected && <ArtifactExplorer artifact={selected} onClose={() => setSelected(null)} />}
-    </div>
+    {tab === 'console' && (
+      <div className="console">{events.map((e) => <div key={e.id} className={`console-line ${e.level}`}>[{e.sequence.toString().padStart(3, '0')}] {e.type}: {e.message}</div>)}</div>
+    )}
+    {tab === 'steps' && (
+      <div>
+        <div className="row space"><strong>Steps</strong><span className="muted">timeout / retry policy</span></div>
+        <table className="table compact"><thead><tr><th>#</th><th>Tool</th><th>Status</th><th>Try</th><th>Timeout</th></tr></thead><tbody>
+          {steps.map((step) => <tr key={step.id}><td>{step.index}</td><td>{step.tool_name}</td><td><span className={`badge ${step.status === 'completed' ? 'ok' : step.status === 'failed' || step.status === 'timed_out' || step.status === 'cancelled' ? 'bad' : 'passive'}`}>{step.status}</span></td><td>{step.attempt}/{step.max_retries + 1}</td><td>{step.timeout_seconds}s</td></tr>)}
+        </tbody></table>
+      </div>
+    )}
+    {tab === 'network' && <NetworkTab runId={run.id} />}
+    {tab === 'artifacts' && (
+      <div>
+        <div className="row space"><strong>Artifacts</strong><span className="muted">{artifacts.length} files · click to preview</span></div>
+        <div className="artifact-list">{artifacts.map((artifact) => {
+          const kind = classifyArtifact(artifact);
+          const isSelected = selected?.id === artifact.id;
+          return (
+            <button
+              key={artifact.id}
+              className={`artifact ${isSelected ? 'selected' : ''}`}
+              onClick={() => setSelected(isSelected ? null : artifact)}
+              type="button"
+            >
+              <span className="row">
+                <span className="badge passive">{kind}</span>
+                <span className="mono">{artifact.name}</span>
+              </span>
+              <small>{artifact.storage_backend} · {(artifact.size_bytes / 1024).toFixed(1)} KB</small>
+            </button>
+          );
+        })}</div>
+        {selected && <ArtifactExplorer artifact={selected} onClose={() => setSelected(null)} />}
+      </div>
+    )}
+    {tab === 'advisor' && (
+      <AdvicePanel
+        label="Triage with Claude"
+        refKey={run.id}
+        fetchCached={() => api.getRunTriage(run.id)}
+        invoke={() => api.triageRun(run.id)}
+      />
+    )}
   </div>;
 }
 
