@@ -1,0 +1,35 @@
+description: Legacy Arachni web scanner integration.
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- arachni
+- dast
+- legacy
+install:
+  method: external_or_legacy
+  package: arachni
+dry_run_output:
+- 'arachni: dry-run scan placeholder'
+id: arachni_scan
+name: Arachni scan
+category: dynamic-application-scanner
+binary: arachni
+command:
+  argv:
+  - arachni
+  - https://{{target}}
+  - --report-save-path=/tmp/arachni.afr

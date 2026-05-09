@@ -1,0 +1,37 @@
+id: kiterunner
+name: Kiterunner
+category: api-security
+description: API route brute-forcing for authorized API targets.
+binary: kr
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - kr
+  - scan
+  - https://{{target}}
+  - -w
+  - /wordlists/routes.kite
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- api
+- content-discovery
+install:
+  method: manual
+  notes: Install assetnote/kiterunner binary as kr.
+dry_run_output:
+- https://api.example.com/v1/users 200
+- https://api.example.com/v1/admin 403

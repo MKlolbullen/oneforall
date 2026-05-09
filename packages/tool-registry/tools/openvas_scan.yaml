@@ -1,0 +1,34 @@
+description: OpenVAS/GVM scanner integration placeholder.
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- openvas
+- gvm
+- scanner
+install:
+  method: apt_or_service
+  package: gvm-tools
+dry_run_output:
+- 'openvas: scan would be created using configured policy'
+id: openvas_scan
+name: OpenVAS/GVM scan
+category: vulnerability-scanning
+binary: gvm-cli
+command:
+  argv:
+  - gvm-cli
+  - --version

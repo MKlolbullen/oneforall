@@ -1,0 +1,43 @@
+description: Public document metadata discovery for authorized targets.
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- osint
+- metadata
+- documents
+install:
+  method: apt_or_pipx
+  package: metagoofil
+dry_run_output:
+- 'metadata: sample.pdf author=Example User'
+id: metagoofil
+name: metagoofil
+category: osint
+binary: metagoofil
+command:
+  argv:
+  - metagoofil
+  - -d
+  - '{{target}}'
+  - -t
+  - pdf,doc,xls,ppt,docx,xlsx,pptx
+  - -l
+  - '50'
+  - -n
+  - '25'
+  - -o
+  - /tmp/reconforge-metagoofil

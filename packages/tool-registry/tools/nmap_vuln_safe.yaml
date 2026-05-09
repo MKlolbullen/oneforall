@@ -1,0 +1,40 @@
+id: nmap_vuln_safe
+name: Nmap Vuln Safe
+category: port-scanning
+description: Nmap default scripts and safe vuln NSE profile.
+binary: nmap
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - nmap
+  - -sV
+  - -sC
+  - --script
+  - vuln and safe
+  - -T3
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 5400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- nmap
+- nse
+- ports
+install:
+  method: apt
+  package: nmap
+dry_run_output:
+- 443/tcp open https nginx
+- '|_http-title: Example'

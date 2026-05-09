@@ -1,0 +1,31 @@
+description: Infer potential corporate email format from public signals.
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- email
+- format
+- built-in
+install: {}
+dry_run_output:
+- first.last@example.com
+- flast@example.com
+id: email_format
+name: email-format
+category: osint
+binary: null
+command:
+  argv: []

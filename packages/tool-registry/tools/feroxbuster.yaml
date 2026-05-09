@@ -1,0 +1,38 @@
+id: feroxbuster
+name: Feroxbuster
+category: content-discovery
+description: Recursive content discovery with sane limits.
+binary: feroxbuster
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - feroxbuster
+  - -u
+  - https://{{target}}
+  - -q
+  - --json
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- fuzzing
+- content
+- rust
+install:
+  method: manual
+  notes: 'Install via cargo: cargo install feroxbuster'
+dry_run_output:
+- https://www.example.com/admin
+- https://www.example.com/backups

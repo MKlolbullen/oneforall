@@ -1,0 +1,36 @@
+id: dnsrepo
+name: DNSRepo
+category: reconnaissance
+description: Passive DNS and DNS history collector placeholder.
+binary: dnsrepo
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - dnsrepo
+  - -d
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- passive-dns
+- history
+- api-key
+install:
+  method: manual
+  notes: Wire to DNSDB/SecurityTrails/Censys/Shodan integrations or local collector.
+dry_run_output:
+- history.example.com
+- old-api.example.com

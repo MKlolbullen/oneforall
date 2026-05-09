@@ -1,0 +1,36 @@
+description: HTTP request smuggling probe. Medium/high risk depending on target; approval
+  required.
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- http
+- request-smuggling
+- high-risk
+install:
+  method: source
+  package: defparam/smuggler
+dry_run_output:
+- 'smuggler: manual approval required'
+id: smuggler
+name: Smuggler
+category: http-security
+binary: python3
+command:
+  argv:
+  - python3
+  - -c
+  - print("smuggler placeholder; run manually with approval")

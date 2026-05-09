@@ -1,0 +1,35 @@
+id: cloudlist
+name: cloudlist
+category: cloud-security
+description: ProjectDiscovery cloud asset inventory from configured providers.
+binary: cloudlist
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: cloud_assets
+  type: host_list
+command:
+  argv:
+  - cloudlist
+  - -silent
+parser:
+  type: line_based
+  entity: host
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- cloud
+- api-key
+install:
+  method: go_install
+  package: github.com/projectdiscovery/cloudlist/cmd/cloudlist@latest
+dry_run_output:
+- ec2-203-0-113-10.compute.amazonaws.com
+- app.azurewebsites.net

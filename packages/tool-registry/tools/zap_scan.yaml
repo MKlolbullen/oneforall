@@ -1,0 +1,36 @@
+description: OWASP ZAP baseline scanner integration.
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- zap
+- dast
+install:
+  method: docker_or_package
+  package: owasp/zap2docker-stable
+dry_run_output:
+- 'zap baseline: dry-run findings placeholder'
+id: zap_scan
+name: OWASP ZAP baseline
+category: dynamic-application-scanner
+binary: zap-baseline.py
+command:
+  argv:
+  - zap-baseline.py
+  - -t
+  - https://{{target}}
+  - -J
+  - /tmp/zap.json

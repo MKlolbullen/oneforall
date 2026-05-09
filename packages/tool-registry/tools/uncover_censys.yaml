@@ -1,0 +1,40 @@
+id: uncover_censys
+name: Uncover Censys
+category: external-intel
+description: ProjectDiscovery Uncover provider profile for Censys-backed host discovery.
+binary: uncover
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: hosts
+  type: host_list
+command:
+  argv:
+  - uncover
+  - -silent
+  - -e
+  - censys
+  - -q
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: host
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- censys
+- api-key
+- passive
+install:
+  method: go_install
+  package: github.com/projectdiscovery/uncover/cmd/uncover@latest
+dry_run_output:
+- 198.51.100.5:443
+- edge.example.com:443

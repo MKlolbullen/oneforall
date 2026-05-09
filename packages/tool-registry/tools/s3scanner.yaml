@@ -1,0 +1,36 @@
+id: s3scanner
+name: s3scanner
+category: cloud-security
+description: S3 bucket existence and permission checks.
+binary: s3scanner
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - s3scanner
+  - scan
+  - --bucket
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- cloud
+- s3
+- bucket
+install:
+  method: pipx
+  package: s3scanner
+dry_run_output:
+- 'bucket example-public-assets allows ListBucket: false'

@@ -1,0 +1,41 @@
+id: oneforall_s04_crawl
+name: "OneForAll s04_crawl"
+category: reconnaissance
+description: "Crawling: urlfinder, katana, photon, x8, arjun"
+binary: python
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: json
+command:
+  argv:
+  - python
+  - -m
+  - oneforall
+  - s04_crawl
+  - -d
+  - '{{target}}'
+  - --workspace
+  - /app/artifacts/oneforall
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- oneforall
+- legacy
+- s04_crawl
+install:
+  method: pip_install
+  package: -e ./legacy
+dry_run_output:
+- "[s04_crawl] start"
+- "[s04_crawl] done"

@@ -1,0 +1,40 @@
+id: gobuster_dir
+name: Gobuster Dir
+category: content-discovery
+description: Directory and file brute forcing with Gobuster.
+binary: gobuster
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - gobuster
+  - dir
+  - -q
+  - -u
+  - https://{{target}}
+  - -w
+  - /wordlists/web/common.txt
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- content-discovery
+- wordlist
+- active
+install:
+  method: apt
+  package: gobuster
+dry_run_output:
+- '/admin (Status: 301)'
+- '/backup.zip (Status: 200)'

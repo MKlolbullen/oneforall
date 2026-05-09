@@ -1,0 +1,42 @@
+description: Generate and resolve altered subdomain permutations.
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- dns
+- permutation
+install:
+  method: pipx
+  package: altdns
+dry_run_output:
+- dev-api.example.com
+- stage-api.example.com
+id: altdns
+name: Altdns
+category: permutation
+binary: altdns
+command:
+  argv:
+  - altdns
+  - -i
+  - /tmp/subdomains.txt
+  - -o
+  - /tmp/altdns.txt
+  - -w
+  - packages/wordlists/domains-quick.txt
+  - -r
+  - -s
+  - /tmp/altdns-resolved.txt

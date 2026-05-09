@@ -1,0 +1,33 @@
+id: kxss
+name: kxss
+category: xss-testing
+description: Detect reflected parameters suitable for deeper XSS testing.
+binary: kxss
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url_or_domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - kxss
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- xss
+- reflection
+install:
+  method: go_install
+  package: github.com/Emoe/kxss@latest
+dry_run_output:
+- 'URL: https://www.example.com/search?q=FUZZ Param: q Unfiltered: [<>"]'

@@ -1,0 +1,14 @@
+robots.txt
+sitemap.xml
+security.txt
+.well-known/security.txt
+admin
+login
+portal
+api
+health
+status
+version
+backup
+config
+.env

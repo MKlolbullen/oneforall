@@ -1,0 +1,36 @@
+id: web_validation_safe
+name: Web Validation Safe
+risk: medium_active
+description: 'Reasonable active validation set: nuclei exposures/CVEs, Nikto, CORS, CRLF and XSS helpers.'
+steps:
+- tool: nuclei
+  timeout_seconds: 3600
+  max_retries: 1
+- tool: nuclei_exposures
+  timeout_seconds: 3600
+  max_retries: 1
+  continue_on_error: true
+- tool: nuclei_cves
+  timeout_seconds: 5400
+  max_retries: 1
+  continue_on_error: true
+- tool: nikto
+  timeout_seconds: 3600
+  max_retries: 1
+  continue_on_error: true
+- tool: corsy
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: crlfuzz
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true
+- tool: dalfox
+  timeout_seconds: 2400
+  max_retries: 1
+  continue_on_error: true
+- tool: xsstrike
+  timeout_seconds: 2400
+  max_retries: 1
+  continue_on_error: true

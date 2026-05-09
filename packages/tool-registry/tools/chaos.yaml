@@ -1,0 +1,38 @@
+id: chaos
+name: Chaos Client
+category: reconnaissance
+description: ProjectDiscovery Chaos dataset lookup for programs with configured API
+  key.
+binary: chaos
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - chaos
+  - -silent
+  - -d
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- subdomain
+- api-key
+install:
+  method: go_install
+  package: github.com/projectdiscovery/chaos-client/cmd/chaos@latest
+dry_run_output:
+- legacy.example.com
+- stage.example.com

@@ -1,0 +1,40 @@
+id: uncover_shodan
+name: Uncover Shodan
+category: external-intel
+description: ProjectDiscovery Uncover provider profile for Shodan-backed asset discovery.
+binary: uncover
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: hosts
+  type: host_list
+command:
+  argv:
+  - uncover
+  - -silent
+  - -e
+  - shodan
+  - -q
+  - ssl.cert.subject.cn:{{target}}
+parser:
+  type: line_based
+  entity: host
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- shodan
+- api-key
+- passive
+install:
+  method: go_install
+  package: github.com/projectdiscovery/uncover/cmd/uncover@latest
+dry_run_output:
+- 203.0.113.20:443
+- api.example.com:443

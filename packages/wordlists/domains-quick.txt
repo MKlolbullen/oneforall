@@ -1,0 +1,16 @@
+www
+api
+app
+admin
+portal
+login
+sso
+dev
+test
+stage
+staging
+mail
+vpn
+cdn
+static
+assets

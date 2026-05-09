@@ -1,0 +1,36 @@
+id: asnmap
+name: asnmap
+category: network-intel
+description: ProjectDiscovery ASN mapping for IP ranges and organizations.
+binary: asnmap
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: cidrs
+  type: cidr_list
+command:
+  argv:
+  - asnmap
+  - -d
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: cidr
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- asn
+- network
+install:
+  method: go_install
+  package: github.com/projectdiscovery/asnmap/cmd/asnmap@latest
+dry_run_output:
+- 203.0.113.0/24
+- 198.51.100.0/24

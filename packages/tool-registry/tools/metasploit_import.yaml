@@ -1,0 +1,35 @@
+description: Import scan artifacts into Metasploit workspace. Does not run exploits.
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- metasploit
+- import
+install:
+  method: apt
+  package: metasploit-framework
+dry_run_output:
+- 'metasploit: would import workspace artifacts'
+id: metasploit_import
+name: Metasploit import
+category: post-processing
+binary: msfconsole
+command:
+  argv:
+  - msfconsole
+  - -q
+  - -x
+  - workspace -a reconforge; exit

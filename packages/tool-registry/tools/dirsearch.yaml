@@ -1,0 +1,39 @@
+id: dirsearch
+name: dirsearch
+category: content-discovery
+description: Python-based web path brute-force/content discovery.
+binary: dirsearch
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - dirsearch
+  - -u
+  - https://{{target}}
+  - -q
+  - --json-report
+  - /tmp/dirsearch.json
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- content-discovery
+- wordlist
+- active
+install:
+  method: manual
+  notes: Install dirsearch from official repo/package in runner image.
+dry_run_output:
+- https://www.example.com/admin
+- https://www.example.com/.git/

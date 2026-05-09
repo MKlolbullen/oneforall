@@ -1,0 +1,35 @@
+id: httprobe
+name: httprobe
+category: probing
+description: Classic HTTP/HTTPS liveness probing fallback.
+binary: httprobe
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - httprobe
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- http
+- probe
+- tomnomnom
+install:
+  method: go_install
+  package: github.com/tomnomnom/httprobe@latest
+dry_run_output:
+- https://www.example.com
+- http://dev.example.com

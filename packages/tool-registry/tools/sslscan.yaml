@@ -1,0 +1,36 @@
+id: sslscan
+name: sslscan
+category: tls-security
+description: TLS protocol/cipher enumeration.
+binary: sslscan
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: tls_findings
+  type: finding_list
+command:
+  argv:
+  - sslscan
+  - --no-colour
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- tls
+- cipher
+- ssl
+install:
+  method: apt
+  package: sslscan
+dry_run_output:
+- TLSv1.2 enabled
+- TLSv1.3 enabled

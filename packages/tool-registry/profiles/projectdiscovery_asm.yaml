@@ -1,0 +1,29 @@
+id: projectdiscovery_asm
+name: ProjectDiscovery ASM Sweep
+risk: medium_active
+description: 'ProjectDiscovery-heavy ASM chain: discovery, DNS validation, HTTP/TLS
+  probing, crawl and nuclei.'
+steps:
+- tool: subfinder
+  timeout_seconds: 1200
+  max_retries: 1
+- tool: chaos
+  timeout_seconds: 600
+  max_retries: 1
+  continue_on_error: true
+- tool: dnsx
+  timeout_seconds: 900
+  max_retries: 1
+- tool: httpx
+  timeout_seconds: 1200
+  max_retries: 1
+- tool: tlsx
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: katana
+  timeout_seconds: 1800
+  max_retries: 1
+- tool: nuclei
+  timeout_seconds: 2400
+  max_retries: 1

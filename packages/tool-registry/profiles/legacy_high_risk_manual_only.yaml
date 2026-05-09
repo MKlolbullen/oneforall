@@ -1,0 +1,26 @@
+id: legacy_high_risk_manual_only
+name: Legacy/High-Risk Manual Only
+risk: high_active
+description: High-risk legacy checks such as smuggling, SMTP enumeration, JBoss checks
+  and credential audit wrappers. Use only inside explicit ROE.
+config_profile: sniper_inspired_default
+requires_manual_approval: true
+steps:
+- tool: smuggler
+  timeout_seconds: 1200
+  continue_on_error: true
+- tool: smtp_user_enum
+  timeout_seconds: 900
+  continue_on_error: true
+- tool: jexboss
+  timeout_seconds: 1800
+  continue_on_error: true
+- tool: shocker
+  timeout_seconds: 900
+  continue_on_error: true
+- tool: clusterd
+  timeout_seconds: 900
+  continue_on_error: true
+- tool: brutespray
+  timeout_seconds: 1800
+  continue_on_error: true

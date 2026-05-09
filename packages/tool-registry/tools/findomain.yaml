@@ -1,0 +1,37 @@
+id: findomain
+name: Findomain
+category: reconnaissance
+description: Fast passive subdomain discovery using multiple public sources.
+binary: findomain
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - findomain
+  - -q
+  - -t
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- subdomain
+- passive
+- osint
+install:
+  method: manual
+  notes: Install from https://github.com/Findomain/Findomain releases or package manager.
+dry_run_output:
+- dev.example.com
+- img.example.com

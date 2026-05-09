@@ -1,0 +1,190 @@
+id: sniper_inspired_default
+name: Sn1per-inspired professional defaults
+description: >-
+  Clean-room configuration pack inspired by Sn1per CE-style operational toggles.
+  This is not Sn1per configuration syntax; it is a modern policy/config layer for ReconForge.
+version: 0.2.0
+
+install:
+  install_dir: /usr/share/reconforge
+  plugins_dir: /usr/share/reconforge/plugins
+  wordlists_dir: /usr/share/reconforge/wordlists
+  browser: firefox
+
+runtime:
+  enable_auto_updates: true
+  report_enabled: true
+  loot_enabled: true
+  sniper_pro_console_output: false
+  autoload_plugins: false
+  max_hosts: 2000
+  max_javascript_files: 25
+  threads: 100
+  flyover_max_hosts: 5
+  flyover_delay_seconds: 10
+
+scope:
+  default_out_of_scope:
+    - www.sn1persecurity.com
+    - sn1persecurity.com
+    - "*.sn1persecurity.com"
+  enforce_out_of_scope_patterns: true
+  block_private_ranges_by_default: false
+  require_active_authorization: true
+  require_high_risk_manual_approval: true
+
+integrations:
+  burp:
+    enabled: false
+    host: 127.0.0.1
+    port: 1338
+  zap:
+    enabled: false
+    host: 127.0.0.1
+    port: 8080
+  openvas:
+    enabled: false
+    host: 127.0.0.1
+    port: 9390
+    username: admin
+    run_as_user: kali
+  nessus:
+    enabled: false
+    host: 127.0.0.1:8834
+    username: admin
+    policy_id: c3cbcd46-329f-a9ed-1077-554f8c2af33d0d44f09d736969bf
+  metasploit:
+    import_enabled: false
+    lhost: 127.0.0.1
+    lport: 4444
+  api_keys:
+    shodan_env: SHODAN_API_KEY
+    censys_id_env: CENSYS_APP_ID
+    censys_secret_env: CENSYS_API_SECRET
+    hunterio_env: HUNTERIO_KEY
+    tombaio_key_env: TOMBAIO_KEY
+    tombaio_secret_env: TOMBAIO_SECRET
+    github_env: GITHUB_API_KEY
+    wpscan_env: WP_API_KEY
+    urlscan_env: URLSCAN_API_KEY
+  slack:
+    enabled: false
+    webhook_env: SLACK_WEBHOOK_URL
+    channels:
+      theharvester: false
+      email_security: false
+      new_domains: false
+      takeovers: false
+      s3_buckets: false
+      subnets: false
+      dirsearch: false
+      spider: false
+      whatweb: false
+      nmap: false
+      nmap_diff: false
+      bruteforce: false
+      whois: false
+      metagoofil: false
+      email_format: false
+
+web_bruteforce:
+  stealth_scan: true
+  common_scan: true
+  full_scan: false
+  exploit_scan: false
+  javascript_analysis: true
+  extensions: htm,html,asp,aspx,php,jsp,js
+  exclude_status_codes: [400, 403, 404, 405, 406, 429, 500, 502, 503, 504]
+  wordlists:
+    stealth: packages/wordlists/web-brute-stealth.txt
+    common: packages/wordlists/web-brute-common.txt
+    full: packages/wordlists/web-brute-full.txt
+    exploits: packages/wordlists/web-brute-exploits.txt
+
+nmap:
+  options: "--script-args http.useragent='' --open"
+  quick_ports: "21,22,80,443,8000,8080,8443"
+  default_ports: "10000,1099,110,111,123,135,137,139,1433,1524,161,162,16992,2049,21,2121,2181,22,23,25,264,27017,27018,27019,28017,3128,3306,3310,3389,3632,389,443,4443,445,49152,49180,500,512,513,514,53,5432,5555,5800,5900,5984,623,624,6667,67,68,69,7001,79,80,8000,8001,8080,8180,8443,8888,9200,9495"
+  full_ports: "T:1-65535,U:53,U:67,U:68,U:69,U:88,U:161,U:162,U:137,U:138,U:139,U:389,U:500,U:520,U:2049"
+
+plugins:
+  network:
+    nmap_scripts: true
+    metasploit_import: false
+    ssh_audit: true
+    ssh_enum: true
+    smtp_user_enum: true
+    finger: true
+    show_mount: true
+    rpc_info: true
+    smb_enum: true
+    amap: false
+  osint:
+    whois: true
+    theharvester: true
+    metagoofil: true
+    hunterio: false
+    tombaio: false
+    intodns: true
+    emailformat: true
+    urlcrazy: true
+    vhosts: true
+    h8mail: true
+    github_secrets: true
+    urlscanio: true
+  dynamic_application_scanners:
+    burp_scan: false
+    arachni_scan: false
+    zap_scan: false
+  active_web:
+    nuclei: true
+    dirsearch: true
+    gobuster: false
+    nikto: true
+    blackwidow: true
+    injectx: false
+    clusterd: false
+    wpscan: true
+    cmsmap: true
+    wafw00f: true
+    whatweb: true
+    wig: false
+    shocker: false
+    jexboss: false
+    webtech: true
+    ssl_insecure: true
+    http_probe: false
+    smuggler: false
+  passive_web:
+    waybackmachine: true
+    ssl: true
+    passive_spider: true
+    gau: true
+    hackertarget: true
+    cutycapt: false
+    webscreenshot: true
+  email:
+    spoof_check: true
+  recon:
+    subhijack_check: true
+    aquatone: true
+    sublist3r: true
+    amass: true
+    subfinder: true
+    dnscan: true
+    crtsh: true
+    subover: true
+    project_sonar: false
+    censys_subdomains: true
+    subnet_retrieval: true
+    subjack: true
+    alt_dns: true
+    mass_dns: true
+    dnsgen: true
+    shodan: true
+    asn_check: true
+    spyse: false
+    subbrute_dns: true
+    github_subdomains: true
+    rapiddns: true
+    scan_all_discovered_domains: true

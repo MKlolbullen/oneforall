@@ -1,0 +1,39 @@
+id: amass_passive
+name: Amass Passive
+category: reconnaissance
+description: OWASP Amass passive enum profile.
+binary: amass
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - amass
+  - enum
+  - -passive
+  - -norecursive
+  - -noalts
+  - -d
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- owasp
+- subdomain
+install:
+  method: go_install
+  package: github.com/owasp-amass/amass/v4/...@master
+dry_run_output:
+- vpn.example.com
+- sso.example.com

@@ -1,0 +1,25 @@
+id: passive_recon
+name: Passive Recon
+risk: passive
+description: Passive-only discovery profile safe for initial inventory.
+steps:
+- tool: subfinder
+  timeout_seconds: 900
+  max_retries: 1
+- tool: assetfinder
+  timeout_seconds: 600
+  max_retries: 1
+- tool: amass_passive
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true
+- tool: chaos
+  timeout_seconds: 600
+  max_retries: 1
+  continue_on_error: true
+- tool: crtsh
+  timeout_seconds: 600
+  max_retries: 1
+- tool: dnsx
+  timeout_seconds: 900
+  max_retries: 1

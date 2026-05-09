@@ -1,0 +1,36 @@
+id: crtsh
+name: crt.sh Collector
+category: reconnaissance
+description: Certificate transparency discovery collector.
+binary: python
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - python
+  - -m
+  - reconforge_tools.crtsh
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- certificate-transparency
+install:
+  method: manual
+  notes: Internal collector module placeholder; replace with a packaged collector
+    or external crt.sh script.
+dry_run_output:
+- cdn.example.com
+- auth.example.com

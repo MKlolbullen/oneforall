@@ -1,0 +1,35 @@
+id: gotator
+name: gotator
+category: permutation
+description: Permutation utility useful for environment, region and service-name expansion.
+binary: gotator
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: candidate_subdomains
+  type: domain_list
+command:
+  argv:
+  - gotator
+  - -sub
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- dns
+- permutation
+install:
+  method: manual
+  notes: Install gotator or replace with alterx/dnsgen if unavailable.
+dry_run_output:
+- api-eu.example.com
+- api-us.example.com

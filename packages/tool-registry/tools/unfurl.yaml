@@ -1,0 +1,35 @@
+id: unfurl
+name: unfurl
+category: url-normalization
+description: URL component extraction utility.
+binary: unfurl
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: values
+  type: text
+command:
+  argv:
+  - unfurl
+  - domains
+  - https://{{target}}/path?x=1
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 300
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- url-normalization
+- utility
+- tomnomnom
+install:
+  method: go_install
+  package: github.com/tomnomnom/unfurl@latest
+dry_run_output:
+- example.com

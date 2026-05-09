@@ -1,0 +1,37 @@
+id: github_search
+name: GitHub Search Dorks
+category: reconnaissance
+description: Token-aware GitHub code search placeholder for domains, endpoints and leaked references.
+binary: github-subdomains
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - github-subdomains
+  - -d
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- github
+- subdomain
+- api-key
+- passive
+install:
+  method: manual
+  notes: Use gwen001/github-subdomains or compatible wrapper. Requires GitHub token for useful rate limits.
+dry_run_output:
+- ci.example.com
+- repo-leak.example.com

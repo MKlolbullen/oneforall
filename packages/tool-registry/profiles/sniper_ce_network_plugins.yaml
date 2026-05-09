@@ -1,0 +1,34 @@
+id: sniper_ce_network_plugins
+name: Sn1per CE Network Plugins
+risk: medium_active
+description: 'Network/service profile inspired by CE network plugin toggles: port
+  scan, service inventory and safe protocol enumeration.'
+config_profile: sniper_inspired_default
+steps:
+- tool: naabu
+  timeout_seconds: 2400
+  max_retries: 1
+- tool: rustscan
+  timeout_seconds: 2400
+  continue_on_error: true
+- tool: nmap_top
+  timeout_seconds: 3600
+  max_retries: 1
+- tool: nmap_vuln_safe
+  timeout_seconds: 3600
+  continue_on_error: true
+- tool: ssh_audit
+  timeout_seconds: 900
+  continue_on_error: true
+- tool: rpcinfo
+  timeout_seconds: 600
+  continue_on_error: true
+- tool: smb_enum_safe
+  timeout_seconds: 900
+  continue_on_error: true
+- tool: showmount
+  timeout_seconds: 600
+  continue_on_error: true
+- tool: finger_enum
+  timeout_seconds: 600
+  continue_on_error: true

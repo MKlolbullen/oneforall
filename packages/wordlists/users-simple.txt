@@ -1,0 +1,12 @@
+admin
+administrator
+root
+test
+guest
+support
+helpdesk
+user
+service
+svc
+backup
+operator

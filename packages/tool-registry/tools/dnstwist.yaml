@@ -1,0 +1,36 @@
+id: dnstwist
+name: dnstwist
+category: brand-intel
+description: Typo-squatting and phishing-lookalike domain discovery.
+binary: dnstwist
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: lookalike_domains
+  type: domain_list
+command:
+  argv:
+  - dnstwist
+  - --registered
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- phishing
+- brand
+- osint
+install:
+  method: apt
+  package: dnstwist
+dry_run_output:
+- examp1e.com
+- examplle.com

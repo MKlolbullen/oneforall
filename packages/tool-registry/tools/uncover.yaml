@@ -1,0 +1,37 @@
+id: uncover
+name: Uncover
+category: external-intel
+description: ProjectDiscovery external engine lookup using configured keys.
+binary: uncover
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_query
+  required: true
+outputs:
+- name: assets
+  type: asset_list
+command:
+  argv:
+  - uncover
+  - -silent
+  - -q
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: asset
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: true
+tags:
+- projectdiscovery
+- osint
+- api-key
+install:
+  method: go_install
+  package: github.com/projectdiscovery/uncover/cmd/uncover@latest
+dry_run_output:
+- 93.184.216.34
+- api.example.com

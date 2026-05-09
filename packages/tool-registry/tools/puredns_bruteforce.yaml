@@ -1,0 +1,38 @@
+id: puredns_bruteforce
+name: puredns Bruteforce
+category: resolution
+description: DNS wordlist bruteforce profile. Requires authorization and resolver hygiene.
+binary: puredns
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - puredns
+  - bruteforce
+  - /wordlists/dns/subdomains.txt
+  - '{{target}}'
+  - --quiet
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- dns
+- bruteforce
+- wordlist
+install:
+  method: go_install
+  package: github.com/d3mondev/puredns/v2@latest
+dry_run_output:
+- portal.example.com
+- intranet.example.com

@@ -1,0 +1,35 @@
+id: gowitness
+name: gowitness
+category: screenshots
+description: Capture web screenshots for alive HTTP services.
+binary: gowitness
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: screenshots
+  type: artifact_list
+command:
+  argv:
+  - gowitness
+  - single
+  - https://{{target}}
+  - --disable-db
+parser:
+  type: line_based
+  entity: artifact
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- screenshots
+install:
+  method: go_install
+  package: github.com/sensepost/gowitness@latest
+dry_run_output:
+- https://www.example.com screenshot saved
+- https://api.example.com screenshot saved

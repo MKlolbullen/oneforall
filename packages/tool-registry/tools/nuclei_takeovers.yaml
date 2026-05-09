@@ -1,0 +1,40 @@
+id: nuclei_takeovers
+name: Nuclei Takeovers
+category: takeover
+description: Nuclei subdomain takeover template profile.
+binary: nuclei
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - nuclei
+  - -silent
+  - -jsonl
+  - -u
+  - https://{{target}}
+  - -tags
+  - takeover
+parser:
+  type: json_lines
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- nuclei
+- takeover
+install:
+  method: go_install
+  package: github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+dry_run_output:
+- '{"template-id":"s3-takeover","matched-at":"https://old.example.com","info":{"name":"Possible subdomain
+  takeover","severity":"high"}}'

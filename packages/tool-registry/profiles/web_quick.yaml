@@ -1,0 +1,20 @@
+id: web_quick
+name: Web Quick Scan
+risk: medium_active
+description: HTTP probe and nuclei quick scan. Requires active authorization on target.
+steps:
+- tool: subfinder
+  timeout_seconds: 900
+  max_retries: 1
+- tool: crtsh
+  timeout_seconds: 600
+  max_retries: 1
+- tool: dnsx
+  timeout_seconds: 900
+  max_retries: 1
+- tool: httpx
+  timeout_seconds: 900
+  max_retries: 1
+- tool: nuclei
+  timeout_seconds: 1800
+  max_retries: 1

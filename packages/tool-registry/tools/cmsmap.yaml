@@ -1,0 +1,33 @@
+description: CMS security scanner for WordPress/Joomla/Drupal style targets.
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- cms
+- scanner
+install:
+  method: apt_or_source
+  package: cmsmap
+dry_run_output:
+- 'cmsmap: no CMS detected in dry-run'
+id: cmsmap
+name: CMSmap
+category: cms-security
+binary: cmsmap
+command:
+  argv:
+  - cmsmap
+  - https://{{target}}

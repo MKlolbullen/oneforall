@@ -1,0 +1,33 @@
+id: content_param_discovery
+name: Content + Parameter Discovery
+risk: medium_active
+description: Authorized content, vhost and parameter discovery with ffuf/ferox/dirsearch/gobuster/arjun.
+steps:
+- tool: ffuf
+  timeout_seconds: 2400
+  max_retries: 1
+  continue_on_error: true
+- tool: feroxbuster
+  timeout_seconds: 3600
+  max_retries: 1
+  continue_on_error: true
+- tool: dirsearch
+  timeout_seconds: 3600
+  max_retries: 1
+  continue_on_error: true
+- tool: gobuster_dir
+  timeout_seconds: 3600
+  max_retries: 1
+  continue_on_error: true
+- tool: ffuf_vhost
+  timeout_seconds: 3600
+  max_retries: 1
+  continue_on_error: true
+- tool: ffuf_params
+  timeout_seconds: 2400
+  max_retries: 1
+  continue_on_error: true
+- tool: arjun
+  timeout_seconds: 2400
+  max_retries: 1
+  continue_on_error: true

@@ -1,0 +1,39 @@
+id: shuffledns_resolve
+name: shuffledns Resolve
+category: resolution
+description: MassDNS-backed resolver pipeline with wildcard filtering.
+binary: shuffledns
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: resolved_domains
+  type: domain_list
+command:
+  argv:
+  - shuffledns
+  - -silent
+  - -d
+  - '{{target}}'
+  - -list
+  - /tmp/subdomains.txt
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- dns
+- resolve
+install:
+  method: go_install
+  package: github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest
+dry_run_output:
+- shop.example.com
+- status.example.com

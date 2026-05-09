@@ -1,0 +1,35 @@
+id: aquatone
+name: Aquatone
+category: screenshots
+description: Screenshot and visual overview collector; legacy but still useful in labs.
+binary: aquatone
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: screenshots
+  type: artifact_list
+command:
+  argv:
+  - aquatone
+  - -url
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: artifact
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- screenshot
+- visual-recon
+- legacy
+install:
+  method: manual
+  notes: Aquatone is legacy; prefer gowitness. Install from releases if needed.
+dry_run_output:
+- 'Screenshot captured: https://www.example.com'

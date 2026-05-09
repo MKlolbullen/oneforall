@@ -1,0 +1,79 @@
+id: sniper_ce_osint_plus
+name: Sn1per CE OSINT Plus
+risk: passive
+description: 'Sn1per CE-inspired passive OSINT profile: WHOIS, public subdomain sources,
+  email/domain intel and metadata checks.'
+config_profile: sniper_inspired_default
+steps:
+- tool: whois_lookup
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: subfinder
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: assetfinder
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: amass_passive
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: sublist3r
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: crtsh
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: rapiddns
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: hackertarget_hostsearch
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: github_subdomains
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: github_search
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: theharvester
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: metagoofil
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: urlscanio
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: hunterio
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: tombaio
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: h8mail
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: email_format
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true
+- tool: spoofcheck
+  timeout_seconds: 900
+  max_retries: 1
+  continue_on_error: true

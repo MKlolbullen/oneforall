@@ -1,0 +1,43 @@
+id: web_deep
+name: Web Deep Scan
+risk: medium_active
+description: Broader web recon with archive URLs, crawling, screenshots, nuclei and
+  content discovery.
+steps:
+- tool: subfinder
+  timeout_seconds: 1200
+  max_retries: 1
+- tool: assetfinder
+  timeout_seconds: 600
+  max_retries: 1
+- tool: crtsh
+  timeout_seconds: 600
+  max_retries: 1
+- tool: dnsx
+  timeout_seconds: 900
+  max_retries: 1
+- tool: httpx
+  timeout_seconds: 1200
+  max_retries: 1
+- tool: gau
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: waybackurls
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true
+- tool: katana
+  timeout_seconds: 2400
+  max_retries: 1
+- tool: gowitness
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true
+- tool: nuclei
+  timeout_seconds: 3600
+  max_retries: 1
+- tool: ffuf
+  timeout_seconds: 2400
+  max_retries: 1
+  continue_on_error: true

@@ -1,0 +1,33 @@
+id: wafw00f
+name: wafw00f
+category: fingerprinting
+description: WAF/CDN detection.
+binary: wafw00f
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: waf
+  type: finding_list
+command:
+  argv:
+  - wafw00f
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- waf
+- fingerprint
+install:
+  method: apt
+  package: wafw00f
+dry_run_output:
+- '[+] The site https://www.example.com is behind Cloudflare'

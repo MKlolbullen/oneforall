@@ -1,0 +1,34 @@
+description: Legacy subdomain takeover scanner.
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: output
+  type: text
+parser:
+  type: line_based
+  entity: text
+default_timeout_seconds: 900
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- takeover
+- legacy
+install:
+  method: go_install
+  package: github.com/Ice3man543/SubOver@latest
+dry_run_output:
+- no subover takeover in dry-run
+id: subover
+name: subover
+category: takeover
+binary: subover
+command:
+  argv:
+  - subover
+  - -l
+  - /tmp/subdomains.txt

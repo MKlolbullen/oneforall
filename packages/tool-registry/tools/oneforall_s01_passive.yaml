@@ -1,0 +1,41 @@
+id: oneforall_s01_passive
+name: "OneForAll s01_passive"
+category: reconnaissance
+description: "Passive DNS recon (crt.sh, Shodan, Censys, FOFA, BeVigil, ipinfo)"
+binary: python
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: json
+command:
+  argv:
+  - python
+  - -m
+  - oneforall
+  - s01_passive
+  - -d
+  - '{{target}}'
+  - --workspace
+  - /app/artifacts/oneforall
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- oneforall
+- legacy
+- s01_passive
+install:
+  method: pip_install
+  package: -e ./legacy
+dry_run_output:
+- "[s01_passive] start"
+- "[s01_passive] done"

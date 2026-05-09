@@ -1,0 +1,36 @@
+id: trufflehog_filesystem
+name: TruffleHog Filesystem
+category: secrets
+description: Secret scanning for mounted artifacts/repos.
+binary: trufflehog
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - trufflehog
+  - filesystem
+  - /artifacts/input
+  - --json
+parser:
+  type: json_lines
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- secrets
+- filesystem
+- supply-chain
+install:
+  method: go_install
+  package: github.com/trufflesecurity/trufflehog/v3@latest
+dry_run_output:
+- '{"SourceMetadata":{"Data":{"Filesystem":{"file":"app.js"}}},"DetectorName":"Generic API Key","Verified":false}'

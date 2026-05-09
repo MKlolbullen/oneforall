@@ -1,0 +1,40 @@
+id: rustscan
+name: RustScan
+category: port-scanning
+description: Fast port scan preflight before nmap service detection.
+binary: rustscan
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: ports
+  type: port_list
+command:
+  argv:
+  - rustscan
+  - -a
+  - '{{target}}'
+  - --ulimit
+  - '5000'
+  - --
+  - -sV
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- ports
+- rust
+- active
+install:
+  method: manual
+  notes: Install RustScan from distro/cargo/release in runner image.
+dry_run_output:
+- Open 203.0.113.10:80
+- Open 203.0.113.10:443

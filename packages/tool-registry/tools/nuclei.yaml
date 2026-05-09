@@ -1,0 +1,39 @@
+id: nuclei
+name: nuclei
+category: vulnerability-scanning
+description: ProjectDiscovery template-based vulnerability and misconfiguration scanning.
+binary: nuclei
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url_or_domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - nuclei
+  - -jsonl
+  - -severity
+  - low,medium,high,critical
+  - -u
+  - https://{{target}}
+parser:
+  type: nuclei_jsonl
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- vulnerability
+- templates
+install:
+  method: go_install
+  package: github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+dry_run_output:
+- '{"template-id":"exposed-panel","info":{"name":"Exposed admin panel","severity":"info"},"matched-at":"https://api.example.com/login"}'
+- '{"template-id":"missing-security-header","info":{"name":"Missing security header","severity":"low"},"matched-at":"https://www.example.com"}'

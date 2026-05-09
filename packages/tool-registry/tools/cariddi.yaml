@@ -1,0 +1,41 @@
+id: cariddi
+name: Cariddi
+category: javascript-analysis
+description: Crawler with secrets and endpoint discovery focus.
+binary: cariddi
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: urls
+  type: url_list
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - cariddi
+  - -s
+  - -e
+  - -info
+  - -url
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- javascript
+- secrets
+- crawler
+install:
+  method: go_install
+  package: github.com/edoardottt/cariddi/cmd/cariddi@latest
+dry_run_output:
+- https://www.example.com/static/app.js
+- '[info] possible secret in app.js'

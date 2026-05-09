@@ -1,0 +1,38 @@
+id: waymore
+name: waymore
+category: url-discovery
+description: Historical URL and response collector from Wayback/Common Crawl style sources.
+binary: waymore
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - waymore
+  - -i
+  - '{{target}}'
+  - -mode
+  - U
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- urls
+- archives
+- passive
+install:
+  method: pipx
+  package: waymore
+dry_run_output:
+- https://www.example.com/old
+- https://www.example.com/api?debug=true

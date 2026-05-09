@@ -1,0 +1,41 @@
+id: ffuf_vhost
+name: ffuf VHost
+category: vhost-discovery
+description: Virtual-host fuzzing profile.
+binary: ffuf
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: vhosts
+  type: domain_list
+command:
+  argv:
+  - ffuf
+  - -u
+  - https://{{target}}/
+  - -H
+  - 'Host: FUZZ.{{target}}'
+  - -w
+  - /wordlists/dns/subdomains.txt
+  - -of
+  - json
+parser:
+  type: json_lines
+  entity: domain
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- vhost
+- ffuf
+- active
+install:
+  method: go_install
+  package: github.com/ffuf/ffuf/v2@latest
+dry_run_output:
+- '{"url":"https://example.com/","host":"admin.example.com","status":200}'

@@ -1,0 +1,41 @@
+id: oneforall_s08_urlsort
+name: "OneForAll s08_urlsort"
+category: reconnaissance
+description: "URL sorting: gf + heuristics into xss/ssrf/ssti/rce/sqli/lfi/redirect/idor buckets"
+binary: python
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: json
+command:
+  argv:
+  - python
+  - -m
+  - oneforall
+  - s08_urlsort
+  - -d
+  - '{{target}}'
+  - --workspace
+  - /app/artifacts/oneforall
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- oneforall
+- legacy
+- s08_urlsort
+install:
+  method: pip_install
+  package: -e ./legacy
+dry_run_output:
+- "[s08_urlsort] start"
+- "[s08_urlsort] done"

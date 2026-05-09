@@ -1,0 +1,35 @@
+id: jsfinder
+name: JSFinder
+category: javascript-analysis
+description: JavaScript URL and endpoint extractor placeholder.
+binary: jsfinder
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: endpoints
+  type: url_list
+command:
+  argv:
+  - jsfinder
+  - -u
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- javascript
+- endpoints
+install:
+  method: manual
+  notes: Install a JSFinder-compatible wrapper or use LinkFinder/xnLinkFinder.
+dry_run_output:
+- https://www.example.com/static/main.js
+- https://api.example.com/v2/session

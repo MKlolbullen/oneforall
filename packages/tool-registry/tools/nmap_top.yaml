@@ -1,0 +1,38 @@
+id: nmap_top
+name: Nmap Top Ports
+category: port-scanning
+description: Nmap service/version detection over top ports.
+binary: nmap
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_ip
+  required: true
+outputs:
+- name: services
+  type: service_list
+command:
+  argv:
+  - nmap
+  - -sV
+  - -T3
+  - --top-ports
+  - '1000'
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: service
+default_timeout_seconds: 3600
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- ports
+- services
+install:
+  method: apt
+  package: nmap
+dry_run_output:
+- 80/tcp open http nginx
+- 443/tcp open https nginx

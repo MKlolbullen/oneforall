@@ -1,0 +1,51 @@
+id: oneforall
+name: OneForAll (legacy 10-stage pipeline)
+category: reconnaissance
+description: |
+  Drives the legacy oneforall package (preserved under legacy/oneforall) as a single
+  multi-stage tool. Use this for one-shot end-to-end runs; for finer-grained control
+  prefer the per-stage entries (oneforall_s01_passive, ..., oneforall_s10_report).
+binary: python
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+- name: stages
+  type: text
+  required: false
+outputs:
+- name: findings
+  type: json
+- name: report
+  type: html
+command:
+  argv:
+  - python
+  - -m
+  - oneforall
+  - run
+  - -d
+  - '{{target}}'
+  - --workspace
+  - /app/artifacts/oneforall
+  - --i-have-authorization
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 7200
+max_retries: 0
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- oneforall
+- legacy
+- pipeline
+install:
+  method: pip_install
+  package: -e ./legacy
+dry_run_output:
+- "[oneforall] s01_passive start"
+- "[oneforall] s01_passive done"
+- "[oneforall] s10_report wrote workspace/example.com/report/report.html"

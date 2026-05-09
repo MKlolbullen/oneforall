@@ -1,0 +1,36 @@
+id: xsstrike
+name: XSStrike
+category: xss-testing
+description: XSS testing engine for authorized endpoints.
+binary: xsstrike
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - xsstrike
+  - -u
+  - https://{{target}}/?q=test
+  - --crawl
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- xss
+- injection
+- active
+install:
+  method: manual
+  notes: Install XSStrike in an isolated Python venv.
+dry_run_output:
+- '[+] Vulnerable webpage: https://www.example.com/search?q=test'

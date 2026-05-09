@@ -1,0 +1,25 @@
+id: scanner_integrations_manual
+name: Scanner Integrations Manual
+risk: medium_active
+description: Connectors for external scanners. These should normally be launched manually
+  after confirming policy, credentials and scan templates.
+config_profile: sniper_inspired_default
+steps:
+- tool: burp_scan
+  timeout_seconds: 3600
+  continue_on_error: true
+- tool: zap_scan
+  timeout_seconds: 3600
+  continue_on_error: true
+- tool: openvas_scan
+  timeout_seconds: 7200
+  continue_on_error: true
+- tool: nessus_scan
+  timeout_seconds: 7200
+  continue_on_error: true
+- tool: arachni_scan
+  timeout_seconds: 7200
+  continue_on_error: true
+- tool: metasploit_import
+  timeout_seconds: 900
+  continue_on_error: true

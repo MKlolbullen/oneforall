@@ -1,0 +1,38 @@
+id: naabu
+name: naabu
+category: port-scanning
+description: ProjectDiscovery fast port scanner.
+binary: naabu
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_ip
+  required: true
+outputs:
+- name: ports
+  type: port_list
+command:
+  argv:
+  - naabu
+  - -silent
+  - -host
+  - '{{target}}'
+  - -top-ports
+  - '1000'
+parser:
+  type: line_based
+  entity: port
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- ports
+install:
+  method: go_install
+  package: github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
+dry_run_output:
+- 93.184.216.34:80
+- 93.184.216.34:443

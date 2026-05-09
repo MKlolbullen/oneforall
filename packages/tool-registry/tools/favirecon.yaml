@@ -1,0 +1,35 @@
+id: favirecon
+name: favirecon
+category: fingerprinting
+description: Favicon hash based technology and target clustering placeholder.
+binary: favirecon
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain_or_url
+  required: true
+outputs:
+- name: fingerprints
+  type: finding_list
+command:
+  argv:
+  - favirecon
+  - -u
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- favicon
+- fingerprint
+- asset-correlation
+install:
+  method: manual
+  notes: Use favirecon-compatible wrapper or implement as internal mmh3/favicon collector.
+dry_run_output:
+- mmh3:-123456789 nginx default icon

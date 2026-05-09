@@ -1,0 +1,36 @@
+id: urlfinder
+name: urlfinder
+category: url-discovery
+description: ProjectDiscovery URL collector for passive and active URL sources.
+binary: urlfinder
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - urlfinder
+  - -silent
+  - -d
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- urls
+install:
+  method: go_install
+  package: github.com/projectdiscovery/urlfinder/cmd/urlfinder@latest
+dry_run_output:
+- https://api.example.com/graphql
+- https://www.example.com/assets/main.js
