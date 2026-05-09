@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
+from sqlalchemy import case
 from sqlmodel import Session, select, func
 
 from app.db import get_session
@@ -12,6 +13,22 @@ router = APIRouter(tags=["assets-findings"])
 
 VALID_FINDING_STATUSES = {"new", "triaged", "false_positive", "fixed", "closed"}
 SEVERITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4, "unknown": 5}
+# SQL CASE expression that mirrors SEVERITY_RANK so the DB does the
+# severity-rank ordering before LIMIT/OFFSET. Sorting in Python after
+# pagination would silently misorder cross-page (page 2 would never see a
+# critical finding that page 1's by-date window missed).
+_SEVERITY_CASE = case(
+    {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4},
+    value=Finding.severity,
+    else_=5,
+)
+
+
+def _escape_like(text: str) -> str:
+    """Escape SQL LIKE metacharacters in user input. `%` and `_` are otherwise
+    interpreted as wildcards, so a search for `test_` would unexpectedly match
+    `testa`, `testb`, etc."""
+    return text.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
 
 
 @router.get("/assets", response_model=list[Asset])
@@ -70,33 +87,41 @@ def list_findings(
     count_q = _apply(count_q, with_target=True)
 
     if q:
-        # Substring search on title/evidence — SQLite + Postgres both support LIKE.
-        like = f"%{q}%"
-        base = base.where((Finding.title.ilike(like)) | (Finding.evidence.ilike(like)))  # type: ignore[union-attr]
-        count_q = count_q.where((Finding.title.ilike(like)) | (Finding.evidence.ilike(like)))  # type: ignore[union-attr]
+        # Substring search on title/evidence. Escape LIKE metacharacters so
+        # `%` and `_` in user input don't leak through as wildcards (a search
+        # for `test_` would otherwise match testa/testb/...).
+        like = f"%{_escape_like(q)}%"
+        base = base.where(
+            (Finding.title.ilike(like, escape="\\"))  # type: ignore[union-attr]
+            | (Finding.evidence.ilike(like, escape="\\"))  # type: ignore[union-attr]
+        )
+        count_q = count_q.where(
+            (Finding.title.ilike(like, escape="\\"))  # type: ignore[union-attr]
+            | (Finding.evidence.ilike(like, escape="\\"))  # type: ignore[union-attr]
+        )
 
     total = int(session.exec(count_q).one() or 0)
+    # Severity-rank ordering moved into SQL via CASE so pagination is
+    # consistent across pages (in-Python sort would re-order each page in
+    # isolation, hiding critical findings on later pages).
     rows = list(session.exec(
-        base.order_by(Finding.created_at.desc()).offset(offset).limit(limit)
+        base.order_by(_SEVERITY_CASE, Finding.created_at.desc())
+            .offset(offset).limit(limit)
     ).all())
-    # In-Python severity-rank sort within the page so critical/high lead
-    rows.sort(key=lambda f: (SEVERITY_RANK.get(f.severity, 5), -f.created_at.timestamp()))
 
-    # Facets across the workspace (no per-filter scoping — Burp-style: the
-    # dropdown options stay stable while filters narrow the set).
-    facet_base = select(Finding)
+    # Facets via SELECT DISTINCT — three small queries instead of three
+    # full-table scans.
+    sev_q = select(Finding.severity).distinct()
+    st_q = select(Finding.status).distinct()
+    tool_q = select(Finding.tool_source).distinct()
     if workspace_id:
-        facet_base = facet_base.where(Finding.workspace_id == workspace_id)
-    severities = sorted({f.severity for f in session.exec(facet_base).all() if f.severity},
+        sev_q = sev_q.where(Finding.workspace_id == workspace_id)
+        st_q = st_q.where(Finding.workspace_id == workspace_id)
+        tool_q = tool_q.where(Finding.workspace_id == workspace_id)
+    severities = sorted([s for s in session.exec(sev_q).all() if s],
                         key=lambda s: SEVERITY_RANK.get(s, 5))
-    facet_base2 = select(Finding)
-    if workspace_id:
-        facet_base2 = facet_base2.where(Finding.workspace_id == workspace_id)
-    statuses = sorted({f.status for f in session.exec(facet_base2).all() if f.status})
-    facet_base3 = select(Finding)
-    if workspace_id:
-        facet_base3 = facet_base3.where(Finding.workspace_id == workspace_id)
-    tools = sorted({f.tool_source for f in session.exec(facet_base3).all() if f.tool_source})
+    statuses = sorted([s for s in session.exec(st_q).all() if s])
+    tools = sorted([t for t in session.exec(tool_q).all() if t])
 
     return FindingPage(
         total=total,

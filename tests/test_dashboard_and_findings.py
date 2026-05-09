@@ -72,6 +72,8 @@ def _seed_run_with_findings(client, headers, *, severities, statuses=None,
         if client.get(f"/api/runs/{run['id']}", headers=headers).json()["status"] == "completed":
             break
         time.sleep(0.3)
+    else:
+        raise AssertionError(f"run {run['id']} did not complete within 90s")
 
     from app.db import engine
     from app.models import Finding
@@ -80,7 +82,7 @@ def _seed_run_with_findings(client, headers, *, severities, statuses=None,
     tools = tools or ["nuclei"] * len(severities)
     inserted = []
     with Session(engine) as session:
-        for sev, st, tool in zip(severities, statuses, tools):
+        for sev, st, tool in zip(severities, statuses, tools, strict=True):
             f = Finding(
                 workspace_id=ws_id, run_id=run["id"],
                 title=f"{sev} test finding via {tool}",
@@ -134,7 +136,7 @@ def test_dashboard_detailed_empty_state(stack):
 
 def test_dashboard_detailed_after_run(stack):
     client, headers = stack
-    ws_id, target, run, _ = _seed_run_with_findings(
+    _ws_id, target, _run, _ = _seed_run_with_findings(
         client, headers,
         severities=["critical", "high", "medium", "low", "info"],
     )
@@ -218,7 +220,7 @@ def test_findings_filter_by_target(stack):
         client, headers,
         severities=["critical"], target_value="a.example.com",
     )
-    _, target_b, _, _ = _seed_run_with_findings(
+    _, _target_b, _, _ = _seed_run_with_findings(
         client, headers,
         severities=["high"], target_value="b.example.com",
     )
