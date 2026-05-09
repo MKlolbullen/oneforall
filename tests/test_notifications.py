@@ -70,7 +70,7 @@ def test_disabled_in_config_is_silent(stack):
     from app.services.notifications import is_configured, notify_run_event
     assert is_configured() is False
     # Coroutine completes without making any HTTP call
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         notify_run_event("run.completed", "run_x", {"profile_id": "p", "target_value": "t"})
     )
 
@@ -80,7 +80,7 @@ def test_no_webhook_env_is_silent(stack):
     stack.delenv("RECONFORGE_TEST_WEBHOOK_URL", raising=False)
     from app.services.notifications import is_configured, notify_run_event
     assert is_configured() is False
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         notify_run_event("run.completed", "run_y", {})
     )
 
@@ -106,7 +106,7 @@ def test_post_fires_when_configured(stack, monkeypatch):
     import app.services.notifications as notifications_mod
     monkeypatch.setattr(notifications_mod.httpx, "AsyncClient", FakeClient)
 
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         notifications_mod.notify_run_event("run.completed", "run_abc", {
             "profile_id": "passive_recon",
             "target_value": "lab.example.com",
@@ -139,7 +139,7 @@ def test_webhook_failure_is_swallowed(stack, monkeypatch):
     monkeypatch.setattr(notifications_mod.httpx, "AsyncClient", ExplodingClient)
 
     # Must NOT raise
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         notifications_mod.notify_run_event("run.failed", "run_xyz", {"error": "boom"})
     )
 
@@ -157,7 +157,7 @@ def test_unknown_event_type_no_op(stack, monkeypatch):
 
     import app.services.notifications as notifications_mod
     monkeypatch.setattr(notifications_mod.httpx, "AsyncClient", FakeClient)
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         notifications_mod.notify_run_event("run.queued", "r", {})
     )
     assert posted == [], "lifecycle filter must skip non-completion events"
