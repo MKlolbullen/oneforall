@@ -22,3 +22,10 @@ line-length = 100
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
+
+# Setuptools' flat-layout auto-discovery refuses to ship a package when there
+# are multiple top-level dirs (we have both `app/` and `alembic/`). Declare
+# the package list explicitly so pip install -e . works on every setuptools
+# version we care about.
+[tool.setuptools]
+packages = ["app", "app.api", "app.api.routes", "app.core", "app.services"]
