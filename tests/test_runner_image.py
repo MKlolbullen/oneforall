@@ -28,7 +28,7 @@ def test_runner_dockerfile_exists():
 def test_runner_dockerfile_pins_versions_for_critical_tools():
     body = RUNNER_DOCKERFILE.read_text()
     # Every go install line must include a tag/version (no @latest)
-    bad = re.findall(r'go install "?[^"\n]*?@latest"?', body)
+    bad = re.findall(r'go_?install "?[^"\n]*?@latest"?', body)
     assert not bad, f"Dockerfile.runner uses @latest pins (bump to a tagged version): {bad}"
 
     # Every ARG that names a *_VERSION must be referenced in a go install line
@@ -51,14 +51,14 @@ def test_runner_image_covers_passive_recon_tool_chain():
 
             if method == "go_install":
                 # Strip @version from registered package; we expect the image to
-                # have a pinned go install for it (binary == tool.binary).
+                # have a pinned install for it (binary == tool.binary). Accept
+                # either a literal `go install "..."` or our helper's
+                # `go_install "..."` form.
                 bin_name = tool.get("binary") or tool_id
-                # Match either a pinned `go install <package>@${X_VERSION}` line
-                # or apt-installed binaries like nmap.
-                assert (
-                    re.search(rf'go install "[^"]+\b{re.escape(bin_name)}\b[^"]*"', body)
-                    or re.search(rf'go install "[^"]+/{re.escape(bin_name)}@', body)
-                ), f"runner image does not install go binary for {tool_id} (binary={bin_name})"
+                pattern_a = re.compile(rf'go_?install "[^"]+\b{re.escape(bin_name)}\b[^"]*"')
+                pattern_b = re.compile(rf'go_?install "[^"]+/{re.escape(bin_name)}@')
+                assert pattern_a.search(body) or pattern_b.search(body), \
+                    f"runner image does not install go binary for {tool_id} (binary={bin_name})"
             elif method == "apt":
                 assert re.search(rf"apt-get install[^\n]*\b{re.escape(package)}\b", body), \
                     f"runner image apt-install missing for {tool_id}: {package}"
