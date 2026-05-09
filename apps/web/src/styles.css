@@ -104,3 +104,14 @@ button { cursor: pointer; }
 .artifact-binary { padding: 18px; display: grid; gap: 10px; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* Target detail */
+.link { background: none; border: 0; padding: 0; color: #67e8f9; cursor: pointer; font: inherit; text-decoration: underline dotted; }
+.link:hover { color: #22d3ee; text-decoration: underline; }
+[role="tab"][aria-selected="true"] { border-color: #22d3ee; background: rgba(8,145,178,.22); color: #e0f2fe; }
+.finding-row { border: 1px solid #1f2937; border-radius: 12px; padding: 10px 14px; background: rgba(2,6,23,.42); }
+.finding-row summary { cursor: pointer; list-style: none; }
+.finding-row summary::-webkit-details-marker { display: none; }
+.finding-row[open] { border-color: #164e63; }
+.finding-body { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid #1f2937; margin-top: 10px; }
+.finding-evidence { background: #02060f; border: 1px solid #0e7490; border-radius: 8px; padding: 10px 12px; color: #cbd5e1; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }

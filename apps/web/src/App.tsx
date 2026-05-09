@@ -4,6 +4,7 @@ import { ReactFlow, Background, Controls, Handle, Position } from '@xyflow/react
 import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
 import { classifyArtifact } from './lib/artifactKind';
+import { TargetDetail } from './lib/TargetDetail';
 import type { Artifact, DashboardStats, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from './types';
 
 type Page = 'dashboard' | 'targets' | 'runs' | 'tools' | 'workflow' | 'settings';
@@ -107,6 +108,7 @@ function Targets() {
   const [workspaceId, setWorkspaceId] = useState('');
   const [value, setValue] = useState('');
   const [activeAllowed, setActiveAllowed] = useState(false);
+  const [selected, setSelected] = useState<Target | null>(null);
 
   const liveEnabled = health.live_execution_enabled === true;
 
@@ -140,6 +142,10 @@ function Targets() {
     }
   };
 
+  if (selected) {
+    return <TargetDetail target={selected} onClose={() => setSelected(null)} />;
+  }
+
   return (
     <div className="grid cols-2">
       <div className="card">
@@ -161,7 +167,7 @@ function Targets() {
       <div className="card" style={{ gridColumn: '1 / -1' }}>
         <h3>Targets</h3>
         <table className="table"><thead><tr><th>Value</th><th>Type</th><th>Scope</th><th>Active</th><th>Launch</th></tr></thead><tbody>
-          {targets.map((t) => <tr key={t.id}><td>{t.value}</td><td>{t.type}</td><td>{t.in_scope ? <span className="badge ok">in scope</span> : <span className="badge bad">out</span>}</td><td>{t.active_allowed ? <span className="badge active">authorized</span> : <span className="badge">blocked</span>}</td><td><div className="launch-grid">{profiles.map((p) => {
+          {targets.map((t) => <tr key={t.id}><td><button className="link" onClick={() => setSelected(t)} type="button">{t.value}</button></td><td>{t.type}</td><td>{t.in_scope ? <span className="badge ok">in scope</span> : <span className="badge bad">out</span>}</td><td>{t.active_allowed ? <span className="badge active">authorized</span> : <span className="badge">blocked</span>}</td><td><div className="launch-grid">{profiles.map((p) => {
             const check = profileAvailability[p.id];
             const blocked = liveEnabled && check && !check.runnable;
             return <button key={p.id} className={blocked ? 'btn disabledish' : 'btn'} disabled={Boolean(blocked)} title={blocked ? `Missing: ${check?.missing_tools.join(', ')}` : 'Runnable'} onClick={() => launch(t, p.id)}>

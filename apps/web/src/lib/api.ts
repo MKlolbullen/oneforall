@@ -1,4 +1,4 @@
-import type { Artifact, DashboardStats, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
+import type { Artifact, Asset, DashboardStats, Finding, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000';
@@ -25,6 +25,13 @@ export const api = {
     request<Target[]>(`/api/targets${workspaceId ? `?workspace_id=${workspaceId}` : ''}`),
   createTarget: (payload: Partial<Target>) =>
     request<Target>('/api/targets', { method: 'POST', body: JSON.stringify(payload) }),
+  target: (id: string) => request<Target>(`/api/targets/${id}`),
+  targetRuns: (id: string) => request<Run[]>(`/api/targets/${id}/runs`),
+  targetAssets: (id: string, type?: string) =>
+    request<Asset[]>(`/api/targets/${id}/assets${type ? `?type=${encodeURIComponent(type)}` : ''}`),
+  targetFindings: (id: string) => request<Finding[]>(`/api/targets/${id}/findings`),
+  targetSummary: (id: string) => request<TargetSummary>(`/api/targets/${id}/summary`),
+  targetTech: (id: string) => request<TargetTech>(`/api/targets/${id}/tech`),
   runs: () => request<Run[]>('/api/runs'),
   createRun: (payload: { workspace_id: string; target_id: string; profile_id: string }) =>
     request<Run>('/api/runs', { method: 'POST', body: JSON.stringify(payload) }),
