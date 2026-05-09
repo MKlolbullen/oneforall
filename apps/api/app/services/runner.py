@@ -6,6 +6,8 @@ import os
 import shlex
 import signal
 import time
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable
 
 from sqlmodel import Session, select
@@ -22,6 +24,101 @@ from app.services.tool_registry import ToolRegistry
 SessionFactory = Callable[[], Session]
 
 
+# ----------------------------------------------------------------------------
+# DAG artifact passing
+# ----------------------------------------------------------------------------
+#
+# Each step writes its stdout to a per-run scratch directory (separate from the
+# durable artifact store). Subsequent steps can reference that path through
+# template variables in their argv:
+#
+#   {{steps.<tool_id>.stdout_path}}    explicit reference to one upstream tool
+#   {{previous.stdout_path}}            most recent step
+#   {{upstream.<output_type>.merged_path}}
+#       deduped union of every upstream step that declared this output type;
+#       e.g. dnsx with `-l {{upstream.domain_list.merged_path}}` will receive a
+#       file containing every domain produced by subfinder + assetfinder + ...
+#
+# Profile steps can override the tool's argv inline:
+#   - tool: dnsx
+#     argv_replace: ["dnsx", "-silent", "-l", "{{upstream.domain_list.merged_path}}"]
+#   - tool: httpx
+#     argv_extra: ["-l", "{{upstream.domain_list.merged_path}}"]
+# ----------------------------------------------------------------------------
+
+
+@dataclass
+class StepOutput:
+    tool_id: str
+    stdout_path: Path
+    lines: list[str]
+    output_types: list[str]
+    category: str
+
+
+@dataclass
+class RunContext:
+    run_id: str
+    workspace_id: str
+    base_dir: Path
+    step_outputs: list[StepOutput] = field(default_factory=list)
+    upstream_merged: dict[str, Path] = field(default_factory=dict)
+    upstream_seen: dict[str, set[str]] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+
+    def record_step(self, tool: Any, lines: list[str]) -> StepOutput:
+        idx = len(self.step_outputs) + 1
+        path = self.base_dir / f"{idx:02d}_{tool.id}.stdout.txt"
+        path.write_text("\n".join(lines) + ("\n" if lines else ""))
+        out_types = [
+            (o.type if hasattr(o, "type") else o.get("type", ""))
+            for o in (tool.outputs or [])
+        ]
+        category = getattr(tool, "category", "")
+        so = StepOutput(
+            tool_id=tool.id, stdout_path=path, lines=list(lines),
+            output_types=out_types, category=category,
+        )
+        self.step_outputs.append(so)
+        for ot in out_types:
+            if not ot:
+                continue
+            seen = self.upstream_seen.setdefault(ot, set())
+            new = [l for l in (s.strip() for s in lines) if l and l not in seen]
+            if not new:
+                continue
+            seen.update(new)
+            mp = self.upstream_merged.get(ot)
+            if mp is None:
+                mp = self.base_dir / f"upstream_{ot}.txt"
+                self.upstream_merged[ot] = mp
+            with mp.open("a") as f:
+                f.write("\n".join(new) + "\n")
+        return so
+
+    def render_params(self, base: dict[str, Any]) -> dict[str, Any]:
+        ctx = dict(base)
+        ctx["steps"] = {
+            so.tool_id: {
+                "stdout_path": str(so.stdout_path),
+                "lines": ",".join(so.lines),
+            }
+            for so in self.step_outputs
+        }
+        ctx["upstream"] = {
+            ot: {"merged_path": str(p)} for ot, p in self.upstream_merged.items()
+        }
+        if self.step_outputs:
+            last = self.step_outputs[-1]
+            ctx["previous"] = {
+                "stdout_path": str(last.stdout_path),
+                "lines": ",".join(last.lines),
+            }
+        return ctx
+
+
 class RunCancelled(RuntimeError):
     """Raised when the operator requested run cancellation."""
 
@@ -34,14 +131,41 @@ class StepExecutionFailed(RuntimeError):
     """Raised when a tool step fails after all retry attempts."""
 
 
+def _flatten(d: Any, prefix: str = "") -> dict[str, str]:
+    out: dict[str, str] = {}
+    if isinstance(d, dict):
+        for k, v in d.items():
+            key = f"{prefix}.{k}" if prefix else str(k)
+            out.update(_flatten(v, key))
+    else:
+        out[prefix] = "" if d is None else str(d)
+    return out
+
+
 def render_argv(template: list[str], params: dict[str, Any]) -> list[str]:
+    flat = _flatten(params)
+    # Sort by key length descending so {{steps.subfinder.stdout_path}} is matched
+    # before {{steps.subfinder}} (which doesn't exist, but defensive ordering).
+    keys_by_len = sorted(flat.keys(), key=len, reverse=True)
     argv: list[str] = []
     for token in template:
         rendered = token
-        for key, value in params.items():
-            rendered = rendered.replace("{{" + key + "}}", str(value))
+        for key in keys_by_len:
+            rendered = rendered.replace("{{" + key + "}}", flat[key])
         argv.append(rendered)
     return argv
+
+
+def _resolve_step_argv(tool: Any, step_config: dict[str, Any], rendered_params: dict[str, Any]) -> list[str]:
+    """Build the final argv for a step. argv_replace fully overrides the tool's argv;
+    argv_extra is appended. If neither is set, the tool's own argv template is used."""
+    if "argv_replace" in step_config:
+        template = list(step_config["argv_replace"])
+    else:
+        template = list(tool.command.get("argv", []) or [])
+        if "argv_extra" in step_config:
+            template.extend(step_config["argv_extra"])
+    return render_argv(template, rendered_params)
 
 
 def _coerce_int(value: Any, default: int, *, minimum: int = 0) -> int:
@@ -197,6 +321,12 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
         params = dict(config_snapshot.get("params") or {})
         params.setdefault("target", config_snapshot.get("target_value"))
 
+        ctx = RunContext(
+            run_id=run_id,
+            workspace_id=workspace_id,
+            base_dir=Path(settings.artifact_dir) / "runs" / run_id / "step_outputs",
+        )
+
         for index, step_config in enumerate(profile.get("steps", []), start=1):
             if await _cancel_requested(session_factory, run_id):
                 raise RunCancelled("operator requested cancellation")
@@ -229,6 +359,7 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
                 step_config=step_config,
                 params=params,
                 policy=policy,
+                ctx=ctx,
             )
 
         with session_factory() as session:
@@ -287,9 +418,13 @@ async def _execute_step_with_retries(
     step_config: dict[str, Any],
     params: dict[str, Any],
     policy: dict[str, Any],
+    ctx: RunContext,
 ) -> None:
     attempts_allowed = policy["max_retries"] + 1
     last_error: Exception | None = None
+
+    rendered_params = ctx.render_params(params)
+    final_argv = _resolve_step_argv(tool, step_config, rendered_params)
 
     for attempt in range(1, attempts_allowed + 1):
         if await _cancel_requested(session_factory, run_id):
@@ -303,7 +438,7 @@ async def _execute_step_with_retries(
                 status=StepStatus.running,
                 attempt=attempt,
                 started=True,
-                meta_patch={"step_config": step_config},
+                meta_patch={"step_config": step_config, "argv": final_argv},
             )
             await event_bus.publish(
                 session,
@@ -318,6 +453,7 @@ async def _execute_step_with_retries(
                     "max_retries": policy["max_retries"],
                     "timeout_seconds": policy["timeout_seconds"],
                     "risk": str(tool.risk.value if hasattr(tool.risk, "value") else tool.risk),
+                    "argv": final_argv,
                 },
             )
 
@@ -328,11 +464,10 @@ async def _execute_step_with_retries(
                     raise RuntimeError(
                         f"{tool_id} is not runnable: {availability.status} - {availability.message}"
                     )
-                argv_template = tool.command.get("argv", [])
-                if not argv_template:
+                if not final_argv:
                     # Built-in/no-binary tools are allowed to emit deterministic structured output.
                     # External live tools must declare an argv template.
-                    await _run_dry_tool(
+                    captured = await _run_dry_tool(
                         session_factory,
                         run_id,
                         workspace_id,
@@ -341,17 +476,16 @@ async def _execute_step_with_retries(
                         timeout_seconds=policy["timeout_seconds"],
                     )
                 else:
-                    argv = render_argv(argv_template, params)
-                    await _run_live_tool(
+                    captured = await _run_live_tool(
                         session_factory,
                         run_id,
                         workspace_id,
                         tool_id,
-                        argv,
+                        final_argv,
                         timeout_seconds=policy["timeout_seconds"],
                     )
             else:
-                await _run_dry_tool(
+                captured = await _run_dry_tool(
                     session_factory,
                     run_id,
                     workspace_id,
@@ -359,6 +493,8 @@ async def _execute_step_with_retries(
                     tool.dry_run_output,
                     timeout_seconds=policy["timeout_seconds"],
                 )
+
+            ctx.record_step(tool, captured)
 
             with session_factory() as session:
                 _update_step(session, step_id, status=StepStatus.completed, exit_code=0, finished=True)
@@ -455,7 +591,7 @@ async def _run_dry_tool(
     lines: list[str],
     *,
     timeout_seconds: int,
-) -> None:
+) -> list[str]:
     stdout_lines: list[str] = []
     started = time.monotonic()
     for line in lines:
@@ -496,6 +632,7 @@ async def _run_dry_tool(
         f"{tool_id}.stdout.txt",
         "\n".join(stdout_lines) + ("\n" if stdout_lines else ""),
     )
+    return stdout_lines
 
 
 async def _run_live_tool(
@@ -506,7 +643,7 @@ async def _run_live_tool(
     argv: list[str],
     *,
     timeout_seconds: int,
-) -> None:
+) -> list[str]:
     if not argv:
         raise RuntimeError(f"Tool {tool_id} has no argv template")
 
@@ -610,6 +747,7 @@ async def _run_live_tool(
 
     if reason:
         raise reason
+    return stdout_lines
 
 
 async def _terminate_process_tree(proc: asyncio.subprocess.Process) -> None:

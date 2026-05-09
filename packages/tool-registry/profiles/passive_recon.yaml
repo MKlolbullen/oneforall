@@ -1,7 +1,13 @@
 id: passive_recon
 name: Passive Recon
 risk: passive
-description: Passive-only discovery profile safe for initial inventory.
+description: |
+  Passive-only discovery profile safe for initial inventory.
+
+  Subdomain sources (subfinder/assetfinder/amass/chaos/crtsh) emit domain_list
+  outputs which are merged into a single deduped file. The dnsx step consumes
+  that file via -l, and the httpx step probes the resolved set, so each step
+  actually depends on the previous ones rather than re-querying the apex.
 steps:
 - tool: subfinder
   timeout_seconds: 900
@@ -23,3 +29,27 @@ steps:
 - tool: dnsx
   timeout_seconds: 900
   max_retries: 1
+  argv_replace:
+  - dnsx
+  - -silent
+  - -a
+  - -aaaa
+  - -resp
+  - -l
+  - "{{upstream.domain_list.merged_path}}"
+- tool: httpx
+  timeout_seconds: 1200
+  max_retries: 1
+  argv_replace:
+  - httpx
+  - -silent
+  - -json
+  - -ip
+  - -td
+  - -title
+  - -status-code
+  - -server
+  - -tls-probe
+  - -favicon
+  - -l
+  - "{{upstream.domain_list.merged_path}}"

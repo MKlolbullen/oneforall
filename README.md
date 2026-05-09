@@ -168,6 +168,34 @@ The first useful workflow is:
 domain -> subfinder -> crtsh -> dnsx -> httpx -> nuclei -> normalize -> artifacts -> report
 ```
 
+The `passive_recon` profile now actually chains those steps via DAG artifact passing — `dnsx` and `httpx` consume the deduped union of every upstream `domain_list` output, not just the apex.
+
+## DAG artifact passing
+
+Each step's stdout is written to a per-run scratch directory at `${ARTIFACT_DIR}/runs/<run_id>/step_outputs/<NN>_<tool>.stdout.txt`. Subsequent steps can reference those files (and the merged-by-output-type file) through template variables in their argv:
+
+```text
+{{steps.<tool_id>.stdout_path}}        explicit upstream tool
+{{previous.stdout_path}}                most recent prior step
+{{upstream.<output_type>.merged_path}}  deduped union across all upstream tools
+                                         that declared this output type
+```
+
+Profile steps can override the tool's argv inline rather than editing the tool YAML:
+
+```yaml
+- tool: dnsx
+  argv_replace:
+    - dnsx
+    - -silent
+    - -l
+    - "{{upstream.domain_list.merged_path}}"
+- tool: httpx
+  argv_extra: ["-l", "{{upstream.domain_list.merged_path}}"]
+```
+
+`argv_replace` fully overrides the tool's default argv; `argv_extra` is appended. The rendered argv for each attempt is persisted into `RunStep.meta.argv`, so the UI / API consumers can show exactly what was executed.
+
 This scaffold now includes **137 registry entries** and **24 scan profiles**, including passive ASM, ProjectDiscovery-style attack-surface discovery, DNS permutation/resolution, web fingerprinting, crawler/URL intelligence, content/parameter discovery, JS/secrets, API recon, cloud/takeover checks, port/service inventory, and a clean-room Enterprise ASM parity workflow. The current implementation executes those loops safely in dry-run mode through the worker container.
 
 ## Run control
