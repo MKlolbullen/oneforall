@@ -5,6 +5,7 @@ import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
 import { classifyArtifact } from './lib/artifactKind';
 import { TargetDetail } from './lib/TargetDetail';
+import { applyTheme, loadTheme, persistTheme, THEMES, type Theme } from './lib/theme';
 import type { Artifact, DashboardStats, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from './types';
 
 type Page = 'dashboard' | 'targets' | 'runs' | 'tools' | 'workflow' | 'settings';
@@ -33,10 +34,16 @@ function availabilityLabel(check?: ToolAvailability) {
 export function App() {
   const [page, setPage] = useState<Page>('dashboard');
   const [health, setHealth] = useState<Record<string, unknown>>({});
+  const [theme, setTheme] = useState<Theme>(() => loadTheme());
 
   useEffect(() => {
     api.health().then(setHealth).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    applyTheme(theme);
+    persistTheme(theme);
+  }, [theme]);
 
   return (
     <div className="shell">
@@ -56,6 +63,12 @@ export function App() {
           <div className="row">
             <span className="badge passive">{String(health.execution_mode ?? 'unknown')} mode</span>
             {health.live_execution_enabled === true ? <span className="badge active">live execution</span> : <span className="badge passive">dry-run safe</span>}
+            <label className="theme-toggle muted" title="Switch UI theme">
+              theme
+              <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
+                {THEMES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+            </label>
           </div>
         </div>
         <div className="content">

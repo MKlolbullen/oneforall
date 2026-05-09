@@ -1,0 +1,36 @@
+id: dirhunt
+name: "dirhunt"
+category: content-discovery
+description: "Web directory discovery without bruteforce \u2014 scrapes index pages and search engines."
+binary: dirhunt
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: results
+  type: text
+command:
+  argv:
+  - "dirhunt"
+  - "https://{{target}}"
+  - "--threads"
+  - "20"
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- passive
+- discovery
+install:
+  method: pipx
+  package: "dirhunt"
+dry_run_output:
+- "[200] /robots.txt"
+- "[404] /index.php"

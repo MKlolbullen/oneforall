@@ -1,0 +1,34 @@
+id: dontgo403
+name: "dontgo403"
+category: content-discovery
+description: "403 / 401 bypass automation with a wide preset of header + verb tricks."
+binary: dontgo403
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: results
+  type: text
+command:
+  argv:
+  - "dontgo403"
+  - "-u"
+  - "https://{{target}}/admin"
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- bypass
+- auth
+install:
+  method: go_install
+  package: "github.com/devploit/dontgo403@latest"
+dry_run_output:
+- "200 GET /admin/ X-Original-URL: /admin"

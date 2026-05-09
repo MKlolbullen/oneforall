@@ -1,0 +1,38 @@
+id: trivy_repo
+name: "Trivy (filesystem/repo)"
+category: supply-chain
+description: "Aqua Trivy scanner for filesystem / repo CVE & secret detection."
+binary: trivy
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: results
+  type: text
+command:
+  argv:
+  - "trivy"
+  - "fs"
+  - "--quiet"
+  - "--format"
+  - "json"
+  - "{{target}}"
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- sca
+- vulndb
+- aqua
+install:
+  method: manual
+  package: ""
+dry_run_output:
+- "{\"Results\":[{\"Target\":\"package-lock.json\",\"Vulnerabilities\":[]}]}"

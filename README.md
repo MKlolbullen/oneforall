@@ -254,6 +254,13 @@ Or compare against the API/runner image:
 API=http://localhost:8000 ./scripts/check-tools.sh
 ```
 
+## Theme
+
+Two dark themes. Toggle from the top bar; the choice persists in `localStorage`.
+
+- **Classic** — original cyan/teal look.
+- **PD Cloud** — ProjectDiscovery-cloud-inspired: pink + cyan dual accent, sharper card borders, JetBrains Mono for everything code-shaped, tighter rounded corners. Opt-in; not the default.
+
 ## Tool library
 
 The registry includes a clean-room, Sn1per/Enterprise-ASM-inspired set of **137** common building blocks. The categories are intentionally broad enough for a professional ASM/recon platform instead of a narrow “run a few bash tools” dashboard:
