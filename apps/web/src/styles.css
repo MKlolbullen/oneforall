@@ -207,3 +207,44 @@ button { cursor: pointer; }
 .theme-toggle { display: inline-flex; align-items: center; gap: 6px; }
 .theme-toggle select { background: transparent; color: inherit; border: 1px solid #27272f; border-radius: 6px; padding: 4px 6px; font-size: 12px; }
 [data-theme="pd-cloud"] .theme-toggle select { border-color: var(--pd-pink); color: var(--pd-pink); }
+
+/* Settings > Appearance: theme swatches.
+ *
+ * Each preview is rendered in its OWN palette regardless of the active theme,
+ * so the user can compare. Selectors below apply absolute colours, not
+ * variables, to avoid bleed-through. */
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.theme-swatch { display: grid; gap: 12px; padding: 14px; background: rgba(2, 6, 23, .35); border: 2px solid #1f2937; border-radius: 12px; color: inherit; text-align: left; cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
+.theme-swatch:hover { transform: translateY(-1px); }
+.theme-swatch.selected { border-color: #22d3ee; box-shadow: 0 0 0 2px rgba(34, 211, 238, .12); }
+[data-theme="pd-cloud"] .theme-swatch.selected { border-color: #ec4899; box-shadow: 0 0 0 2px rgba(236, 72, 153, .14); }
+.theme-swatch-preview { border-radius: 8px; overflow: hidden; padding: 12px; display: grid; gap: 10px; min-height: 138px; }
+.theme-preview-bar { height: 14px; border-radius: 4px; }
+.theme-preview-card { padding: 10px 12px; border-radius: 6px; display: grid; gap: 6px; }
+.theme-preview-line { height: 8px; border-radius: 4px; }
+.theme-preview-line.w40 { width: 40%; }
+.theme-preview-line.w60 { width: 60%; }
+.theme-preview-line.w80 { width: 80%; }
+.theme-preview-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.theme-preview-pill { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; letter-spacing: .03em; }
+.theme-swatch-meta { display: grid; gap: 4px; }
+.theme-swatch-meta small { font-size: 12px; }
+
+/* Classic preview palette (matches the default theme) */
+.theme-preview-classic { background: #060a12; border: 1px solid #164e63; }
+.theme-preview-classic .theme-preview-bar { background: linear-gradient(90deg, rgba(34, 211, 238, .55), rgba(34, 211, 238, .12)); }
+.theme-preview-classic .theme-preview-card { background: rgba(13, 17, 23, .9); border: 1px solid #1f2937; }
+.theme-preview-classic .theme-preview-line { background: rgba(148, 163, 184, .35); }
+.theme-preview-classic .theme-preview-pill.ok { color: #86efac; border-color: #16a34a; }
+.theme-preview-classic .theme-preview-pill.warn { color: #fbbf24; border-color: #f59e0b; }
+.theme-preview-classic .theme-preview-pill.bad { color: #fca5a5; border-color: #dc2626; }
+
+/* PD Cloud preview palette */
+.theme-preview-pd-cloud { background: #0a0a0c; border: 1px solid #27272f; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.theme-preview-pd-cloud .theme-preview-bar { background: linear-gradient(90deg, rgba(236, 72, 153, .65), rgba(6, 182, 212, .25)); }
+.theme-preview-pd-cloud .theme-preview-card { background: #131319; border: 1px solid #27272f; border-radius: 8px; }
+.theme-preview-pd-cloud .theme-preview-line { background: rgba(161, 161, 170, .4); }
+.theme-preview-pd-cloud .theme-preview-pill { border-radius: 4px; }
+.theme-preview-pd-cloud .theme-preview-pill.ok { color: #06b6d4; border-color: #06b6d4; background: rgba(6, 182, 212, .1); }
+.theme-preview-pd-cloud .theme-preview-pill.warn { color: #fbbf24; border-color: #d97706; background: rgba(217, 119, 6, .1); }
+.theme-preview-pd-cloud .theme-preview-pill.bad { color: #fca5a5; border-color: #ef4444; background: rgba(239, 68, 68, .1); }

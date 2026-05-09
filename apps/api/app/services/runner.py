@@ -17,6 +17,7 @@ from app.models import Artifact, Run, RunStatus, RunStep, StepStatus, now_utc
 from app.services.artifacts import ArtifactStore
 from app.services.events import event_bus
 from app.services.normalizer import normalize_tool_line
+from app.services.notifications import notify_run_event
 from app.services.queue import clear_run_cancel, is_run_cancel_requested
 from app.services.tool_availability import check_tool_availability
 from app.services.tool_registry import ToolRegistry
@@ -371,6 +372,11 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
                 session.commit()
             await event_bus.publish(session, run_id, "run.completed", "Run completed")
             await clear_run_cancel(run_id)
+        await notify_run_event("run.completed", run_id, {
+            "profile_id": profile_id,
+            "target_value": config_snapshot.get("target_value"),
+            "runner_mode": settings.runner_mode,
+        })
     except RunCancelled as exc:
         with session_factory() as session:
             run = session.get(Run, run_id)
@@ -387,6 +393,11 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
                 level="warning",
                 payload={"error": str(exc)},
             )
+        await notify_run_event("run.cancelled", run_id, {
+            "profile_id": profile_id,
+            "target_value": config_snapshot.get("target_value"),
+            "error": str(exc),
+        })
     except Exception as exc:  # noqa: BLE001 - preserve crash reason in event stream
         with session_factory() as session:
             run = session.get(Run, run_id)
@@ -403,6 +414,11 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
                 level="error",
                 payload={"error": repr(exc)},
             )
+        await notify_run_event("run.failed", run_id, {
+            "profile_id": profile_id,
+            "target_value": config_snapshot.get("target_value"),
+            "error": repr(exc),
+        })
 
 
 async def _execute_step_with_retries(

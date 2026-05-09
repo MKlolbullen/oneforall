@@ -380,6 +380,13 @@ function SettingsPack() {
   const [patterns, setPatterns] = useState<GrepPatternPack | null>(null);
   const [wordlists, setWordlists] = useState<WordlistInfo[]>([]);
   const [plugins, setPlugins] = useState<PluginToggle[]>([]);
+  const [theme, setTheme] = useState<Theme>(() => loadTheme());
+
+  const onThemeChange = (next: Theme) => {
+    setTheme(next);
+    applyTheme(next);
+    persistTheme(next);
+  };
 
   const reload = async () => {
     const [cfg, pats, words, plugs] = await Promise.all([
@@ -402,6 +409,39 @@ function SettingsPack() {
   const pluginGroups = Array.from(new Set(plugins.map((item) => item.group))).sort();
 
   return <div className="grid">
+    <div className="card">
+      <div className="row space"><h3>Appearance</h3><span className="muted">Choose how the UI should look. Persisted in localStorage.</span></div>
+      <div className="theme-grid">
+        {THEMES.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={`theme-swatch ${theme === t.id ? 'selected' : ''}`}
+            onClick={() => onThemeChange(t.id)}
+            aria-pressed={theme === t.id}
+          >
+            <div className={`theme-swatch-preview theme-preview-${t.id}`}>
+              <div className="theme-preview-bar" />
+              <div className="theme-preview-card">
+                <div className="theme-preview-line w60" />
+                <div className="theme-preview-line w40" />
+                <div className="theme-preview-line w80" />
+              </div>
+              <div className="theme-preview-pills">
+                <span className="theme-preview-pill ok">passed</span>
+                <span className="theme-preview-pill warn">warning</span>
+                <span className="theme-preview-pill bad">critical</span>
+              </div>
+            </div>
+            <div className="theme-swatch-meta">
+              <strong>{t.label}</strong>
+              <small className="muted">{t.description}</small>
+              {theme === t.id && <span className="badge ok">active</span>}
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
     <div className="grid cols-3">
       <Metric title="Enabled Plugins" value={enabledPlugins} icon={<Activity />} />
       <Metric title="Wordlists" value={wordlists.length} icon={<Boxes />} />
