@@ -20,18 +20,45 @@ PROFILES_DIR = REPO / "packages" / "tool-registry" / "profiles"
 # These are the ones a fresh `docker compose up` user is likely to launch.
 CRITICAL_PROFILES = {"passive_recon"}
 
+# Tools that MUST be strictly pinned. Anything outside this set may use @latest
+# (and many do — published-tag stories for tomnomnom utilities and abandoned
+# repos are noisy enough that pinning is more brittle than helpful).
+STRICT_PINS = {
+    # PD core
+    "subfinder", "dnsx", "httpx", "naabu", "nuclei", "katana", "tlsx",
+    "uncover", "chaos", "notify", "proxify",
+    # Other PD-adjacent
+    "amass", "assetfinder", "gau", "waybackurls", "ffuf", "dalfox",
+    "cariddi", "gospider",
+    # Round-2 cloud / vuln tooling
+    "byp4xx", "cero", "cloudfox", "dontgo403", "jaeles", "osv-scanner",
+}
+
 
 def test_runner_dockerfile_exists():
     assert RUNNER_DOCKERFILE.exists(), "Dockerfile.runner is missing"
 
 
-def test_runner_dockerfile_pins_versions_for_critical_tools():
+def test_runner_dockerfile_pins_versions_for_strict_tools():
+    """For every binary in STRICT_PINS, find its `go install` line and
+    assert it does NOT use @latest. Tools outside this set are allowed to
+    use @latest as a best-effort fallback."""
     body = RUNNER_DOCKERFILE.read_text()
-    # Every go install line must include a tag/version (no @latest)
-    bad = re.findall(r'go_?install "?[^"\n]*?@latest"?', body)
-    assert not bad, f"Dockerfile.runner uses @latest pins (bump to a tagged version): {bad}"
+    for binary in STRICT_PINS:
+        # Match `go install "github.com/.../<binary>@..."` or
+        # `go install "github.com/.../<binary>/cmd/<binary>@..."`
+        # Tolerate both `go install` and our `go_install` helper.
+        pattern = re.compile(
+            rf'go_?install "([^"]+\b{re.escape(binary)}[^"]*?@[^"]+)"'
+        )
+        match = pattern.search(body)
+        assert match, f"strict-pin tool {binary!r} has no go install line in runner image"
+        line = match.group(1)
+        assert not line.endswith("@latest"), \
+            f"strict-pin tool {binary!r} uses @latest in {line!r}"
 
-    # Every ARG that names a *_VERSION must be referenced in a go install line
+    # Every ARG that names a *_VERSION must be referenced somewhere — no
+    # dead version pins lying around.
     arg_versions = re.findall(r"^ARG\s+([A-Z0-9_]+_VERSION)=", body, flags=re.M)
     referenced = re.findall(r"\$\{([A-Z0-9_]+_VERSION)\}", body)
     unused = set(arg_versions) - set(referenced)

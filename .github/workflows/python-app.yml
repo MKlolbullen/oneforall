@@ -111,8 +111,8 @@ jobs:
           missing=()
           for bin in subfinder dnsx httpx naabu nuclei katana urlfinder \
                      amass assetfinder gau hakrawler dalfox tlsx asnmap \
-                     gowitness ffuf cariddi crobat chaos uncover gospider \
-                     gauplus waybackurls jsubfinder qsreplace gf nmap; do
+                     gowitness ffuf cariddi chaos uncover gospider \
+                     gauplus waybackurls qsreplace gf nmap; do
             if ! docker run --rm --entrypoint sh reconforge-runner:ci -c "command -v $bin >/dev/null 2>&1"; then
               missing+=("$bin")
             fi
