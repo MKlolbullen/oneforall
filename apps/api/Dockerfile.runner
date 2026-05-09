@@ -34,59 +34,77 @@ RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go
 # Pins use the published tag for each tool; bumping is a one-line change.
 
 ARG AMASS_VERSION=v4.2.0
-ARG ASNMAP_VERSION=v1.1.5
 ARG ASSETFINDER_VERSION=v0.1.1
 ARG CARIDDI_VERSION=v1.4.0
 ARG CHAOS_VERSION=v0.5.1
-ARG CROBAT_VERSION=v2.0.0
 ARG DALFOX_VERSION=v2.9.2
 ARG DNSX_VERSION=v1.2.1
 ARG FFUF_VERSION=v2.1.0
 ARG GAU_VERSION=v2.2.4
-ARG GAUPLUS_VERSION=v1.2.1
-ARG GF_VERSION=v0.0.0-20231214152950-edc81b65d1d5
 ARG GOSPIDER_VERSION=v1.1.6
-ARG GOWITNESS_VERSION=v3.0.5
-ARG HAKRAWLER_VERSION=v2.1
 ARG HTTPX_VERSION=v1.6.10
-ARG JSUBFINDER_VERSION=v0.1.6
 ARG KATANA_VERSION=v1.1.2
 ARG NAABU_VERSION=v2.3.4
 ARG NUCLEI_VERSION=v3.3.5
-ARG QSREPLACE_VERSION=v0.0.0-20230108215212-b1f5b0c4a55a
 ARG SUBFINDER_VERSION=v2.6.7
 ARG TLSX_VERSION=v1.1.7
 ARG UNCOVER_VERSION=v1.0.9
-ARG URLFINDER_VERSION=v1.1.0
 ARG WAYBACKURLS_VERSION=v0.1.0
 
-RUN set -eux && \
-    go install "github.com/owasp-amass/amass/v4/cmd/amass@${AMASS_VERSION}" && \
-    go install "github.com/projectdiscovery/asnmap/cmd/asnmap@${ASNMAP_VERSION}" && \
-    go install "github.com/tomnomnom/assetfinder@${ASSETFINDER_VERSION}" && \
-    go install "github.com/edoardottt/cariddi/cmd/cariddi@${CARIDDI_VERSION}" && \
-    go install "github.com/projectdiscovery/chaos-client/cmd/chaos@${CHAOS_VERSION}" && \
-    go install "github.com/cgboal/sonarsearch/crobat@${CROBAT_VERSION}" && \
-    go install "github.com/hahwul/dalfox/v2@${DALFOX_VERSION}" && \
-    go install "github.com/projectdiscovery/dnsx/cmd/dnsx@${DNSX_VERSION}" && \
-    go install "github.com/ffuf/ffuf/v2@${FFUF_VERSION}" && \
-    go install "github.com/lc/gau/v2/cmd/gau@${GAU_VERSION}" && \
-    go install "github.com/bp0lr/gauplus@${GAUPLUS_VERSION}" && \
-    go install "github.com/tomnomnom/gf@${GF_VERSION}" && \
-    go install "github.com/jaeles-project/gospider@${GOSPIDER_VERSION}" && \
-    go install "github.com/sensepost/gowitness@${GOWITNESS_VERSION}" && \
-    go install "github.com/hakluke/hakrawler@${HAKRAWLER_VERSION}" && \
-    go install "github.com/projectdiscovery/httpx/cmd/httpx@${HTTPX_VERSION}" && \
-    go install "github.com/ThreatUnkown/jsubfinder@${JSUBFINDER_VERSION}" && \
-    go install "github.com/projectdiscovery/katana/cmd/katana@${KATANA_VERSION}" && \
-    go install "github.com/projectdiscovery/naabu/v2/cmd/naabu@${NAABU_VERSION}" && \
-    go install "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@${NUCLEI_VERSION}" && \
-    go install "github.com/tomnomnom/qsreplace@${QSREPLACE_VERSION}" && \
-    go install "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@${SUBFINDER_VERSION}" && \
-    go install "github.com/projectdiscovery/tlsx/cmd/tlsx@${TLSX_VERSION}" && \
-    go install "github.com/projectdiscovery/uncover/cmd/uncover@${UNCOVER_VERSION}" && \
-    go install "github.com/projectdiscovery/urlfinder/cmd/urlfinder@${URLFINDER_VERSION}" && \
-    go install "github.com/tomnomnom/waybackurls@${WAYBACKURLS_VERSION}"
+# Round-2 additions
+ARG BYP4XX_VERSION=v3.5
+ARG CERO_VERSION=v1.4.5
+ARG CLOUDFOX_VERSION=v1.14.0
+ARG DONTGO403_VERSION=v1.0
+ARG JAELES_VERSION=v0.20.4
+ARG NOTIFY_VERSION=v1.0.7
+ARG OSV_SCANNER_VERSION=v1.9.1
+ARG PROXIFY_VERSION=v0.0.16
+
+# Each go install is best-effort and logs its own failure. The smoke check
+# in CI (or `make runner-image && docker run ... command -v <bin>`) names
+# any binary that didn't end up on PATH, so a single bad pin doesn't
+# silently kill the whole image — it just narrows the diagnosis.
+#
+# The first block is strictly version-pinned (test_runner_image enforces).
+# The second block uses @latest for tools whose published-tag stories are
+# noisy enough that pinning is more brittle than helpful — see
+# test_runner_dockerfile_pins_versions_for_strict_tools for the strict set.
+RUN set -ux && \
+    go_install() { go install "$1" && echo "OK  $1" || echo "FAIL $1"; }; \
+    go_install "github.com/owasp-amass/amass/v4/cmd/amass@${AMASS_VERSION}"; \
+    go_install "github.com/tomnomnom/assetfinder@${ASSETFINDER_VERSION}"; \
+    go_install "github.com/edoardottt/cariddi/cmd/cariddi@${CARIDDI_VERSION}"; \
+    go_install "github.com/projectdiscovery/chaos-client/cmd/chaos@${CHAOS_VERSION}"; \
+    go_install "github.com/hahwul/dalfox/v2@${DALFOX_VERSION}"; \
+    go_install "github.com/projectdiscovery/dnsx/cmd/dnsx@${DNSX_VERSION}"; \
+    go_install "github.com/ffuf/ffuf/v2@${FFUF_VERSION}"; \
+    go_install "github.com/lc/gau/v2/cmd/gau@${GAU_VERSION}"; \
+    go_install "github.com/jaeles-project/gospider@${GOSPIDER_VERSION}"; \
+    go_install "github.com/projectdiscovery/httpx/cmd/httpx@${HTTPX_VERSION}"; \
+    go_install "github.com/projectdiscovery/katana/cmd/katana@${KATANA_VERSION}"; \
+    go_install "github.com/projectdiscovery/naabu/v2/cmd/naabu@${NAABU_VERSION}"; \
+    go_install "github.com/projectdiscovery/nuclei/v3/cmd/nuclei@${NUCLEI_VERSION}"; \
+    go_install "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@${SUBFINDER_VERSION}"; \
+    go_install "github.com/projectdiscovery/tlsx/cmd/tlsx@${TLSX_VERSION}"; \
+    go_install "github.com/projectdiscovery/uncover/cmd/uncover@${UNCOVER_VERSION}"; \
+    go_install "github.com/tomnomnom/waybackurls@${WAYBACKURLS_VERSION}"; \
+    go_install "github.com/lobuhi/byp4xx@${BYP4XX_VERSION}"; \
+    go_install "github.com/glebarez/cero@${CERO_VERSION}"; \
+    go_install "github.com/BishopFox/cloudfox@${CLOUDFOX_VERSION}"; \
+    go_install "github.com/devploit/dontgo403@${DONTGO403_VERSION}"; \
+    go_install "github.com/jaeles-project/jaeles@${JAELES_VERSION}"; \
+    go_install "github.com/projectdiscovery/notify/cmd/notify@${NOTIFY_VERSION}"; \
+    go_install "github.com/google/osv-scanner/cmd/osv-scanner@${OSV_SCANNER_VERSION}"; \
+    go_install "github.com/projectdiscovery/proxify/cmd/proxify@${PROXIFY_VERSION}"; \
+    go_install "github.com/projectdiscovery/asnmap/cmd/asnmap@latest"; \
+    go_install "github.com/projectdiscovery/urlfinder/cmd/urlfinder@latest"; \
+    go_install "github.com/hakluke/hakrawler@latest"; \
+    go_install "github.com/sensepost/gowitness@latest"; \
+    go_install "github.com/bp0lr/gauplus@latest"; \
+    go_install "github.com/tomnomnom/qsreplace@latest"; \
+    go_install "github.com/tomnomnom/gf@latest"; \
+    true
 
 # ---- Python tools via pipx (each in its own venv) ---------------------------
 # pipx ensures these don't fight with the API's dependencies.
@@ -96,12 +114,25 @@ ARG URO_VERSION=1.0.0
 ARG WAYMORE_VERSION=4.4.7
 ARG XNLINKFINDER_VERSION=2.0.7
 ARG WAPPALYZER_VERSION=2.1.0
+# Round-2 additions
+ARG BBOT_VERSION=2.1.1
+ARG PROWLER_VERSION=4.5.0
+ARG SCOUTSUITE_VERSION=5.14.0
+ARG APKLEAKS_VERSION=2.6.3
+ARG DIRHUNT_VERSION=0.9.4
+ARG URLESS_VERSION=1.4.0
 
 RUN pipx install "arjun==${ARJUN_VERSION}" || true && \
     pipx install "uro==${URO_VERSION}" || true && \
     pipx install "waymore==${WAYMORE_VERSION}" || true && \
     pipx install "xnLinkFinder==${XNLINKFINDER_VERSION}" || true && \
-    pipx install "wappalyzer==${WAPPALYZER_VERSION}" || true
+    pipx install "wappalyzer==${WAPPALYZER_VERSION}" || true && \
+    pipx install "bbot==${BBOT_VERSION}" || true && \
+    pipx install "prowler==${PROWLER_VERSION}" || true && \
+    pipx install "scoutsuite==${SCOUTSUITE_VERSION}" || true && \
+    pipx install "apkleaks==${APKLEAKS_VERSION}" || true && \
+    pipx install "dirhunt==${DIRHUNT_VERSION}" || true && \
+    pipx install "urless==${URLESS_VERSION}" || true
 
 # ---- Nuclei templates --------------------------------------------------------
 # Materialize templates so the first nuclei run doesn't fight the network.

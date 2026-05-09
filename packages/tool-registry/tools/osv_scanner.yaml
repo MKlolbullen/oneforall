@@ -1,0 +1,37 @@
+id: osv_scanner
+name: "OSV-Scanner"
+category: supply-chain
+description: "Google OSV-based dependency vulnerability scanner."
+binary: osv-scanner
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: results
+  type: text
+command:
+  argv:
+  - "osv-scanner"
+  - "--format"
+  - "json"
+  - "--lockfile"
+  - "{{target}}"
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- sca
+- vulndb
+- google
+install:
+  method: go_install
+  package: "github.com/google/osv-scanner/cmd/osv-scanner@latest"
+dry_run_output:
+- "{\"results\":[{\"source\":{\"path\":\"package-lock.json\"},\"packages\":[]}]}"

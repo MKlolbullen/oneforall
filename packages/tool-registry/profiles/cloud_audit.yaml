@@ -1,0 +1,26 @@
+id: cloud_audit
+name: Cloud security audit
+risk: high_active
+description: |
+  Multi-cloud security audit. Reads from cloud APIs with whatever credentials
+  the runner image has been granted; never run against a cloud account you
+  don't own. The three tools here have overlapping coverage on AWS but
+  different angles — Prowler is compliance-focused, ScoutSuite produces a
+  reviewable HTML report, CloudFox surfaces lateral-movement paths.
+steps:
+- tool: prowler
+  timeout_seconds: 3600
+  max_retries: 0
+  continue_on_error: true
+- tool: scoutsuite
+  timeout_seconds: 3600
+  max_retries: 0
+  continue_on_error: true
+- tool: cloudfox
+  timeout_seconds: 1800
+  max_retries: 0
+  continue_on_error: true
+- tool: osv_scanner
+  timeout_seconds: 600
+  max_retries: 1
+  continue_on_error: true

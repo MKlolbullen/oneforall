@@ -4,6 +4,10 @@ import { ReactFlow, Background, Controls, Handle, Position } from '@xyflow/react
 import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
 import { classifyArtifact } from './lib/artifactKind';
+import { TargetDetail } from './lib/TargetDetail';
+import { AdvicePanel } from './lib/AdvicePanel';
+import { NetworkTab } from './lib/NetworkTab';
+import { applyTheme, loadTheme, persistTheme, THEMES, type Theme } from './lib/theme';
 import type { Artifact, DashboardStats, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from './types';
 
 type Page = 'dashboard' | 'targets' | 'runs' | 'tools' | 'workflow' | 'settings';
@@ -32,10 +36,16 @@ function availabilityLabel(check?: ToolAvailability) {
 export function App() {
   const [page, setPage] = useState<Page>('dashboard');
   const [health, setHealth] = useState<Record<string, unknown>>({});
+  const [theme, setTheme] = useState<Theme>(() => loadTheme());
 
   useEffect(() => {
     api.health().then(setHealth).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    applyTheme(theme);
+    persistTheme(theme);
+  }, [theme]);
 
   return (
     <div className="shell">
@@ -55,6 +65,12 @@ export function App() {
           <div className="row">
             <span className="badge passive">{String(health.execution_mode ?? 'unknown')} mode</span>
             {health.live_execution_enabled === true ? <span className="badge active">live execution</span> : <span className="badge passive">dry-run safe</span>}
+            <label className="theme-toggle muted" title="Switch UI theme">
+              theme
+              <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
+                {THEMES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+            </label>
           </div>
         </div>
         <div className="content">
@@ -107,6 +123,7 @@ function Targets() {
   const [workspaceId, setWorkspaceId] = useState('');
   const [value, setValue] = useState('');
   const [activeAllowed, setActiveAllowed] = useState(false);
+  const [selected, setSelected] = useState<Target | null>(null);
 
   const liveEnabled = health.live_execution_enabled === true;
 
@@ -140,6 +157,10 @@ function Targets() {
     }
   };
 
+  if (selected) {
+    return <TargetDetail target={selected} onClose={() => setSelected(null)} />;
+  }
+
   return (
     <div className="grid cols-2">
       <div className="card">
@@ -161,7 +182,7 @@ function Targets() {
       <div className="card" style={{ gridColumn: '1 / -1' }}>
         <h3>Targets</h3>
         <table className="table"><thead><tr><th>Value</th><th>Type</th><th>Scope</th><th>Active</th><th>Launch</th></tr></thead><tbody>
-          {targets.map((t) => <tr key={t.id}><td>{t.value}</td><td>{t.type}</td><td>{t.in_scope ? <span className="badge ok">in scope</span> : <span className="badge bad">out</span>}</td><td>{t.active_allowed ? <span className="badge active">authorized</span> : <span className="badge">blocked</span>}</td><td><div className="launch-grid">{profiles.map((p) => {
+          {targets.map((t) => <tr key={t.id}><td><button className="link" onClick={() => setSelected(t)} type="button">{t.value}</button></td><td>{t.type}</td><td>{t.in_scope ? <span className="badge ok">in scope</span> : <span className="badge bad">out</span>}</td><td>{t.active_allowed ? <span className="badge active">authorized</span> : <span className="badge">blocked</span>}</td><td><div className="launch-grid">{profiles.map((p) => {
             const check = profileAvailability[p.id];
             const blocked = liveEnabled && check && !check.runnable;
             return <button key={p.id} className={blocked ? 'btn disabledish' : 'btn'} disabled={Boolean(blocked)} title={blocked ? `Missing: ${check?.missing_tools.join(', ')}` : 'Runnable'} onClick={() => launch(t, p.id)}>
@@ -198,11 +219,14 @@ function RunTable({ runs, onSelect }: { runs: Run[]; onSelect?: (run: Run) => vo
   </tbody></table>;
 }
 
+type RunTab = 'console' | 'steps' | 'network' | 'artifacts' | 'advisor';
+
 function RunConsole({ run, onChanged }: { run: Run; onChanged?: () => void }) {
   const [events, setEvents] = useState<RunEvent[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [steps, setSteps] = useState<RunStep[]>([]);
   const [selected, setSelected] = useState<Artifact | null>(null);
+  const [tab, setTab] = useState<RunTab>('console');
 
   const reloadArtifacts = () => api.runArtifacts(run.id).then(setArtifacts).catch(console.error);
   const reloadSteps = () => api.runSteps(run.id).then(setSteps).catch(console.error);
@@ -232,40 +256,77 @@ function RunConsole({ run, onChanged }: { run: Run; onChanged?: () => void }) {
 
   const canCancel = run.status === 'queued' || run.status === 'running';
 
+  const tabs: { id: RunTab; label: string; badge?: string | number }[] = [
+    { id: 'console', label: 'Console' },
+    { id: 'steps', label: 'Steps', badge: steps.length },
+    { id: 'network', label: 'Network' },
+    { id: 'artifacts', label: 'Artifacts', badge: artifacts.length },
+    { id: 'advisor', label: 'Advisor' },
+  ];
+
   return <div className="grid">
     <div className="row space">
       <span className={`badge ${run.status === 'completed' ? 'ok' : run.status === 'failed' || run.status === 'cancelled' ? 'bad' : 'passive'}`}>{run.status}</span>
       <button className="btn danger" disabled={!canCancel} onClick={cancel}>Cancel run</button>
     </div>
-    <div>
-      <div className="row space"><strong>Steps</strong><span className="muted">timeout / retry policy</span></div>
-      <table className="table compact"><thead><tr><th>#</th><th>Tool</th><th>Status</th><th>Try</th><th>Timeout</th></tr></thead><tbody>
-        {steps.map((step) => <tr key={step.id}><td>{step.index}</td><td>{step.tool_name}</td><td><span className={`badge ${step.status === 'completed' ? 'ok' : step.status === 'failed' || step.status === 'timed_out' || step.status === 'cancelled' ? 'bad' : 'passive'}`}>{step.status}</span></td><td>{step.attempt}/{step.max_retries + 1}</td><td>{step.timeout_seconds}s</td></tr>)}
-      </tbody></table>
+    <div className="row" role="tablist">
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          aria-selected={tab === t.id}
+          className={`btn small ${tab === t.id ? '' : 'disabledish'}`}
+          onClick={() => setTab(t.id)}
+        >
+          {t.label}{t.badge !== undefined && <span className="badge passive" style={{ marginLeft: 6 }}>{t.badge}</span>}
+        </button>
+      ))}
     </div>
-    <div className="console">{events.map((e) => <div key={e.id} className={`console-line ${e.level}`}>[{e.sequence.toString().padStart(3, '0')}] {e.type}: {e.message}</div>)}</div>
-    <div>
-      <div className="row space"><strong>Artifacts</strong><span className="muted">{artifacts.length} files · click to preview</span></div>
-      <div className="artifact-list">{artifacts.map((artifact) => {
-        const kind = classifyArtifact(artifact);
-        const isSelected = selected?.id === artifact.id;
-        return (
-          <button
-            key={artifact.id}
-            className={`artifact ${isSelected ? 'selected' : ''}`}
-            onClick={() => setSelected(isSelected ? null : artifact)}
-            type="button"
-          >
-            <span className="row">
-              <span className="badge passive">{kind}</span>
-              <span className="mono">{artifact.name}</span>
-            </span>
-            <small>{artifact.storage_backend} · {(artifact.size_bytes / 1024).toFixed(1)} KB</small>
-          </button>
-        );
-      })}</div>
-      {selected && <ArtifactExplorer artifact={selected} onClose={() => setSelected(null)} />}
-    </div>
+    {tab === 'console' && (
+      <div className="console">{events.map((e) => <div key={e.id} className={`console-line ${e.level}`}>[{e.sequence.toString().padStart(3, '0')}] {e.type}: {e.message}</div>)}</div>
+    )}
+    {tab === 'steps' && (
+      <div>
+        <div className="row space"><strong>Steps</strong><span className="muted">timeout / retry policy</span></div>
+        <table className="table compact"><thead><tr><th>#</th><th>Tool</th><th>Status</th><th>Try</th><th>Timeout</th></tr></thead><tbody>
+          {steps.map((step) => <tr key={step.id}><td>{step.index}</td><td>{step.tool_name}</td><td><span className={`badge ${step.status === 'completed' ? 'ok' : step.status === 'failed' || step.status === 'timed_out' || step.status === 'cancelled' ? 'bad' : 'passive'}`}>{step.status}</span></td><td>{step.attempt}/{step.max_retries + 1}</td><td>{step.timeout_seconds}s</td></tr>)}
+        </tbody></table>
+      </div>
+    )}
+    {tab === 'network' && <NetworkTab runId={run.id} />}
+    {tab === 'artifacts' && (
+      <div>
+        <div className="row space"><strong>Artifacts</strong><span className="muted">{artifacts.length} files · click to preview</span></div>
+        <div className="artifact-list">{artifacts.map((artifact) => {
+          const kind = classifyArtifact(artifact);
+          const isSelected = selected?.id === artifact.id;
+          return (
+            <button
+              key={artifact.id}
+              className={`artifact ${isSelected ? 'selected' : ''}`}
+              onClick={() => setSelected(isSelected ? null : artifact)}
+              type="button"
+            >
+              <span className="row">
+                <span className="badge passive">{kind}</span>
+                <span className="mono">{artifact.name}</span>
+              </span>
+              <small>{artifact.storage_backend} · {(artifact.size_bytes / 1024).toFixed(1)} KB</small>
+            </button>
+          );
+        })}</div>
+        {selected && <ArtifactExplorer artifact={selected} onClose={() => setSelected(null)} />}
+      </div>
+    )}
+    {tab === 'advisor' && (
+      <AdvicePanel
+        label="Triage with Claude"
+        refKey={run.id}
+        fetchCached={() => api.getRunTriage(run.id)}
+        invoke={() => api.triageRun(run.id)}
+      />
+    )}
   </div>;
 }
 
@@ -361,6 +422,13 @@ function SettingsPack() {
   const [patterns, setPatterns] = useState<GrepPatternPack | null>(null);
   const [wordlists, setWordlists] = useState<WordlistInfo[]>([]);
   const [plugins, setPlugins] = useState<PluginToggle[]>([]);
+  const [theme, setTheme] = useState<Theme>(() => loadTheme());
+
+  const onThemeChange = (next: Theme) => {
+    setTheme(next);
+    applyTheme(next);
+    persistTheme(next);
+  };
 
   const reload = async () => {
     const [cfg, pats, words, plugs] = await Promise.all([
@@ -383,6 +451,39 @@ function SettingsPack() {
   const pluginGroups = Array.from(new Set(plugins.map((item) => item.group))).sort();
 
   return <div className="grid">
+    <div className="card">
+      <div className="row space"><h3>Appearance</h3><span className="muted">Choose how the UI should look. Persisted in localStorage.</span></div>
+      <div className="theme-grid">
+        {THEMES.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={`theme-swatch ${theme === t.id ? 'selected' : ''}`}
+            onClick={() => onThemeChange(t.id)}
+            aria-pressed={theme === t.id}
+          >
+            <div className={`theme-swatch-preview theme-preview-${t.id}`}>
+              <div className="theme-preview-bar" />
+              <div className="theme-preview-card">
+                <div className="theme-preview-line w60" />
+                <div className="theme-preview-line w40" />
+                <div className="theme-preview-line w80" />
+              </div>
+              <div className="theme-preview-pills">
+                <span className="theme-preview-pill ok">passed</span>
+                <span className="theme-preview-pill warn">warning</span>
+                <span className="theme-preview-pill bad">critical</span>
+              </div>
+            </div>
+            <div className="theme-swatch-meta">
+              <strong>{t.label}</strong>
+              <small className="muted">{t.description}</small>
+              {theme === t.id && <span className="badge ok">active</span>}
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
     <div className="grid cols-3">
       <Metric title="Enabled Plugins" value={enabledPlugins} icon={<Activity />} />
       <Metric title="Wordlists" value={wordlists.length} icon={<Boxes />} />

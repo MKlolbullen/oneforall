@@ -1,0 +1,36 @@
+id: proxify
+name: "Proxify"
+category: probing
+description: "ProjectDiscovery man-in-the-middle proxy for capturing & replaying HTTP/S traffic."
+binary: proxify
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: results
+  type: text
+command:
+  argv:
+  - "proxify"
+  - "-output"
+  - "/tmp/proxify-{{target}}.jsonl"
+  - "-silent"
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- http
+- proxy
+install:
+  method: go_install
+  package: "github.com/projectdiscovery/proxify/cmd/proxify@latest"
+dry_run_output:
+- "{\"request\":\"GET / HTTP/1.1\",\"host\":\"www.example.com\"}"

@@ -1,0 +1,22 @@
+id: access_bypass
+name: Access bypass sweep
+risk: low_active
+description: |
+  Run after content-discovery has surfaced a list of forbidden endpoints.
+  Pipes the same {{upstream.url_list.merged_path}} (typically from ffuf /
+  feroxbuster) through both byp4xx and dontgo403, then has dirhunt do a
+  passive search for additional paths. Cheap, focused, useful when a target
+  hides a lot behind 403/401.
+steps:
+- tool: byp4xx
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true
+- tool: dontgo403
+  timeout_seconds: 1800
+  max_retries: 1
+  continue_on_error: true
+- tool: dirhunt
+  timeout_seconds: 1200
+  max_retries: 1
+  continue_on_error: true

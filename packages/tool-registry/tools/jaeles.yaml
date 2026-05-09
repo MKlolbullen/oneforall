@@ -1,0 +1,40 @@
+id: jaeles
+name: "Jaeles"
+category: vulnerability-scanning
+description: "Signature-based scanner for automated and adaptive web testing."
+binary: jaeles
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: results
+  type: text
+command:
+  argv:
+  - "jaeles"
+  - "scan"
+  - "-u"
+  - "https://{{target}}"
+  - "-c"
+  - "20"
+  - "-s"
+  - "/jaeles-signatures"
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- vulnerability
+- signatures
+- go
+install:
+  method: go_install
+  package: "github.com/jaeles-project/jaeles@latest"
+dry_run_output:
+- "[VULN] [common-info] [critical] https://www.example.com/.git/HEAD"

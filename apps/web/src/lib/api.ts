@@ -1,4 +1,4 @@
-import type { Artifact, DashboardStats, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
+import type { Advice, Artifact, Asset, DashboardStats, Finding, GrepPatternPack, HttpExchangeDetail, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000';
@@ -25,6 +25,13 @@ export const api = {
     request<Target[]>(`/api/targets${workspaceId ? `?workspace_id=${workspaceId}` : ''}`),
   createTarget: (payload: Partial<Target>) =>
     request<Target>('/api/targets', { method: 'POST', body: JSON.stringify(payload) }),
+  target: (id: string) => request<Target>(`/api/targets/${id}`),
+  targetRuns: (id: string) => request<Run[]>(`/api/targets/${id}/runs`),
+  targetAssets: (id: string, type?: string) =>
+    request<Asset[]>(`/api/targets/${id}/assets${type ? `?type=${encodeURIComponent(type)}` : ''}`),
+  targetFindings: (id: string) => request<Finding[]>(`/api/targets/${id}/findings`),
+  targetSummary: (id: string) => request<TargetSummary>(`/api/targets/${id}/summary`),
+  targetTech: (id: string) => request<TargetTech>(`/api/targets/${id}/tech`),
   runs: () => request<Run[]>('/api/runs'),
   createRun: (payload: { workspace_id: string; target_id: string; profile_id: string }) =>
     request<Run>('/api/runs', { method: 'POST', body: JSON.stringify(payload) }),
@@ -43,4 +50,40 @@ export const api = {
   pluginMatrix: () => request<PluginToggle[]>('/api/config/plugin-matrix'),
   reloadConfig: () => request<{ status: string }>('/api/config/reload', { method: 'POST' }),
   wsUrl: (runId: string) => `${WS_BASE_URL}/ws/runs/${runId}`,
+
+  // Advisor — Claude-backed analysis. POSTs hit the model and persist; GETs
+  // read back the cached row (200 with body or null when none yet).
+  getRunTriage: (runId: string) =>
+    request<Advice | null>(`/api/advisor/runs/${runId}/triage`),
+  triageRun: (runId: string) =>
+    request<Advice>(`/api/advisor/runs/${runId}/triage`, { method: 'POST' }),
+  getTargetSuggestion: (targetId: string) =>
+    request<Advice | null>(`/api/advisor/targets/${targetId}/suggest-profile`),
+  suggestProfile: (targetId: string) =>
+    request<Advice>(`/api/advisor/targets/${targetId}/suggest-profile`, { method: 'POST' }),
+  getFindingExplain: (findingId: string) =>
+    request<Advice | null>(`/api/advisor/findings/${findingId}/explain`),
+  explainFinding: (findingId: string) =>
+    request<Advice>(`/api/advisor/findings/${findingId}/explain`, { method: 'POST' }),
+
+  runNetwork: (runId: string, opts: {
+    host?: string;
+    method?: string;
+    status?: number;
+    step?: number;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.host) params.set('host', opts.host);
+    if (opts.method) params.set('method', opts.method);
+    if (opts.status != null) params.set('status', String(opts.status));
+    if (opts.step != null) params.set('step', String(opts.step));
+    if (opts.limit != null) params.set('limit', String(opts.limit));
+    if (opts.offset != null) params.set('offset', String(opts.offset));
+    const qs = params.toString();
+    return request<NetworkPage>(`/api/runs/${runId}/network${qs ? `?${qs}` : ''}`);
+  },
+  runExchange: (runId: string, exchangeId: string) =>
+    request<HttpExchangeDetail>(`/api/runs/${runId}/network/${exchangeId}`),
 };

@@ -1,0 +1,35 @@
+id: byp4xx
+name: "byp4xx"
+category: content-discovery
+description: "40x bypass tester: tries header / verb / path tricks against forbidden endpoints."
+binary: byp4xx
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: results
+  type: text
+command:
+  argv:
+  - "byp4xx"
+  - "https://{{target}}/admin"
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- bypass
+- auth
+- "401"
+- "403"
+install:
+  method: go_install
+  package: "github.com/lobuhi/byp4xx@latest"
+dry_run_output:
+- "[200] /admin..;/ via path tweak"

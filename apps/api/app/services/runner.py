@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import os
 import shlex
 import signal
@@ -12,11 +13,15 @@ from typing import Any, Callable
 
 from sqlmodel import Session, select
 
+logger = logging.getLogger(__name__)
+
 from app.core.config import get_settings
 from app.models import Artifact, Run, RunStatus, RunStep, StepStatus, now_utc
 from app.services.artifacts import ArtifactStore
 from app.services.events import event_bus
+from app.services import http_capture
 from app.services.normalizer import normalize_tool_line
+from app.services.notifications import notify_run_event
 from app.services.queue import clear_run_cancel, is_run_cancel_requested
 from app.services.tool_availability import check_tool_availability
 from app.services.tool_registry import ToolRegistry
@@ -64,6 +69,9 @@ class RunContext:
     step_outputs: list[StepOutput] = field(default_factory=list)
     upstream_merged: dict[str, Path] = field(default_factory=dict)
     upstream_seen: dict[str, set[str]] = field(default_factory=dict)
+    # Optional HTTP capture: only set in live mode if proxify is on PATH.
+    # See app.services.http_capture.
+    capture: Any | None = None
 
     def __post_init__(self) -> None:
         self.base_dir.mkdir(parents=True, exist_ok=True)
@@ -290,6 +298,10 @@ def _update_step(
 
 async def execute_run(run_id: str, registry: ToolRegistry, session_factory: SessionFactory) -> None:
     settings = get_settings()
+    # Pre-declared so the cancellation / failure handlers below can stop the
+    # proxify sidecar even if the early lifecycle raised before the per-run
+    # RunContext was created.
+    ctx: RunContext | None = None
 
     with session_factory() as session:
         run = session.get(Run, run_id)
@@ -326,6 +338,13 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
             workspace_id=workspace_id,
             base_dir=Path(settings.artifact_dir) / "runs" / run_id / "step_outputs",
         )
+
+        # Start a per-run proxify sidecar so tool subprocesses' HTTP traffic is
+        # captured. Only in live mode; dry runs have no real network to record.
+        if settings.live_execution_enabled:
+            ctx.capture = http_capture.start_for_run(
+                run_id, Path(settings.artifact_dir),
+            )
 
         for index, step_config in enumerate(profile.get("steps", []), start=1):
             if await _cancel_requested(session_factory, run_id):
@@ -371,6 +390,21 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
                 session.commit()
             await event_bus.publish(session, run_id, "run.completed", "Run completed")
             await clear_run_cancel(run_id)
+        await notify_run_event("run.completed", run_id, {
+            "profile_id": profile_id,
+            "target_value": config_snapshot.get("target_value"),
+            "runner_mode": settings.runner_mode,
+        })
+        if ctx is not None and ctx.capture is not None:
+            with session_factory() as session:
+                steps = list(session.exec(
+                    select(RunStep).where(RunStep.run_id == run_id).order_by(RunStep.index)
+                ).all())
+                with contextlib.suppress(Exception):
+                    http_capture.drain(ctx.capture, session, run_id=run_id,
+                                       workspace_id=workspace_id, steps=steps)
+                    session.commit()
+            await http_capture.stop(ctx.capture)
     except RunCancelled as exc:
         with session_factory() as session:
             run = session.get(Run, run_id)
@@ -387,6 +421,13 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
                 level="warning",
                 payload={"error": str(exc)},
             )
+        await notify_run_event("run.cancelled", run_id, {
+            "profile_id": profile_id,
+            "target_value": config_snapshot.get("target_value"),
+            "error": str(exc),
+        })
+        if ctx is not None and ctx.capture is not None:
+            await http_capture.stop(ctx.capture)
     except Exception as exc:  # noqa: BLE001 - preserve crash reason in event stream
         with session_factory() as session:
             run = session.get(Run, run_id)
@@ -403,6 +444,13 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
                 level="error",
                 payload={"error": repr(exc)},
             )
+        await notify_run_event("run.failed", run_id, {
+            "profile_id": profile_id,
+            "target_value": config_snapshot.get("target_value"),
+            "error": repr(exc),
+        })
+        if ctx is not None and ctx.capture is not None:
+            await http_capture.stop(ctx.capture)
 
 
 async def _execute_step_with_retries(
@@ -483,6 +531,7 @@ async def _execute_step_with_retries(
                         tool_id,
                         final_argv,
                         timeout_seconds=policy["timeout_seconds"],
+                        extra_env=http_capture.proxy_env(ctx.capture),
                     )
             else:
                 captured = await _run_dry_tool(
@@ -498,6 +547,22 @@ async def _execute_step_with_retries(
 
             with session_factory() as session:
                 _update_step(session, step_id, status=StepStatus.completed, exit_code=0, finished=True)
+                # Drain proxify's JSONL into HttpExchange rows, tagging each by
+                # the step that was running. Best-effort — capture failures
+                # never fail a step.
+                if ctx.capture is not None:
+                    try:
+                        steps = list(session.exec(
+                            select(RunStep).where(RunStep.run_id == run_id).order_by(RunStep.index)
+                        ).all())
+                        http_capture.drain(
+                            ctx.capture, session,
+                            run_id=run_id, workspace_id=workspace_id, steps=steps,
+                        )
+                        session.commit()
+                    except Exception as drain_exc:  # noqa: BLE001
+                        logger.warning("[%s] http_capture.drain failed: %s",
+                                       run_id, drain_exc)
                 await event_bus.publish(
                     session,
                     run_id,
@@ -643,14 +708,19 @@ async def _run_live_tool(
     argv: list[str],
     *,
     timeout_seconds: int,
+    extra_env: dict[str, str] | None = None,
 ) -> list[str]:
     if not argv:
         raise RuntimeError(f"Tool {tool_id} has no argv template")
 
+    env = None
+    if extra_env:
+        env = {**os.environ, **extra_env}
     proc = await asyncio.create_subprocess_exec(
         *argv,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        env=env,
         start_new_session=True,
     )
 

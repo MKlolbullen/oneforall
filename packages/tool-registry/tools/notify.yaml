@@ -1,0 +1,35 @@
+id: notify
+name: "Notify"
+category: reconnaissance
+description: "ProjectDiscovery notification dispatcher; pipes findings to Slack/Discord/etc."
+binary: notify
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: results
+  type: text
+command:
+  argv:
+  - "notify"
+  - "-id"
+  - "{{target}}"
+  - "-silent"
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- alerting
+install:
+  method: go_install
+  package: "github.com/projectdiscovery/notify/cmd/notify@latest"
+dry_run_output:
+- "[notify] dispatched 3 events"

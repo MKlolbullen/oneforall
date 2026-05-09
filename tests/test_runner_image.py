@@ -20,18 +20,45 @@ PROFILES_DIR = REPO / "packages" / "tool-registry" / "profiles"
 # These are the ones a fresh `docker compose up` user is likely to launch.
 CRITICAL_PROFILES = {"passive_recon"}
 
+# Tools that MUST be strictly pinned. Anything outside this set may use @latest
+# (and many do — published-tag stories for tomnomnom utilities and abandoned
+# repos are noisy enough that pinning is more brittle than helpful).
+STRICT_PINS = {
+    # PD core
+    "subfinder", "dnsx", "httpx", "naabu", "nuclei", "katana", "tlsx",
+    "uncover", "chaos", "notify", "proxify",
+    # Other PD-adjacent
+    "amass", "assetfinder", "gau", "waybackurls", "ffuf", "dalfox",
+    "cariddi", "gospider",
+    # Round-2 cloud / vuln tooling
+    "byp4xx", "cero", "cloudfox", "dontgo403", "jaeles", "osv-scanner",
+}
+
 
 def test_runner_dockerfile_exists():
     assert RUNNER_DOCKERFILE.exists(), "Dockerfile.runner is missing"
 
 
-def test_runner_dockerfile_pins_versions_for_critical_tools():
+def test_runner_dockerfile_pins_versions_for_strict_tools():
+    """For every binary in STRICT_PINS, find its `go install` line and
+    assert it does NOT use @latest. Tools outside this set are allowed to
+    use @latest as a best-effort fallback."""
     body = RUNNER_DOCKERFILE.read_text()
-    # Every go install line must include a tag/version (no @latest)
-    bad = re.findall(r'go install "?[^"\n]*?@latest"?', body)
-    assert not bad, f"Dockerfile.runner uses @latest pins (bump to a tagged version): {bad}"
+    for binary in STRICT_PINS:
+        # Match `go install "github.com/.../<binary>@..."` or
+        # `go install "github.com/.../<binary>/cmd/<binary>@..."`
+        # Tolerate both `go install` and our `go_install` helper.
+        pattern = re.compile(
+            rf'go_?install "([^"]+\b{re.escape(binary)}[^"]*?@[^"]+)"'
+        )
+        match = pattern.search(body)
+        assert match, f"strict-pin tool {binary!r} has no go install line in runner image"
+        line = match.group(1)
+        assert not line.endswith("@latest"), \
+            f"strict-pin tool {binary!r} uses @latest in {line!r}"
 
-    # Every ARG that names a *_VERSION must be referenced in a go install line
+    # Every ARG that names a *_VERSION must be referenced somewhere — no
+    # dead version pins lying around.
     arg_versions = re.findall(r"^ARG\s+([A-Z0-9_]+_VERSION)=", body, flags=re.M)
     referenced = re.findall(r"\$\{([A-Z0-9_]+_VERSION)\}", body)
     unused = set(arg_versions) - set(referenced)
@@ -51,14 +78,14 @@ def test_runner_image_covers_passive_recon_tool_chain():
 
             if method == "go_install":
                 # Strip @version from registered package; we expect the image to
-                # have a pinned go install for it (binary == tool.binary).
+                # have a pinned install for it (binary == tool.binary). Accept
+                # either a literal `go install "..."` or our helper's
+                # `go_install "..."` form.
                 bin_name = tool.get("binary") or tool_id
-                # Match either a pinned `go install <package>@${X_VERSION}` line
-                # or apt-installed binaries like nmap.
-                assert (
-                    re.search(rf'go install "[^"]+\b{re.escape(bin_name)}\b[^"]*"', body)
-                    or re.search(rf'go install "[^"]+/{re.escape(bin_name)}@', body)
-                ), f"runner image does not install go binary for {tool_id} (binary={bin_name})"
+                pattern_a = re.compile(rf'go_?install "[^"]+\b{re.escape(bin_name)}\b[^"]*"')
+                pattern_b = re.compile(rf'go_?install "[^"]+/{re.escape(bin_name)}@')
+                assert pattern_a.search(body) or pattern_b.search(body), \
+                    f"runner image does not install go binary for {tool_id} (binary={bin_name})"
             elif method == "apt":
                 assert re.search(rf"apt-get install[^\n]*\b{re.escape(package)}\b", body), \
                     f"runner image apt-install missing for {tool_id}: {package}"

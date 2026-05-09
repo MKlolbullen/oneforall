@@ -151,3 +151,103 @@ export type PluginToggle = {
   plugin: string;
   enabled: boolean;
 };
+
+export type Asset = {
+  id: string;
+  workspace_id: string;
+  run_id?: string | null;
+  type: string;
+  value: string;
+  source: string;
+  confidence: number;
+  meta?: Record<string, unknown>;
+  first_seen: string;
+  last_seen: string;
+};
+
+export type Finding = {
+  id: string;
+  workspace_id: string;
+  run_id?: string | null;
+  asset_id?: string | null;
+  title: string;
+  severity: string;
+  confidence: string;
+  category: string;
+  status: string;
+  evidence?: string | null;
+  tool_source?: string | null;
+  meta?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TargetSummary = {
+  target: Target;
+  runs_total: number;
+  runs_by_status: Record<string, number>;
+  last_run_at: string | null;
+  assets_total: number;
+  assets_by_type: Record<string, number>;
+  findings_total: number;
+  findings_by_severity: Record<string, number>;
+};
+
+export type TargetTechRow = {
+  url: string;
+  title: string | null;
+  status_code: number | null;
+  tech: string[];
+  server: string | null;
+};
+
+export type TargetTech = {
+  tech: Record<string, number>;
+  servers: Record<string, number>;
+  by_url: TargetTechRow[];
+};
+
+export type HttpExchangeSummary = {
+  id: string;
+  started_at: string;
+  method: string;
+  url: string;
+  host: string;
+  response_status: number | null;
+  response_size_bytes: number | null;
+  duration_ms: number | null;
+  step_index: number | null;
+  tool_id: string | null;
+  error: string | null;
+};
+
+export type HttpExchangeDetail = HttpExchangeSummary & {
+  request_headers: Record<string, unknown>;
+  request_body: string;
+  request_body_truncated: boolean;
+  response_headers: Record<string, unknown>;
+  response_body: string;
+  response_body_truncated: boolean;
+};
+
+export type NetworkPage = {
+  total: number;
+  items: HttpExchangeSummary[];
+  hosts: string[];
+  methods: string[];
+  statuses: number[];
+};
+
+export type Advice = {
+  id: string;
+  workspace_id: string;
+  kind: 'run_triage' | 'target_suggest_profile' | 'finding_explain' | 'ask' | string;
+  ref_id: string | null;
+  actor_id: string | null;
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cached_tokens: number;
+  summary: string;
+  body: Record<string, unknown>;
+};

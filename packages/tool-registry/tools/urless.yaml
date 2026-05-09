@@ -1,0 +1,34 @@
+id: urless
+name: "urless"
+category: url-normalization
+description: "URL deduplication and noise reduction; complements uro/qsreplace."
+binary: urless
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: results
+  type: text
+command:
+  argv:
+  - "urless"
+  - "-i"
+  - "/dev/stdin"
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- dedupe
+- urls
+install:
+  method: pipx
+  package: "urless"
+dry_run_output:
+- "https://www.example.com/?id=FUZZ"

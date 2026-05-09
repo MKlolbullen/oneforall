@@ -254,6 +254,13 @@ Or compare against the API/runner image:
 API=http://localhost:8000 ./scripts/check-tools.sh
 ```
 
+## Theme
+
+Two dark themes. Toggle from the top bar; the choice persists in `localStorage`.
+
+- **Classic** — original cyan/teal look.
+- **PD Cloud** — ProjectDiscovery-cloud-inspired: pink + cyan dual accent, sharper card borders, JetBrains Mono for everything code-shaped, tighter rounded corners. Opt-in; not the default.
+
 ## Tool library
 
 The registry includes a clean-room, Sn1per/Enterprise-ASM-inspired set of **137** common building blocks. The categories are intentionally broad enough for a professional ASM/recon platform instead of a narrow “run a few bash tools” dashboard:
@@ -371,6 +378,29 @@ Do not expose this on the internet without real auth, TLS, runner isolation, rat
 3. ~~Add a real runner image with pinned tool versions and reproducible bootstrap.~~ **Done.**
 4. ~~Add Alembic migrations before serious multi-user use.~~ **Done.**
 5. ~~Add auth/RBAC and signed audit logs before any shared deployment.~~ **Done.** See "Auth & audit" below.
+
+## Per-target detail view
+
+The Targets page is now drill-in. Click a target value and you land on a per-target page with five tabs:
+
+- **Overview** — counts of runs/assets/findings, findings split by severity, assets split by type, runs by status, last run timestamp, scope/auth state.
+- **Assets** — every domain/url/ip/etc. asset discovered across runs against this target, with first-seen / last-seen and source tool. Filter by type.
+- **Findings** — every Finding row, sorted critical → high → medium → low → info. Click a row to expand evidence.
+- **Runs** — run history scoped to this target.
+- **Tech** — aggregated tech stack (`tech: [...]`, `webserver`) extracted from httpx-style JSON assets, plus a per-URL breakdown.
+
+Backend endpoints:
+
+```text
+GET /api/targets/{id}             # target itself
+GET /api/targets/{id}/runs        # runs scoped to target
+GET /api/targets/{id}/assets?type=url
+GET /api/targets/{id}/findings    # severity-ranked
+GET /api/targets/{id}/summary     # rolled-up counts
+GET /api/targets/{id}/tech        # tech aggregation from httpx-style assets
+```
+
+Asset isolation is tested explicitly: assets discovered through a run targeting host A do not appear in host B's view.
 
 ## Auth & audit
 

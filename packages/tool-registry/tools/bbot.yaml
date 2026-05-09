@@ -1,0 +1,39 @@
+id: bbot
+name: "BBOT"
+category: reconnaissance
+description: "Blacklanternsecurity Bee-Eye OSINT framework: modular, multi-stage automated recon."
+binary: bbot
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: results
+  type: text
+command:
+  argv:
+  - "bbot"
+  - "--target"
+  - "{{target}}"
+  - "--preset"
+  - "subdomain-enum"
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- osint
+- bug-bounty
+- automation
+install:
+  method: pipx
+  package: "bbot"
+dry_run_output:
+- "[INFO] bbot scan started"
+- "api.example.com"
+- "app.example.com"
