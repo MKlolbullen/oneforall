@@ -206,3 +206,17 @@ export type TargetTech = {
   servers: Record<string, number>;
   by_url: TargetTechRow[];
 };
+
+export type Advice = {
+  id: string;
+  workspace_id: string;
+  kind: 'run_triage' | 'target_suggest_profile' | 'finding_explain' | 'ask' | string;
+  ref_id: string | null;
+  actor_id: string | null;
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cached_tokens: number;
+  summary: string;
+  body: Record<string, unknown>;
+};

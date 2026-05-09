@@ -1,4 +1,4 @@
-import type { Artifact, Asset, DashboardStats, Finding, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
+import type { Advice, Artifact, Asset, DashboardStats, Finding, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000';
@@ -50,4 +50,19 @@ export const api = {
   pluginMatrix: () => request<PluginToggle[]>('/api/config/plugin-matrix'),
   reloadConfig: () => request<{ status: string }>('/api/config/reload', { method: 'POST' }),
   wsUrl: (runId: string) => `${WS_BASE_URL}/ws/runs/${runId}`,
+
+  // Advisor — Claude-backed analysis. POSTs hit the model and persist; GETs
+  // read back the cached row (200 with body or null when none yet).
+  getRunTriage: (runId: string) =>
+    request<Advice | null>(`/api/advisor/runs/${runId}/triage`),
+  triageRun: (runId: string) =>
+    request<Advice>(`/api/advisor/runs/${runId}/triage`, { method: 'POST' }),
+  getTargetSuggestion: (targetId: string) =>
+    request<Advice | null>(`/api/advisor/targets/${targetId}/suggest-profile`),
+  suggestProfile: (targetId: string) =>
+    request<Advice>(`/api/advisor/targets/${targetId}/suggest-profile`, { method: 'POST' }),
+  getFindingExplain: (findingId: string) =>
+    request<Advice | null>(`/api/advisor/findings/${findingId}/explain`),
+  explainFinding: (findingId: string) =>
+    request<Advice>(`/api/advisor/findings/${findingId}/explain`, { method: 'POST' }),
 };

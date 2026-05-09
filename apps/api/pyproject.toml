@@ -17,6 +17,9 @@ dependencies = [
   # Runtime: notifications.py POSTs webhooks; the TestClient also needs it,
   # but it's a hard runtime dep regardless.
   "httpx>=0.27",
+  # Claude advisor — defaults to claude-opus-4-7 with adaptive thinking + high
+  # effort. SDK requirement only; it reads ANTHROPIC_API_KEY from the env.
+  "anthropic>=0.38",
 ]
 
 [tool.ruff]

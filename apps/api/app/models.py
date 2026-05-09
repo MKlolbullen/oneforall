@@ -189,6 +189,31 @@ class APIKey(SQLModel, table=True):
     revoked_at: datetime | None = None
 
 
+class Advice(SQLModel, table=True):
+    """A stored Claude advisor response.
+
+    `kind` is one of:
+        run_triage                — analyse a completed run, prioritise findings
+        target_suggest_profile    — recommend the next profile for a target
+        finding_explain           — interpret one finding (severity, exploit,
+                                     remediation), bypassing template noise
+        ask                       — free-form Q&A; ref_id may be None
+    Re-running an advisor call replaces the row keyed by (workspace, kind, ref).
+    """
+    id: str = Field(default_factory=lambda: new_id("adv"), primary_key=True)
+    workspace_id: str = Field(index=True, foreign_key="workspace.id")
+    kind: str = Field(index=True, max_length=64)
+    ref_id: str | None = Field(default=None, index=True, max_length=64)
+    actor_id: str | None = Field(default=None, index=True)
+    model: str = Field(default="claude-opus-4-7", max_length=64)
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    cached_tokens: int = 0
+    summary: str = Field(default="")
+    body: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=now_utc)
+
+
 class AuditEvent(SQLModel, table=True):
     """Append-only, hash-chained audit trail.
 

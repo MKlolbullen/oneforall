@@ -5,6 +5,7 @@ import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
 import { classifyArtifact } from './lib/artifactKind';
 import { TargetDetail } from './lib/TargetDetail';
+import { AdvicePanel } from './lib/AdvicePanel';
 import { applyTheme, loadTheme, persistTheme, THEMES, type Theme } from './lib/theme';
 import type { Artifact, DashboardStats, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from './types';
 
@@ -263,6 +264,12 @@ function RunConsole({ run, onChanged }: { run: Run; onChanged?: () => void }) {
       </tbody></table>
     </div>
     <div className="console">{events.map((e) => <div key={e.id} className={`console-line ${e.level}`}>[{e.sequence.toString().padStart(3, '0')}] {e.type}: {e.message}</div>)}</div>
+    <AdvicePanel
+      label="Triage with Claude"
+      refKey={run.id}
+      fetchCached={() => api.getRunTriage(run.id)}
+      invoke={() => api.triageRun(run.id)}
+    />
     <div>
       <div className="row space"><strong>Artifacts</strong><span className="muted">{artifacts.length} files · click to preview</span></div>
       <div className="artifact-list">{artifacts.map((artifact) => {

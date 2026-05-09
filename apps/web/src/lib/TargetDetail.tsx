@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Boxes, Globe, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
 import { api } from './api';
+import { AdvicePanel } from './AdvicePanel';
 import type { Asset, Finding, Run, Target, TargetSummary, TargetTech } from '../types';
 
 type Props = {
@@ -177,6 +178,12 @@ export function TargetDetail({ target, onClose }: Props) {
                   <div className="kv"><span className="muted">Confidence</span><strong>{f.confidence}</strong></div>
                   <div className="kv"><span className="muted">Created</span><strong>{new Date(f.created_at).toLocaleString()}</strong></div>
                   {f.evidence && <pre className="finding-evidence">{f.evidence}</pre>}
+                  <AdvicePanel
+                    label="Explain with Claude"
+                    refKey={f.id}
+                    fetchCached={() => api.getFindingExplain(f.id)}
+                    invoke={() => api.explainFinding(f.id)}
+                  />
                 </div>
               </details>
             ))}
