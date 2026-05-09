@@ -32,19 +32,14 @@ def _env(monkeypatch, tmp_path):
     monkeypatch.setenv("EXECUTION_MODE", "dry_run")
     monkeypatch.setenv("ALLOW_LIVE_EXECUTION", "false")
     monkeypatch.setenv("RUNNER_MODE", "in_process")
+    monkeypatch.setenv("RECONFORGE_BOOTSTRAP_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("RECONFORGE_BOOTSTRAP_ADMIN_PASSWORD", "admin-passw0rd")
+    monkeypatch.setenv("RECONFORGE_TEST_AUTH_BYPASS", "1")
 
-    from app.core.config import get_settings
-    get_settings.cache_clear()
-    import app.db as db_mod
-    from sqlmodel import create_engine
-    new_engine = create_engine(f"sqlite:///{db_path}", echo=False,
-                                connect_args={"check_same_thread": False})
-    db_mod.engine = new_engine
-    import app.main as main_mod
-    main_mod.engine = new_engine
-    import app.api.routes.runs as runs_mod
-    runs_mod.engine = new_engine
+    from conftest import rebind_engine_to_database_url
+    rebind_engine_to_database_url()
     yield
+    from app.core.config import get_settings
     get_settings.cache_clear()
 
 
@@ -145,8 +140,9 @@ def test_passive_recon_chains_subfinder_into_dnsx_into_httpx():
     from fastapi.testclient import TestClient
     from app.main import app
 
+    headers = {"X-Test-User": "admin"}
     with TestClient(app) as client:
-        ws = client.get("/api/workspaces").json()[0]
+        ws = client.get("/api/workspaces", headers=headers).json()[0]
         # Seed target has active_allowed=False; adding httpx made passive_recon
         # low_active. Create a fresh target authorized for active scanning.
         created = client.post(
@@ -155,6 +151,7 @@ def test_passive_recon_chains_subfinder_into_dnsx_into_httpx():
                   "type": "domain", "in_scope": True,
                   "passive_allowed": True, "active_allowed": True,
                   "notes": "DAG test target"},
+            headers=headers,
         )
         assert created.status_code == 201, created.text
         target_id = created.json()["id"]
@@ -162,20 +159,23 @@ def test_passive_recon_chains_subfinder_into_dnsx_into_httpx():
             "/api/runs",
             json={"workspace_id": ws["id"], "target_id": target_id,
                   "profile_id": "passive_recon", "requested_by": "dag-test"},
+            headers=headers,
         )
         assert run.status_code == 201, run.text
         run_id = run.json()["id"]
 
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
-            r = client.get(f"/api/runs/{run_id}")
+            r = client.get(f"/api/runs/{run_id}", headers=headers)
             if r.json()["status"] == "completed":
                 break
             time.sleep(0.3)
         else:
-            raise AssertionError(f"run did not complete: {client.get(f'/api/runs/{run_id}').json()}")
+            raise AssertionError(
+                f"run did not complete: {client.get(f'/api/runs/{run_id}', headers=headers).json()}"
+            )
 
-        steps = client.get(f"/api/runs/{run_id}/steps").json()
+        steps = client.get(f"/api/runs/{run_id}/steps", headers=headers).json()
         by_tool = {s["tool_id"]: s for s in steps}
         assert "dnsx" in by_tool and "httpx" in by_tool
 

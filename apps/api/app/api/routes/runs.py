@@ -6,8 +6,10 @@ from sqlmodel import Session as SQLSession
 
 from app.core.config import get_settings
 from app.db import engine, get_session
-from app.models import Artifact, Asset, Finding, Run, RunEvent, RunStatus, RunStep, Target, now_utc
+from app.models import Artifact, Asset, Finding, Role, Run, RunEvent, RunStatus, RunStep, Target, User, now_utc
 from app.schemas import RunCreate
+from app.services import audit
+from app.services.auth import current_user, require_role
 from app.services.events import event_bus
 from app.services.queue import enqueue_run, request_run_cancel
 from app.services.runner import execute_run
@@ -24,12 +26,19 @@ def session_factory() -> SQLSession:
 
 
 @router.get("", response_model=list[Run])
-def list_runs(session: Session = Depends(get_session)) -> list[Run]:
+def list_runs(
+    session: Session = Depends(get_session),
+    _user: User = Depends(current_user),
+) -> list[Run]:
     return list(session.exec(select(Run).order_by(Run.created_at.desc())).all())
 
 
 @router.post("", response_model=Run, status_code=201)
-async def create_run(payload: RunCreate, session: Session = Depends(get_session)) -> Run:
+async def create_run(
+    payload: RunCreate,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_role(Role.operator)),
+) -> Run:
     target = session.get(Target, payload.target_id)
     if not target:
         raise HTTPException(status_code=404, detail="Target not found")
@@ -65,7 +74,7 @@ async def create_run(payload: RunCreate, session: Session = Depends(get_session)
         workspace_id=payload.workspace_id,
         target_id=payload.target_id,
         profile_id=payload.profile_id,
-        requested_by=payload.requested_by,
+        requested_by=user.username,
         risk=risk,
         config_snapshot={
             "platform_config": load_platform_config(),
@@ -78,6 +87,13 @@ async def create_run(payload: RunCreate, session: Session = Depends(get_session)
     session.add(run)
     session.commit()
     session.refresh(run)
+
+    audit.record(
+        session, actor=user, action="run.created",
+        target_kind="run", target_id=run.id,
+        payload={"profile_id": run.profile_id, "target_id": run.target_id, "risk": run.risk.value},
+    )
+    session.commit()
 
     await event_bus.publish(
         session,
@@ -96,7 +112,7 @@ async def create_run(payload: RunCreate, session: Session = Depends(get_session)
 
 
 @router.get("/{run_id}", response_model=Run)
-def get_run(run_id: str, session: Session = Depends(get_session)) -> Run:
+def get_run(run_id: str, session: Session = Depends(get_session), _user: User = Depends(current_user)) -> Run:
     run = session.get(Run, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
@@ -104,7 +120,11 @@ def get_run(run_id: str, session: Session = Depends(get_session)) -> Run:
 
 
 @router.post("/{run_id}/cancel")
-async def cancel_run(run_id: str, session: Session = Depends(get_session)) -> Run:
+async def cancel_run(
+    run_id: str,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_role(Role.operator)),
+) -> Run:
     run = session.get(Run, run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
@@ -117,6 +137,9 @@ async def cancel_run(run_id: str, session: Session = Depends(get_session)) -> Ru
     session.add(run)
     session.commit()
     session.refresh(run)
+    audit.record(session, actor=user, action="run.cancel_requested",
+                 target_kind="run", target_id=run.id, payload={})
+    session.commit()
     await event_bus.publish(
         session,
         run.id,
@@ -129,25 +152,45 @@ async def cancel_run(run_id: str, session: Session = Depends(get_session)) -> Ru
 
 
 @router.get("/{run_id}/events", response_model=list[RunEvent])
-def get_run_events(run_id: str, session: Session = Depends(get_session)) -> list[RunEvent]:
+def get_run_events(
+    run_id: str,
+    session: Session = Depends(get_session),
+    _user: User = Depends(current_user),
+) -> list[RunEvent]:
     return list(session.exec(select(RunEvent).where(RunEvent.run_id == run_id).order_by(RunEvent.sequence)).all())
 
 
 @router.get("/{run_id}/steps", response_model=list[RunStep])
-def get_run_steps(run_id: str, session: Session = Depends(get_session)) -> list[RunStep]:
+def get_run_steps(
+    run_id: str,
+    session: Session = Depends(get_session),
+    _user: User = Depends(current_user),
+) -> list[RunStep]:
     return list(session.exec(select(RunStep).where(RunStep.run_id == run_id).order_by(RunStep.index)).all())
 
 
 @router.get("/{run_id}/assets", response_model=list[Asset])
-def get_run_assets(run_id: str, session: Session = Depends(get_session)) -> list[Asset]:
+def get_run_assets(
+    run_id: str,
+    session: Session = Depends(get_session),
+    _user: User = Depends(current_user),
+) -> list[Asset]:
     return list(session.exec(select(Asset).where(Asset.run_id == run_id).order_by(Asset.last_seen.desc())).all())
 
 
 @router.get("/{run_id}/findings", response_model=list[Finding])
-def get_run_findings(run_id: str, session: Session = Depends(get_session)) -> list[Finding]:
+def get_run_findings(
+    run_id: str,
+    session: Session = Depends(get_session),
+    _user: User = Depends(current_user),
+) -> list[Finding]:
     return list(session.exec(select(Finding).where(Finding.run_id == run_id).order_by(Finding.created_at.desc())).all())
 
 
 @router.get("/{run_id}/artifacts", response_model=list[Artifact])
-def get_run_artifacts(run_id: str, session: Session = Depends(get_session)) -> list[Artifact]:
+def get_run_artifacts(
+    run_id: str,
+    session: Session = Depends(get_session),
+    _user: User = Depends(current_user),
+) -> list[Artifact]:
     return list(session.exec(select(Artifact).where(Artifact.run_id == run_id).order_by(Artifact.created_at.desc())).all())

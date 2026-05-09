@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Activity, Boxes, Crosshair, LayoutDashboard, Network, RefreshCw, Settings as SettingsIcon, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
 import { ReactFlow, Background, Controls, Handle, Position } from '@xyflow/react';
 import { api } from './lib/api';
+import { ArtifactExplorer } from './lib/ArtifactExplorer';
+import { classifyArtifact } from './lib/artifactKind';
 import type { Artifact, DashboardStats, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from './types';
 
 type Page = 'dashboard' | 'targets' | 'runs' | 'tools' | 'workflow' | 'settings';
@@ -200,6 +202,7 @@ function RunConsole({ run, onChanged }: { run: Run; onChanged?: () => void }) {
   const [events, setEvents] = useState<RunEvent[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [steps, setSteps] = useState<RunStep[]>([]);
+  const [selected, setSelected] = useState<Artifact | null>(null);
 
   const reloadArtifacts = () => api.runArtifacts(run.id).then(setArtifacts).catch(console.error);
   const reloadSteps = () => api.runSteps(run.id).then(setSteps).catch(console.error);
@@ -212,6 +215,7 @@ function RunConsole({ run, onChanged }: { run: Run; onChanged?: () => void }) {
 
   useEffect(() => {
     setEvents([]);
+    setSelected(null);
     reloadArtifacts();
     reloadSteps();
     api.runEvents(run.id).then(setEvents).catch(console.error);
@@ -241,11 +245,26 @@ function RunConsole({ run, onChanged }: { run: Run; onChanged?: () => void }) {
     </div>
     <div className="console">{events.map((e) => <div key={e.id} className={`console-line ${e.level}`}>[{e.sequence.toString().padStart(3, '0')}] {e.type}: {e.message}</div>)}</div>
     <div>
-      <div className="row space"><strong>Artifacts</strong><span className="muted">{artifacts.length} files</span></div>
-      <div className="artifact-list">{artifacts.map((artifact) => <a key={artifact.id} className="artifact" href={api.artifactContentUrl(artifact.id)} target="_blank" rel="noreferrer">
-        <span>{artifact.name}</span>
-        <small>{artifact.storage_backend} · {(artifact.size_bytes / 1024).toFixed(1)} KB</small>
-      </a>)}</div>
+      <div className="row space"><strong>Artifacts</strong><span className="muted">{artifacts.length} files · click to preview</span></div>
+      <div className="artifact-list">{artifacts.map((artifact) => {
+        const kind = classifyArtifact(artifact);
+        const isSelected = selected?.id === artifact.id;
+        return (
+          <button
+            key={artifact.id}
+            className={`artifact ${isSelected ? 'selected' : ''}`}
+            onClick={() => setSelected(isSelected ? null : artifact)}
+            type="button"
+          >
+            <span className="row">
+              <span className="badge passive">{kind}</span>
+              <span className="mono">{artifact.name}</span>
+            </span>
+            <small>{artifact.storage_backend} · {(artifact.size_bytes / 1024).toFixed(1)} KB</small>
+          </button>
+        );
+      })}</div>
+      {selected && <ArtifactExplorer artifact={selected} onClose={() => setSelected(null)} />}
     </div>
   </div>;
 }

@@ -29,10 +29,14 @@ def _env(monkeypatch):
     monkeypatch.setenv("EXECUTION_MODE", "dry_run")
     monkeypatch.setenv("ALLOW_LIVE_EXECUTION", "false")
     monkeypatch.setenv("RUNNER_MODE", "in_process")
-    # Clear cached settings between tests
-    from app.core.config import get_settings
-    get_settings.cache_clear()
+    monkeypatch.setenv("RECONFORGE_BOOTSTRAP_ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("RECONFORGE_BOOTSTRAP_ADMIN_PASSWORD", "admin-passw0rd")
+    monkeypatch.setenv("RECONFORGE_TEST_AUTH_BYPASS", "1")
+    # Clear cached settings between tests + bind engine to this test's DB
+    from conftest import rebind_engine_to_database_url
+    rebind_engine_to_database_url()
     yield
+    from app.core.config import get_settings
     get_settings.cache_clear()
 
 

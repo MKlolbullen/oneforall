@@ -82,3 +82,25 @@ button { cursor: pointer; }
 .pattern-list details { border: 1px solid #1f2937; border-radius: 10px; padding: 10px 12px; background: rgba(2,6,23,.35); }
 .pattern-list summary { cursor: pointer; color: #67e8f9; font-weight: 700; }
 .pattern-list code { display: block; margin-top: 10px; white-space: pre-wrap; overflow-wrap: anywhere; color: #cbd5e1; line-height: 1.5; }
+
+/* Artifact explorer */
+.artifact { width: 100%; cursor: pointer; }
+.artifact.selected { border-color: #22d3ee; background: rgba(8,145,178,.18); }
+.artifact-explorer { margin-top: 14px; border: 1px solid #1f2937; border-radius: 12px; background: rgba(2,6,23,.72); overflow: hidden; display: grid; grid-template-rows: auto 1fr; }
+.artifact-explorer.expanded { position: fixed; inset: 24px; z-index: 50; box-shadow: 0 24px 64px rgba(0,0,0,.55); }
+.artifact-explorer-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid #1f2937; background: rgba(8,145,178,.06); }
+.artifact-loading, .artifact-error { padding: 14px 16px; }
+.artifact-error { color: #fca5a5; }
+.artifact-text { padding: 10px 12px; max-height: 480px; overflow: auto; }
+.artifact-text .input { margin-bottom: 10px; }
+.artifact-text pre { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12.5px; line-height: 1.5; color: #cbd5e1; }
+.text-line { display: flex; gap: 12px; }
+.text-line .lineno { color: #475569; user-select: none; }
+.artifact-json { padding: 12px 14px; max-height: 540px; overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12.5px; color: #e0f2fe; background: #02060f; }
+.artifact-html { width: 100%; height: 480px; border: 0; background: #fff; }
+.artifact-explorer.expanded .artifact-text, .artifact-explorer.expanded .artifact-json { max-height: none; height: 100%; }
+.artifact-explorer.expanded .artifact-html { height: 100%; }
+.artifact-image { display: block; max-width: 100%; max-height: 540px; margin: 14px auto; }
+.artifact-binary { padding: 18px; display: grid; gap: 10px; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

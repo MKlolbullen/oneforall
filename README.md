@@ -366,8 +366,28 @@ Do not expose this on the internet without real auth, TLS, runner isolation, rat
 
 ## Next milestones
 
-1. ~~Add DAG artifact passing between steps instead of target-only templates.~~ **Done.** See "DAG artifact passing" above.
-2. Add a typed artifact explorer with text/JSON/HTML/screenshot renderers.
-3. ~~Add a real runner image with pinned tool versions and reproducible bootstrap.~~ **Done.** `apps/api/Dockerfile.runner` pins ~30 recon tools via `go install <pkg>@vN.N.N`; `make runner-image` builds it. The `worker` compose service uses this image so live runs have the binaries available.
-4. ~~Add Alembic migrations before serious multi-user use.~~ **Done.** `apps/api/alembic/` with an initial migration; `init_db()` runs `alembic upgrade head` on startup. Generate new migrations via `make migration MSG="..."`.
-5. Add auth/RBAC and signed audit logs before any shared deployment.
+1. ~~Add DAG artifact passing between steps instead of target-only templates.~~ **Done.**
+2. ~~Add a typed artifact explorer with text/JSON/HTML/screenshot renderers.~~ **Done.** Click any artifact in the run console; `apps/web/src/lib/ArtifactExplorer.tsx` chooses a renderer per `classifyArtifact()`: text (filterable line view), JSON (pretty-printed), JSONL (each line parsed independently), HTML (sandboxed `srcdoc` iframe with no script/same-origin), image (inline `<img>`), binary (download fallback). Range header for big files; click expand for full-screen.
+3. ~~Add a real runner image with pinned tool versions and reproducible bootstrap.~~ **Done.**
+4. ~~Add Alembic migrations before serious multi-user use.~~ **Done.**
+5. ~~Add auth/RBAC and signed audit logs before any shared deployment.~~ **Done.** See "Auth & audit" below.
+
+## Auth & audit
+
+Authentication is mandatory on all `/api/*` routes (`/health` is open).
+
+- Three roles: `viewer` (read-only), `operator` (create targets, queue runs), `admin` (manage users + API keys + workspaces). Hierarchy enforced via `require_role()`.
+- Login → bearer token. POST `/api/auth/login` returns a `rcf_…` token shown ONCE; only its `prefix` and `sha256(token)` land in the DB.
+- `Authorization: Bearer <token>` on every request; revoke via `DELETE /api/auth/api-keys/{id}`.
+- Bootstrap admin via env: `RECONFORGE_BOOTSTRAP_ADMIN_USERNAME` + `RECONFORGE_BOOTSTRAP_ADMIN_PASSWORD`. Lifespan creates-or-updates the user on every boot.
+- Passwords: PBKDF2-HMAC-SHA256, 200k iterations, random 16-byte salt.
+
+The audit log (`AuditEvent`) is append-only and hash-chained:
+
+```text
+signature_n = sha256(prev_signature || canonical_json(row_n))
+```
+
+If `RECONFORGE_AUDIT_HMAC_KEY` is set, an HMAC over the same body is also stored alongside the payload. `verify_chain()` re-walks every row and reports breaks: `signature mismatch`, `prev_signature mismatch`, `non-contiguous sequence`, or `_hmac mismatch`. `GET /api/auth/audit` (admin-only) shows the most recent rows and the verification result.
+
+What gets audited: every login attempt (success/failure), API key creation/revocation, user creation, workspace creation, target creation, run creation, run cancellation. Failed logins are recorded with no actor so brute-force attempts leave a trail.

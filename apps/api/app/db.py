@@ -45,5 +45,8 @@ def init_db() -> None:
 
 
 def get_session() -> Generator[Session, None, None]:
-    with Session(engine) as session:
+    # expire_on_commit=False keeps loaded ORM objects usable after commit so
+    # FastAPI can serialize them in response_model. Otherwise their attributes
+    # are reset and `model_validate(obj)` returns an empty body.
+    with Session(engine, expire_on_commit=False) as session:
         yield session

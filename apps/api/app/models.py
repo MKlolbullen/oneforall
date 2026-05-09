@@ -151,3 +151,59 @@ class Artifact(SQLModel, table=True):
     content_type: str = "application/octet-stream"
     meta: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=now_utc)
+
+
+class Role(str, Enum):
+    """Coarse-grained roles. Permissions are tested against role hierarchy."""
+    viewer = "viewer"           # read-only on workspaces, runs, artifacts
+    operator = "operator"       # may create targets and queue runs
+    admin = "admin"             # may manage users, api keys, scope
+
+
+ROLE_RANK = {Role.viewer: 0, Role.operator: 1, Role.admin: 2}
+
+
+class User(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: new_id("user"), primary_key=True)
+    username: str = Field(index=True, unique=True, min_length=1, max_length=120)
+    password_hash: str  # PBKDF2 (salt + hash); see app.services.auth
+    role: Role = Field(default=Role.viewer, index=True)
+    is_active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(default_factory=now_utc)
+    last_login_at: datetime | None = None
+
+
+class APIKey(SQLModel, table=True):
+    """A long-lived bearer token tied to a user.
+
+    Only the prefix + sha256 of the token are stored; the plaintext is shown
+    once at creation and never persisted.
+    """
+    id: str = Field(default_factory=lambda: new_id("ak"), primary_key=True)
+    user_id: str = Field(index=True, foreign_key="user.id")
+    name: str = Field(min_length=1, max_length=120)
+    prefix: str = Field(index=True, max_length=12)
+    token_sha256: str = Field(index=True, unique=True, max_length=64)
+    created_at: datetime = Field(default_factory=now_utc)
+    last_used_at: datetime | None = None
+    revoked_at: datetime | None = None
+
+
+class AuditEvent(SQLModel, table=True):
+    """Append-only, hash-chained audit trail.
+
+    Each row's signature = sha256(prev_signature || canonical_json(payload)).
+    The chain is rooted at the empty string; verification re-walks rows by
+    sequence and checks each signature.
+    """
+    id: str = Field(default_factory=lambda: new_id("aud"), primary_key=True)
+    sequence: int = Field(index=True, unique=True)
+    actor_id: str | None = Field(default=None, index=True)
+    actor_role: str | None = None
+    action: str = Field(index=True, max_length=64)
+    target_kind: str | None = Field(default=None, index=True, max_length=32)
+    target_id: str | None = Field(default=None, index=True)
+    payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    prev_signature: str = Field(default="", max_length=64)
+    signature: str = Field(index=True, max_length=64)
+    created_at: datetime = Field(default_factory=now_utc)

@@ -29,3 +29,9 @@ reconforge-test.db
 
 # Alembic test scratch
 artifacts/
+
+# Node
+node_modules/
+apps/web/dist/
+apps/web/.vite/
+*.tsbuildinfo

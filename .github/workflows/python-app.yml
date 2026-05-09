@@ -62,6 +62,21 @@ jobs:
           RUNNER_MODE: in_process
         run: python -m pytest tests/ -v
 
+  web-build:
+    name: web (tsc + vite build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install web deps
+        working-directory: apps/web
+        run: npm install --no-audit --no-fund
+      - name: Type-check + bundle
+        working-directory: apps/web
+        run: npm run build
+
   compose-config:
     name: docker compose config
     runs-on: ubuntu-latest
