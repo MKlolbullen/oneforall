@@ -85,8 +85,10 @@ write_env() {
 # Local-dev defaults — safe to edit. Production should set these via secret manager.
 APP_NAME=ReconForge
 ENVIRONMENT=development
-EXECUTION_MODE=dry_run
-ALLOW_LIVE_EXECUTION=false
+# Lab-mode default — live recon tools fire when a profile runs. Flip back
+# to dry_run / false before exposing this to anything you don't fully control.
+EXECUTION_MODE=live
+ALLOW_LIVE_EXECUTION=true
 RUNNER_MODE=in_process
 DATABASE_URL=sqlite:///./reconforge.db
 ARTIFACT_BACKEND=local
