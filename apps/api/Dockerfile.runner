@@ -104,7 +104,15 @@ RUN set -ux && \
     go_install "github.com/bp0lr/gauplus@latest"; \
     go_install "github.com/tomnomnom/qsreplace@latest"; \
     go_install "github.com/tomnomnom/gf@latest"; \
+    go_install "github.com/ThreatUnkown/jsubfinder@latest"; \
     true
+
+# ---- Rust toolchain + cargo-installed tools ---------------------------------
+# x8 is a Rust binary; install rustup, then cargo install x8.
+ARG X8_VERSION=4.3.0
+RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal \
+    && /root/.cargo/bin/cargo install --quiet "x8@${X8_VERSION}" || true
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 # ---- Python tools via pipx (each in its own venv) ---------------------------
 # pipx ensures these don't fight with the API's dependencies.
@@ -126,6 +134,10 @@ ARG URLESS_VERSION=1.4.0
 # -wmiexec, -GetUserSPNs, ...). Pinned conservatively to recent stable.
 ARG IMPACKET_VERSION=0.12.0
 ARG NETEXEC_VERSION=1.5.2
+# Web-app testing additions: XSStrike (XSS engine, ships as a script — installed
+# from git so the binary lives at /opt/xsstrike/xsstrike.py and gets a wrapper)
+# and XSRFProbe (CSRF probe, pipx-installable from PyPI).
+ARG XSRFPROBE_VERSION=2.5
 
 RUN pipx install "arjun==${ARJUN_VERSION}" || true && \
     pipx install "uro==${URO_VERSION}" || true && \
@@ -139,7 +151,17 @@ RUN pipx install "arjun==${ARJUN_VERSION}" || true && \
     pipx install "dirhunt==${DIRHUNT_VERSION}" || true && \
     pipx install "urless==${URLESS_VERSION}" || true && \
     pipx install "impacket==${IMPACKET_VERSION}" || true && \
-    pipx install "netexec==${NETEXEC_VERSION}" || true
+    pipx install "netexec==${NETEXEC_VERSION}" || true && \
+    pipx install "xsrfprobe==${XSRFPROBE_VERSION}" || true
+
+# ---- XSStrike — git clone + wrapper -----------------------------------------
+# Upstream XSStrike has no PyPI release; clone to /opt and drop a wrapper
+# on PATH so the runner can invoke `xsstrike` like every other tool.
+RUN git clone --depth 1 https://github.com/s0md3v/XSStrike.git /opt/xsstrike \
+    && pip install --no-cache-dir -r /opt/xsstrike/requirements.txt \
+    && printf '#!/bin/sh\nexec python3 /opt/xsstrike/xsstrike.py "$@"\n' > /usr/local/bin/xsstrike \
+    && chmod +x /usr/local/bin/xsstrike \
+    || true
 
 # ---- Nuclei templates --------------------------------------------------------
 # Materialize templates so the first nuclei run doesn't fight the network.
