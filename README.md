@@ -1,8 +1,7 @@
-# ReconForge Control Plane
+# ReconForge - Multi modal 
 
 Clean-room, Sn1per-class inspired web control plane for authorized recon/ASM/bug bounty workflows.
 
-**Important:** this project intentionally contains no Sn1per code, assets, templates, names, or branding. It implements the *product pattern* clean-room: workspace-first UX, controlled tool execution, normalized assets/findings, evented runs, and artifact-backed reporting.
 
 > **History note.** This repo previously hosted a CLI-only 10-stage pipeline called *OneForAll*. That package is preserved under [`legacy/`](./legacy) and wired into the new system as registry tools (`oneforall`, `oneforall_s01_passive` … `oneforall_s10_report`) and a profile (`oneforall_chain`). See [`legacy/README.md`](./legacy/README.md).
 
