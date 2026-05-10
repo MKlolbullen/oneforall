@@ -162,6 +162,11 @@ function Targets() {
         <p className="muted">Dry-run mode ignores missing binaries and uses registry fixtures. Live mode blocks profiles with missing or broken tools before a worker can faceplant.</p>
         <div className="row"><span className="badge passive">mode</span><span>{liveEnabled ? 'live' : 'dry_run'}</span></div>
       </div>
+      <BulkImport
+        workspaceId={workspaceId}
+        defaultActiveAllowed={activeAllowed}
+        onImported={() => reload().catch(console.error)}
+      />
       <div className="card" style={{ gridColumn: '1 / -1' }}>
         <h3>Targets</h3>
         <table className="table"><thead><tr><th>Value</th><th>Type</th><th>Scope</th><th>Active</th><th>Launch</th></tr></thead><tbody>
@@ -174,6 +179,57 @@ function Targets() {
             </button>;
           })}</div></td></tr>)}
         </tbody></table>
+      </div>
+    </div>
+  );
+}
+
+function BulkImport({ workspaceId, defaultActiveAllowed, onImported }:
+  { workspaceId: string; defaultActiveAllowed: boolean; onImported: () => void }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ created: number; skipped: number } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async () => {
+    setBusy(true); setErr(null); setResult(null);
+    try {
+      const values = text.split(/[\r\n,]+/).map((s) => s.trim()).filter(Boolean);
+      if (!values.length) { setErr('paste at least one domain'); return; }
+      if (!workspaceId)   { setErr('pick a workspace first'); return; }
+      const r = await api.bulkTargets({
+        workspace_id: workspaceId,
+        values,
+        active_allowed: defaultActiveAllowed,
+      });
+      setResult({ created: r.created.length, skipped: r.skipped.length });
+      if (r.created.length) setText('');
+      onImported();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="card">
+      <h3>Bulk import</h3>
+      <p className="muted">Paste one domain per line (commas also work). Lines starting with <code>#</code> are skipped, dupes inside the workspace are reported.</p>
+      <textarea
+        className="input"
+        rows={5}
+        placeholder={"a.example.com\nb.example.com\n# c.example.com is out of scope"}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        style={{ fontFamily: 'ui-monospace, monospace' }}
+      />
+      <div className="row space" style={{ marginTop: 8 }}>
+        <span className="muted">
+          {result ? `created ${result.created} · skipped ${result.skipped}` : ''}
+          {err && <span className="advice-error">{err}</span>}
+        </span>
+        <button className="btn" onClick={submit} disabled={busy || !text.trim()}>
+          {busy ? 'Importing…' : 'Import'}
+        </button>
       </div>
     </div>
   );
@@ -220,6 +276,16 @@ function RunConsole({ run, onChanged }: { run: Run; onChanged?: () => void }) {
     onChanged?.();
   };
 
+  const rerun = async () => {
+    try {
+      const fresh = await api.rerun(run.id);
+      onChanged?.();
+      alert(`Re-run queued: ${fresh.id}`);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : String(error));
+    }
+  };
+
   useEffect(() => {
     setEvents([]);
     setSelected(null);
@@ -250,7 +316,12 @@ function RunConsole({ run, onChanged }: { run: Run; onChanged?: () => void }) {
   return <div className="grid">
     <div className="row space">
       <span className={`badge ${run.status === 'completed' ? 'ok' : run.status === 'failed' || run.status === 'cancelled' ? 'bad' : 'passive'}`}>{run.status}</span>
-      <button className="btn danger" disabled={!canCancel} onClick={cancel}>Cancel run</button>
+      <div className="row">
+        <button className="btn small" onClick={rerun} title="Queue a new run with the same target + profile + params">
+          Re-run
+        </button>
+        <button className="btn danger" disabled={!canCancel} onClick={cancel}>Cancel run</button>
+      </div>
     </div>
     <div className="row" role="tablist">
       {tabs.map((t) => (

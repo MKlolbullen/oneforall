@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import Asset, Finding, Role, Run, Target, User, Workspace
-from app.schemas import TargetCreate
+from app.schemas import BulkTargetCreate, BulkTargetResult, TargetCreate
 from app.services import audit
 from app.services.auth import current_user, require_role
 
@@ -46,6 +46,74 @@ def create_target(
                  payload={"value": target.value, "active_allowed": target.active_allowed})
     session.commit()
     return target
+
+
+@router.post("/bulk", response_model=BulkTargetResult, status_code=201)
+def create_targets_bulk(
+    payload: BulkTargetCreate,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_role(Role.operator)),
+) -> BulkTargetResult:
+    """Paste-a-list bulk import. Skips empties, comments, and duplicates that
+    already exist in the same workspace. Caps at 500 rows per request."""
+    workspace = session.get(Workspace, payload.workspace_id)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    # Normalise: strip, drop blanks + lines starting with `#`, dedupe in-batch.
+    seen: set[str] = set()
+    candidates: list[str] = []
+    for raw in payload.values:
+        v = raw.strip()
+        if not v or v.startswith("#"):
+            continue
+        if v in seen:
+            continue
+        seen.add(v)
+        candidates.append(v)
+
+    # Pre-load existing values in this workspace so we don't insert dupes.
+    existing = {
+        row for row in session.exec(
+            select(Target.value).where(Target.workspace_id == payload.workspace_id)
+        ).all()
+    }
+
+    created: list[Target] = []
+    skipped: list[dict[str, str]] = []
+    for v in candidates:
+        if v in existing:
+            skipped.append({"value": v, "reason": "duplicate"})
+            continue
+        target = Target(
+            workspace_id=payload.workspace_id,
+            value=v,
+            type=payload.type,
+            in_scope=payload.in_scope,
+            passive_allowed=payload.passive_allowed,
+            active_allowed=payload.active_allowed,
+            notes=payload.notes,
+        )
+        session.add(target)
+        created.append(target)
+
+    if created:
+        session.commit()
+        for t in created:
+            session.refresh(t)
+        audit.record(
+            session, actor=user, action="target.bulk_created",
+            target_kind="workspace", target_id=payload.workspace_id,
+            payload={"count": len(created), "skipped": len(skipped),
+                      "active_allowed": payload.active_allowed},
+        )
+        session.commit()
+
+    return BulkTargetResult(
+        created=[t.model_dump() for t in created],
+        skipped=skipped,
+        workspace_id=payload.workspace_id,
+    )
 
 
 # ---------------------------- Target detail ----------------------------

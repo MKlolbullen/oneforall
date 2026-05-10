@@ -151,6 +151,89 @@ async def cancel_run(
     return run
 
 
+@router.post("/{run_id}/rerun", response_model=Run, status_code=201)
+async def rerun_run(
+    run_id: str,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_role(Role.operator)),
+) -> Run:
+    """Clone an existing run and queue a new one with the same target/profile/
+    params. Useful for "do that again now" loops while iterating. The
+    workspace + target + scope checks all rerun, so a target that lost its
+    `active_allowed` since the original run will refuse here too."""
+    source = session.get(Run, run_id)
+    if not source:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    target = session.get(Target, source.target_id)
+    if not target:
+        raise HTTPException(status_code=410, detail="Original target was deleted; cannot rerun")
+
+    registry = get_registry()
+    try:
+        profile = registry.get_profile(source.profile_id)
+        risk = registry.profile_risk(profile)
+        params = (source.config_snapshot or {}).get("params", {}) or {}
+        manual_approval = bool(params.get("manual_approval", False))
+        enforce_target_scope(target, risk, manual_approval=manual_approval)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ScopeError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    settings = get_settings()
+    if settings.live_execution_enabled and settings.block_live_runs_on_missing_tools:
+        missing = unavailable_profile_tools(registry, source.profile_id)
+        if missing:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Live rerun blocked because required tool executables are missing or broken in the runner image.",
+                    "profile_id": source.profile_id,
+                    "missing_tools": [item.model_dump() for item in missing],
+                },
+            )
+
+    run = Run(
+        workspace_id=source.workspace_id,
+        target_id=source.target_id,
+        profile_id=source.profile_id,
+        requested_by=user.username,
+        risk=risk,
+        config_snapshot={
+            "platform_config": load_platform_config(),
+            "profile": profile,
+            "target_value": target.value,
+            "target_type": target.type,
+            "params": {"target": target.value, **params},
+            "rerun_of": source.id,
+        },
+    )
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+
+    audit.record(
+        session, actor=user, action="run.rerun",
+        target_kind="run", target_id=run.id,
+        payload={"source_run_id": source.id, "profile_id": run.profile_id},
+    )
+    session.commit()
+
+    await event_bus.publish(
+        session, run.id, "run.queued",
+        f"Run {run.id} queued (rerun of {source.id})",
+        payload={"runner_mode": settings.runner_mode, "rerun_of": source.id},
+    )
+
+    if settings.queued_runner_enabled:
+        await enqueue_run(run.id)
+    else:
+        asyncio.create_task(execute_run(run.id, registry, session_factory))
+
+    return run
+
+
 @router.get("/{run_id}/events", response_model=list[RunEvent])
 def get_run_events(
     run_id: str,

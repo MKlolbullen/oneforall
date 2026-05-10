@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Filter, RefreshCw, Search, ShieldAlert } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, Filter, RefreshCw, Search, ShieldAlert } from 'lucide-react';
 import { api } from './api';
 import { AdvicePanel } from './AdvicePanel';
 import type { Finding, FindingPage, Workspace } from '../types';
@@ -100,9 +100,53 @@ export function Results() {
           <strong>Results</strong>
           <span className="muted">workspace-wide findings</span>
         </div>
-        <button className="btn small" onClick={() => reload()} disabled={loading} type="button">
-          <RefreshCw size={13} className={loading ? 'spin' : ''} /> Refresh
-        </button>
+        <div className="row">
+          <button className="btn small" onClick={() => reload()} disabled={loading} type="button">
+            <RefreshCw size={13} className={loading ? 'spin' : ''} /> Refresh
+          </button>
+          <a
+            className="btn small"
+            href={api.findingsExportUrl({
+              workspace_id: workspaceId,
+              severity: severity || undefined,
+              status: status || undefined,
+              tool: tool || undefined,
+              q: q || undefined,
+              format: 'csv',
+            })}
+            title="Download current filter as CSV"
+          >
+            <Download size={13} /> CSV
+          </a>
+          <a
+            className="btn small"
+            href={api.findingsExportUrl({
+              workspace_id: workspaceId,
+              severity: severity || undefined,
+              status: status || undefined,
+              tool: tool || undefined,
+              q: q || undefined,
+              format: 'json',
+            })}
+            title="Download current filter as JSON"
+          >
+            <Download size={13} /> JSON
+          </a>
+          <a
+            className="btn small"
+            href={api.findingsExportUrl({
+              workspace_id: workspaceId,
+              severity: severity || undefined,
+              status: status || undefined,
+              tool: tool || undefined,
+              q: q || undefined,
+              format: 'md',
+            })}
+            title="Download current filter as Markdown"
+          >
+            <Download size={13} /> MD
+          </a>
+        </div>
       </div>
 
       <div className="card">
