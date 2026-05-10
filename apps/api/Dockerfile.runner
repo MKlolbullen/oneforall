@@ -121,6 +121,11 @@ ARG SCOUTSUITE_VERSION=5.14.0
 ARG APKLEAKS_VERSION=2.6.3
 ARG DIRHUNT_VERSION=0.9.4
 ARG URLESS_VERSION=1.4.0
+# Round-3: AD/lateral-movement tools. Both ship as pipx packages on PyPI; the
+# impacket suite drops ~15 binaries (impacket-secretsdump, -smbexec, -psexec,
+# -wmiexec, -GetUserSPNs, ...). Pinned conservatively to recent stable.
+ARG IMPACKET_VERSION=0.12.0
+ARG NETEXEC_VERSION=1.5.2
 
 RUN pipx install "arjun==${ARJUN_VERSION}" || true && \
     pipx install "uro==${URO_VERSION}" || true && \
@@ -132,7 +137,9 @@ RUN pipx install "arjun==${ARJUN_VERSION}" || true && \
     pipx install "scoutsuite==${SCOUTSUITE_VERSION}" || true && \
     pipx install "apkleaks==${APKLEAKS_VERSION}" || true && \
     pipx install "dirhunt==${DIRHUNT_VERSION}" || true && \
-    pipx install "urless==${URLESS_VERSION}" || true
+    pipx install "urless==${URLESS_VERSION}" || true && \
+    pipx install "impacket==${IMPACKET_VERSION}" || true && \
+    pipx install "netexec==${NETEXEC_VERSION}" || true
 
 # ---- Nuclei templates --------------------------------------------------------
 # Materialize templates so the first nuclei run doesn't fight the network.

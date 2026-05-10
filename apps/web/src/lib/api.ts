@@ -1,4 +1,4 @@
-import type { Advice, Artifact, Asset, DashboardDetailed, DashboardStats, Finding, FindingPage, GrepPatternPack, HttpExchangeDetail, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
+import type { Advice, Artifact, Asset, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000';
@@ -108,4 +108,9 @@ export const api = {
   },
   runExchange: (runId: string, exchangeId: string) =>
     request<HttpExchangeDetail>(`/api/runs/${runId}/network/${exchangeId}`),
+
+  workspaceGraph: (workspaceId: string, maxNodes?: number) => {
+    const qs = maxNodes != null ? `?max_nodes=${maxNodes}` : '';
+    return request<GraphPayload>(`/api/workspaces/${workspaceId}/graph${qs}`);
+  },
 };

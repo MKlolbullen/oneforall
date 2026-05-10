@@ -1,0 +1,38 @@
+id: netexec
+name: "NetExec (nxc)"
+category: lateral-movement
+description: "CrackMapExec successor \u2014 sweeping AD service auth, post-ex modules."
+binary: netexec
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: ip_or_host
+  required: true
+outputs:
+- name: results
+  type: text
+command:
+  argv:
+  - "netexec"
+  - "smb"
+  - "{{target}}"
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 0
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- netexec
+- nxc
+- smb
+- ldap
+- active-directory
+install:
+  method: pipx
+  package: "netexec"
+dry_run_output:
+- "SMB         10.0.0.5  445   DC01   [*] Windows Server 2022 Build 20348 (name:DC01) (domain:DOMAIN.LOCAL)"
+- "SMB         10.0.0.5  445   DC01   [+] DOMAIN.LOCAL\\admin:Password1! (Pwn3d!)"
