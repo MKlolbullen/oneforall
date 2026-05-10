@@ -9,6 +9,8 @@ GO_BIN="${GO_BIN:-$(command -v go || true)}"
 APT_GET="${APT_GET:-$(command -v apt-get || true)}"
 NPM_BIN="${NPM_BIN:-$(command -v npm || true)}"
 PIPX_BIN="${PIPX_BIN:-$(command -v pipx || true)}"
+CARGO_BIN="${CARGO_BIN:-$(command -v cargo || true)}"
+GIT_BIN="${GIT_BIN:-$(command -v git || true)}"
 
 log() { printf '[*] %s\n' "$*"; }
 warn() { printf '[!] %s\n' "$*" >&2; }
@@ -55,6 +57,40 @@ npm_install_g() {
   fi
   log "npm install -g ${pkg}"
   "${NPM_BIN}" install -g "${pkg}" || warn "failed: npm install -g ${pkg}"
+}
+
+cargo_install() {
+  local pkg="$1"
+  if [[ -z "${CARGO_BIN}" ]]; then
+    warn "cargo unavailable; skipping ${pkg}"
+    return 0
+  fi
+  log "cargo install ${pkg}"
+  "${CARGO_BIN}" install --quiet "${pkg}" || warn "failed: cargo install ${pkg}"
+}
+
+# Clone a git repo to /opt/<name> and drop a wrapper into /usr/local/bin so the
+# script can be called like a normal binary. Used for tools that have no PyPI
+# release (XSStrike).
+clone_with_wrapper() {
+  local name="$1" url="$2" entry="$3"
+  if [[ -z "${GIT_BIN}" ]]; then
+    warn "git unavailable; skipping ${name}"
+    return 0
+  fi
+  local dest="/opt/${name}"
+  if [[ ! -d "${dest}" ]]; then
+    log "git clone ${url} -> ${dest}"
+    sudo "${GIT_BIN}" clone --depth 1 "${url}" "${dest}" || { warn "failed: clone ${name}"; return 0; }
+  fi
+  if [[ -f "${dest}/requirements.txt" ]]; then
+    sudo python3 -m pip install --break-system-packages -r "${dest}/requirements.txt" \
+      || warn "failed: pip install requirements for ${name}"
+  fi
+  printf '#!/bin/sh\nexec python3 %s/%s "$@"\n' "${dest}" "${entry}" \
+    | sudo tee "/usr/local/bin/${name}" >/dev/null
+  sudo chmod +x "/usr/local/bin/${name}"
+  log "wrapper installed: /usr/local/bin/${name}"
 }
 
 if [[ -n "${APT_GET}" ]]; then
@@ -109,6 +145,13 @@ go_install github.com/dwisiswant0/crlfuzz/cmd/crlfuzz@latest
 go_install github.com/LukaSikic/subzy@latest
 go_install github.com/haccer/subjack@latest
 go_install github.com/Ice3man543/SubOver@latest
+go_install github.com/ThreatUnkown/jsubfinder@latest
+
+log "Installing Rust/cargo tools (x8)"
+if [[ -z "${CARGO_BIN}" ]]; then
+  warn "cargo not on PATH; install rustup from https://rustup.rs to get x8"
+fi
+cargo_install x8
 
 log "Installing Python/pipx tools where available"
 pipx_install arjun
@@ -124,6 +167,10 @@ pipx_install h8mail
 pipx_install ssh-audit
 pipx_install webtech
 pipx_install altdns
+pipx_install xsrfprobe
+
+log "Installing XSStrike (clone + wrapper)"
+clone_with_wrapper xsstrike https://github.com/s0md3v/XSStrike.git xsstrike.py
 
 log "Installing npm tools where available"
 npm_install_g retire

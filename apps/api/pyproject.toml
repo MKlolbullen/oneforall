@@ -20,6 +20,8 @@ dependencies = [
   # Claude advisor — defaults to claude-opus-4-7 with adaptive thinking + high
   # effort. SDK requirement only; it reads ANTHROPIC_API_KEY from the env.
   "anthropic>=0.38",
+  # Network-graph endpoint uses centrality scoring to size nodes in the UI.
+  "networkx>=3.2",
 ]
 
 [tool.ruff]
