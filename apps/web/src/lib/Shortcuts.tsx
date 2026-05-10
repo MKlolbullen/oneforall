@@ -12,6 +12,7 @@ const NAV_KEYS: Record<string, string> = {
   o: 'results',
   n: 'network',
   c: 'tools',
+  p: 'payloads',
   w: 'workflow',
   s: 'settings',
 };
@@ -26,6 +27,7 @@ const SHORTCUTS = [
   { keys: ['g o'],   label: 'Go to Results' },
   { keys: ['g n'],   label: 'Go to Network Graph' },
   { keys: ['g c'],   label: 'Go to Tool Catalog' },
+  { keys: ['g p'],   label: 'Go to Payloads' },
   { keys: ['g w'],   label: 'Go to Workflow Builder' },
   { keys: ['g s'],   label: 'Go to Settings' },
 ];

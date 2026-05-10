@@ -484,3 +484,69 @@ button { cursor: pointer; }
 /* Spinner used by Refresh, Loading buttons */
 .spin { animation: spin 1.1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Payload library */
+.payload-shell {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.payload-tree { max-height: calc(100vh - 220px); overflow: auto; }
+.payload-categories { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+.payload-category-header {
+  display: flex; align-items: center; gap: 6px;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: #67e8f9; font-size: 11px; margin-bottom: 4px;
+}
+.payload-files { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.payload-file {
+  width: 100%; text-align: left; cursor: pointer;
+  background: transparent; color: #cbd5e1;
+  border: 1px solid transparent; border-radius: 8px;
+  padding: 5px 8px; font-size: 13px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.payload-file:hover { background: rgba(34,211,238,.08); border-color: #155e75; }
+.payload-file.selected { background: rgba(34,211,238,.16); border-color: #22d3ee; color: #fff; }
+
+.payload-detail { min-height: 480px; }
+.encoding-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+.encoding-chip {
+  background: rgba(2,6,23,.5);
+  color: #94a3b8;
+  border: 1px solid #1f2937;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  cursor: pointer;
+}
+.encoding-chip:hover { color: #e5e7eb; border-color: #334155; }
+.encoding-chip.selected {
+  background: rgba(34,211,238,.16);
+  border-color: #22d3ee;
+  color: #67e8f9;
+}
+
+.payload-list {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: calc(100vh - 360px); overflow: auto;
+}
+.payload-row {
+  display: grid; grid-template-columns: 1fr auto; gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  background: rgba(2,6,23,.5);
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+}
+.payload-row:hover { border-color: #155e75; }
+.payload-text {
+  word-break: break-all; white-space: pre-wrap;
+  font-size: 12.5px; color: #67e8f9;
+}
+
+@media (max-width: 900px) {
+  .payload-shell { grid-template-columns: 1fr; }
+  .payload-tree { max-height: 320px; }
+}

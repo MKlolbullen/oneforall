@@ -322,6 +322,32 @@ export type GraphPayload = {
   truncated: boolean;
 };
 
+export type PayloadEncoding = 'raw' | 'url' | 'url2' | 'base64' | 'hex' | 'html' | 'unicode';
+
+export type PayloadFileMeta = {
+  category: string;
+  name: string;
+  description: string;
+  payload_count: number;
+  raw_lines: number;
+  path: string;
+};
+
+export type PayloadIndex = {
+  categories: Record<string, number>;
+  files: PayloadFileMeta[];
+  encodings: PayloadEncoding[];
+};
+
+export type PayloadResponse = {
+  category: string;
+  name: string;
+  encoding: PayloadEncoding;
+  description: string;
+  payloads: string[];
+  payload_count: number;
+};
+
 export type Advice = {
   id: string;
   workspace_id: string;

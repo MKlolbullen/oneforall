@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Activity, Boxes, Crosshair, FileSearch, Keyboard, LayoutDashboard, Network, RefreshCw, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
+import { Activity, Boxes, Crosshair, FileSearch, FlaskConical, Keyboard, LayoutDashboard, Network, RefreshCw, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
 import { ReactFlow, Background, Controls, Handle, Position } from '@xyflow/react';
 import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
@@ -11,6 +11,7 @@ import { CopyButton } from './lib/CopyButton';
 import { EmptyState } from './lib/EmptyState';
 import { Dashboard } from './lib/Dashboard';
 import { NetworkGraph } from './lib/NetworkGraph';
+import { Payloads } from './lib/Payloads';
 import { Results } from './lib/Results';
 import { PendingGHint, ShortcutsCheatsheet, useShortcuts } from './lib/Shortcuts';
 import { useToast } from './lib/Toast';
@@ -18,7 +19,7 @@ import { useConfirm } from './lib/Confirm';
 import { applyTheme, loadTheme, persistTheme, THEMES, type Theme } from './lib/theme';
 import type { Artifact, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from './types';
 
-type Page = 'dashboard' | 'targets' | 'runs' | 'results' | 'network' | 'tools' | 'workflow' | 'settings';
+type Page = 'dashboard' | 'targets' | 'runs' | 'results' | 'network' | 'tools' | 'payloads' | 'workflow' | 'settings';
 
 const pages: { id: Page; label: string; icon: ReactNode }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
@@ -27,6 +28,7 @@ const pages: { id: Page; label: string; icon: ReactNode }[] = [
   { id: 'results', label: 'Results', icon: <FileSearch size={16} /> },
   { id: 'network', label: 'Network Graph', icon: <Share2 size={16} /> },
   { id: 'tools', label: 'Tool Catalog', icon: <Wrench size={16} /> },
+  { id: 'payloads', label: 'Payloads', icon: <FlaskConical size={16} /> },
   { id: 'workflow', label: 'Workflow Builder', icon: <Network size={16} /> },
   { id: 'settings', label: 'Settings Pack', icon: <SettingsIcon size={16} /> },
 ];
@@ -133,6 +135,7 @@ export function App() {
           {page === 'results' && <Results />}
           {page === 'network' && <NetworkGraph />}
           {page === 'tools' && <Tools />}
+          {page === 'payloads' && <Payloads />}
           {page === 'workflow' && <Workflow />}
           {page === 'settings' && <SettingsPack />}
         </div>

