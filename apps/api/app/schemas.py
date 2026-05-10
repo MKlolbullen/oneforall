@@ -18,6 +18,23 @@ class TargetCreate(BaseModel):
     notes: str | None = None
 
 
+class BulkTargetCreate(BaseModel):
+    """Paste-a-list shape used by the Targets page bulk-import textarea."""
+    workspace_id: str
+    values: list[str] = Field(min_length=1, max_length=500)
+    type: str = "domain"
+    in_scope: bool = True
+    passive_allowed: bool = True
+    active_allowed: bool = False
+    notes: str | None = None
+
+
+class BulkTargetResult(BaseModel):
+    created: list[Any] = Field(default_factory=list)        # list[Target] post-serialize
+    skipped: list[dict[str, str]] = Field(default_factory=list)
+    workspace_id: str
+
+
 class RunCreate(BaseModel):
     workspace_id: str
     target_id: str

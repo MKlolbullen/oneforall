@@ -3,7 +3,16 @@
 
 > **History note.** This repo previously hosted a CLI-only 10-stage pipeline called *OneForAll*. That package is preserved under [`legacy/`](./legacy) and wired into the new system as registry tools (`oneforall`, `oneforall_s01_passive` … `oneforall_s10_report`) and a profile (`oneforall_chain`). See [`legacy/README.md`](./legacy/README.md).
 
-> **Default safety posture for this branch is *lab mode*** — `EXECUTION_MODE=live` and `ALLOW_LIVE_EXECUTION=true` in `.env.example`. Flip both back to `dry_run` / `false` before running against anything you don't fully control.
+> **Default safety posture for this branch is *lab mode*.**
+> `EXECUTION_MODE=live` and `ALLOW_LIVE_EXECUTION=true` are baked in everywhere
+> — `.env.example`, `apps/api/app/core/config.py` Pydantic defaults, the
+> `.env` template `scripts/install-stack.sh` writes, and the
+> `packages/platform-config/sniper-inspired.yaml` plugin matrix has every
+> scanner / channel / integration enabled. The platform still gates each run
+> behind `target.active_allowed=true` and a populated `scope.yaml`, but real
+> tools will fire as soon as those conditions are met. Flip both env flags
+> back to `dry_run` / `false` before exposing this to anything you don't
+> fully control.
 
 ## What is included
 

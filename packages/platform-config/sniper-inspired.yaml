@@ -3,7 +3,13 @@ name: Sn1per-inspired professional defaults
 description: >-
   Clean-room configuration pack inspired by Sn1per CE-style operational toggles.
   This is not Sn1per configuration syntax; it is a modern policy/config layer for ReconForge.
-version: 0.2.0
+
+  LAB-MODE BASELINE: every plugin / scanner / channel below is enabled. Disable
+  anything you don't have a license for or don't want firing on production
+  targets. The platform still gates everything behind target.active_allowed +
+  scope.yaml, but "enabled here" is what makes the wiring exist in the first
+  place.
+version: 0.3.0
 
 install:
   install_dir: /usr/share/reconforge
@@ -15,8 +21,8 @@ runtime:
   enable_auto_updates: true
   report_enabled: true
   loot_enabled: true
-  sniper_pro_console_output: false
-  autoload_plugins: false
+  sniper_pro_console_output: true
+  autoload_plugins: true
   max_hosts: 2000
   max_javascript_files: 25
   threads: 100
@@ -33,28 +39,30 @@ scope:
   require_active_authorization: true
   require_high_risk_manual_approval: true
 
+# Each integration has `enabled: true` so the wiring is hot, but it only
+# actually fires when the matching service is reachable / API key set in env.
 integrations:
   burp:
-    enabled: false
+    enabled: true
     host: 127.0.0.1
     port: 1338
   zap:
-    enabled: false
+    enabled: true
     host: 127.0.0.1
     port: 8080
   openvas:
-    enabled: false
+    enabled: true
     host: 127.0.0.1
     port: 9390
     username: admin
     run_as_user: kali
   nessus:
-    enabled: false
+    enabled: true
     host: 127.0.0.1:8834
     username: admin
     policy_id: c3cbcd46-329f-a9ed-1077-554f8c2af33d0d44f09d736969bf
   metasploit:
-    import_enabled: false
+    import_enabled: true
     lhost: 127.0.0.1
     lport: 4444
   api_keys:
@@ -68,30 +76,30 @@ integrations:
     wpscan_env: WP_API_KEY
     urlscan_env: URLSCAN_API_KEY
   slack:
-    enabled: false
+    enabled: true
     webhook_env: SLACK_WEBHOOK_URL
     channels:
-      theharvester: false
-      email_security: false
-      new_domains: false
-      takeovers: false
-      s3_buckets: false
-      subnets: false
-      dirsearch: false
-      spider: false
-      whatweb: false
-      nmap: false
-      nmap_diff: false
-      bruteforce: false
-      whois: false
-      metagoofil: false
-      email_format: false
+      theharvester: true
+      email_security: true
+      new_domains: true
+      takeovers: true
+      s3_buckets: true
+      subnets: true
+      dirsearch: true
+      spider: true
+      whatweb: true
+      nmap: true
+      nmap_diff: true
+      bruteforce: true
+      whois: true
+      metagoofil: true
+      email_format: true
 
 web_bruteforce:
   stealth_scan: true
   common_scan: true
-  full_scan: false
-  exploit_scan: false
+  full_scan: true
+  exploit_scan: true
   javascript_analysis: true
   extensions: htm,html,asp,aspx,php,jsp,js
   exclude_status_codes: [400, 403, 404, 405, 406, 429, 500, 502, 503, 504]
@@ -110,7 +118,7 @@ nmap:
 plugins:
   network:
     nmap_scripts: true
-    metasploit_import: false
+    metasploit_import: true
     ssh_audit: true
     ssh_enum: true
     smtp_user_enum: true
@@ -118,13 +126,13 @@ plugins:
     show_mount: true
     rpc_info: true
     smb_enum: true
-    amap: false
+    amap: true
   osint:
     whois: true
     theharvester: true
     metagoofil: true
-    hunterio: false
-    tombaio: false
+    hunterio: true
+    tombaio: true
     intodns: true
     emailformat: true
     urlcrazy: true
@@ -133,35 +141,35 @@ plugins:
     github_secrets: true
     urlscanio: true
   dynamic_application_scanners:
-    burp_scan: false
-    arachni_scan: false
-    zap_scan: false
+    burp_scan: true
+    arachni_scan: true
+    zap_scan: true
   active_web:
     nuclei: true
     dirsearch: true
-    gobuster: false
+    gobuster: true
     nikto: true
     blackwidow: true
-    injectx: false
-    clusterd: false
+    injectx: true
+    clusterd: true
     wpscan: true
     cmsmap: true
     wafw00f: true
     whatweb: true
-    wig: false
-    shocker: false
-    jexboss: false
+    wig: true
+    shocker: true
+    jexboss: true
     webtech: true
     ssl_insecure: true
-    http_probe: false
-    smuggler: false
+    http_probe: true
+    smuggler: true
   passive_web:
     waybackmachine: true
     ssl: true
     passive_spider: true
     gau: true
     hackertarget: true
-    cutycapt: false
+    cutycapt: true
     webscreenshot: true
   email:
     spoof_check: true
@@ -174,7 +182,7 @@ plugins:
     dnscan: true
     crtsh: true
     subover: true
-    project_sonar: false
+    project_sonar: true
     censys_subdomains: true
     subnet_retrieval: true
     subjack: true
@@ -183,7 +191,7 @@ plugins:
     dnsgen: true
     shodan: true
     asn_check: true
-    spyse: false
+    spyse: true
     subbrute_dns: true
     github_subdomains: true
     rapiddns: true
