@@ -66,6 +66,68 @@ export type DashboardStats = {
   open_findings: number;
 };
 
+export type DashboardRunBrief = {
+  id: string;
+  profile_id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | string;
+  risk: string;
+  target_id: string;
+  workspace_id: string;
+  created_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+};
+
+export type DashboardFindingBrief = {
+  id: string;
+  title: string;
+  severity: string;
+  category: string;
+  status: string;
+  run_id: string | null;
+  tool_source: string | null;
+  created_at: string;
+};
+
+export type DashboardTopTarget = {
+  id: string;
+  value: string;
+  workspace_id: string;
+  run_count: number;
+};
+
+export type DashboardTopTool = {
+  tool_id: string;
+  run_count: number;
+};
+
+export type DashboardAuditEntry = {
+  sequence: number;
+  action: string;
+  target_kind: string | null;
+  target_id: string | null;
+  actor_role: string | null;
+  created_at: string;
+};
+
+export type DashboardDetailed = {
+  kpis: DashboardStats;
+  runs_by_status: Record<string, number>;
+  findings_by_severity: Record<string, number>;
+  active_runs: DashboardRunBrief[];
+  recent_runs: DashboardRunBrief[];
+  recent_findings: DashboardFindingBrief[];
+  top_targets: DashboardTopTarget[];
+  top_tools: DashboardTopTool[];
+  recent_audit: DashboardAuditEntry[];
+};
+
+export type FindingPage = {
+  total: number;
+  items: Finding[];
+  facets: { severities: string[]; statuses: string[]; tools: string[] };
+};
+
 export type Artifact = {
   id: string;
   workspace_id: string;

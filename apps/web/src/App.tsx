@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Activity, Boxes, Crosshair, LayoutDashboard, Network, RefreshCw, Settings as SettingsIcon, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
+import { Activity, Boxes, Crosshair, FileSearch, LayoutDashboard, Network, RefreshCw, Settings as SettingsIcon, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
 import { ReactFlow, Background, Controls, Handle, Position } from '@xyflow/react';
 import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
@@ -7,15 +7,18 @@ import { classifyArtifact } from './lib/artifactKind';
 import { TargetDetail } from './lib/TargetDetail';
 import { AdvicePanel } from './lib/AdvicePanel';
 import { NetworkTab } from './lib/NetworkTab';
+import { Dashboard } from './lib/Dashboard';
+import { Results } from './lib/Results';
 import { applyTheme, loadTheme, persistTheme, THEMES, type Theme } from './lib/theme';
-import type { Artifact, DashboardStats, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from './types';
+import type { Artifact, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from './types';
 
-type Page = 'dashboard' | 'targets' | 'runs' | 'tools' | 'workflow' | 'settings';
+type Page = 'dashboard' | 'targets' | 'runs' | 'results' | 'tools' | 'workflow' | 'settings';
 
 const pages: { id: Page; label: string; icon: ReactNode }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
   { id: 'targets', label: 'Targets', icon: <Crosshair size={16} /> },
   { id: 'runs', label: 'Runs', icon: <TerminalSquare size={16} /> },
+  { id: 'results', label: 'Results', icon: <FileSearch size={16} /> },
   { id: 'tools', label: 'Tool Catalog', icon: <Wrench size={16} /> },
   { id: 'workflow', label: 'Workflow Builder', icon: <Network size={16} /> },
   { id: 'settings', label: 'Settings Pack', icon: <SettingsIcon size={16} /> },
@@ -77,35 +80,12 @@ export function App() {
           {page === 'dashboard' && <Dashboard />}
           {page === 'targets' && <Targets />}
           {page === 'runs' && <Runs />}
+          {page === 'results' && <Results />}
           {page === 'tools' && <Tools />}
           {page === 'workflow' && <Workflow />}
           {page === 'settings' && <SettingsPack />}
         </div>
       </main>
-    </div>
-  );
-}
-
-function Dashboard() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [runs, setRuns] = useState<Run[]>([]);
-
-  useEffect(() => {
-    api.stats().then(setStats).catch(console.error);
-    api.runs().then(setRuns).catch(console.error);
-  }, []);
-
-  return (
-    <div className="grid">
-      <div className="grid cols-3">
-        <Metric title="Targets" value={stats?.targets ?? 0} icon={<Crosshair />} />
-        <Metric title="Assets" value={stats?.assets ?? 0} icon={<Boxes />} />
-        <Metric title="Open Findings" value={stats?.open_findings ?? 0} icon={<ShieldAlert />} />
-      </div>
-      <div className="card">
-        <div className="row space"><h3>Recent runs</h3><span className="muted">Control plane event history</span></div>
-        <RunTable runs={runs} />
-      </div>
     </div>
   );
 }
