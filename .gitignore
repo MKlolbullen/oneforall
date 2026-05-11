@@ -25,6 +25,7 @@ workspace/
 # Local dev DBs
 reconforge.db
 reconforge-test.db
+reconforge-*.db
 *.sqlite
 
 # Alembic test scratch
