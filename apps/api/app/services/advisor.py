@@ -243,6 +243,87 @@ def _serialize_target_context(session: Session, target: Target) -> str:
     return json.dumps(payload, indent=2, default=str)
 
 
+def _serialize_target_analysis_context(session: Session, target: Target) -> str:
+    """Richer context bundle for the deep target-analysis flow. We hand
+    Claude the full passive-recon picture: every asset bucketed by type,
+    HTTP-tech rollup (from httpx/wappalyzer/whatweb), and the latest 5
+    runs. We deliberately cap each list so prompts stay <12k tokens even
+    on a target with hundreds of subdomains."""
+    runs = list(session.exec(
+        select(Run).where(Run.target_id == target.id).order_by(Run.created_at.desc()).limit(20)
+    ).all())
+    run_ids = [r.id for r in runs]
+    assets = list(session.exec(
+        select(Asset).where(Asset.workspace_id == target.workspace_id)
+    ).all()) if run_ids else []
+    # Filter to assets produced by *this* target's runs OR matching the target value suffix.
+    tgt = target.value.lower()
+    def _belongs(a: Asset) -> bool:
+        if a.run_id and a.run_id in run_ids:
+            return True
+        val = (a.value or "").lower()
+        return val == tgt or val.endswith("." + tgt) or tgt in val
+    assets = [a for a in assets if _belongs(a)]
+    by_type: dict[str, list[Asset]] = {}
+    for a in assets:
+        by_type.setdefault(a.type, []).append(a)
+
+    # Aggregate HTTP tech from `url` asset meta when available — that's where
+    # the runner stashes the httpx json including detected webservers + tech.
+    tech_hits: dict[str, int] = {}
+    server_hits: dict[str, int] = {}
+    status_hits: dict[str, int] = {}
+    for u in by_type.get("url", []):
+        meta_json = (u.meta or {}).get("json") if isinstance(u.meta, dict) else None
+        if not isinstance(meta_json, dict):
+            continue
+        for t in meta_json.get("tech", []) or []:
+            tech_hits[str(t)] = tech_hits.get(str(t), 0) + 1
+        if meta_json.get("webserver"):
+            server_hits[str(meta_json["webserver"])] = server_hits.get(str(meta_json["webserver"]), 0) + 1
+        if meta_json.get("status_code"):
+            status_hits[str(meta_json["status_code"])] = status_hits.get(str(meta_json["status_code"])
+                                                                          , 0) + 1
+
+    findings = list(session.exec(
+        select(Finding).where(Finding.run_id.in_(run_ids))  # type: ignore[attr-defined]
+    ).all()) if run_ids else []
+    severity_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+    findings.sort(key=lambda f: severity_rank.get(f.severity, 5))
+
+    payload = {
+        "target": target.model_dump(),
+        "scope": {
+            "in_scope": target.in_scope,
+            "passive_allowed": target.passive_allowed,
+            "active_allowed": target.active_allowed,
+        },
+        "recent_runs": [
+            {"id": r.id, "profile_id": r.profile_id,
+             "status": r.status.value if hasattr(r.status, "value") else str(r.status),
+             "risk": r.risk.value if hasattr(r.risk, "value") else str(r.risk)}
+            for r in runs[:5]
+        ],
+        "asset_counts": {k: len(v) for k, v in by_type.items()},
+        "sample_subdomains": [a.value for a in by_type.get("domain", [])[:30]],
+        "sample_urls": [a.value for a in by_type.get("url", [])[:25]],
+        "sample_ips": [a.value for a in by_type.get("ip", [])[:20]],
+        "http_tech_top": sorted(tech_hits.items(), key=lambda kv: -kv[1])[:15],
+        "webservers_top": sorted(server_hits.items(), key=lambda kv: -kv[1])[:10],
+        "status_distribution": status_hits,
+        "findings_by_severity": {
+            sev: sum(1 for f in findings if f.severity == sev)
+            for sev in ("critical", "high", "medium", "low", "info")
+        },
+        "top_findings": [
+            {"id": f.id, "title": f.title, "severity": f.severity,
+             "tool_source": f.tool_source}
+            for f in findings[:15]
+        ],
+    }
+    return json.dumps(payload, indent=2, default=str)
+
+
 def _serialize_finding_context(session: Session, finding: Finding) -> str:
     run = session.get(Run, finding.run_id) if finding.run_id else None
     target = session.get(Target, run.target_id) if run else None
@@ -343,6 +424,57 @@ def suggest_profile(session: Session, target: Target, *, actor: User | None) -> 
                     kind="target_suggest_profile", ref_id=target.id,
                     actor=actor, result=result)
     _audit(session, actor, "target_suggest_profile", target.id, result)
+    session.commit()
+    return advice
+
+
+def analyze_target(session: Session, target: Target, *, actor: User | None) -> Advice:
+    """Deep target analysis: attack-surface read of what we've collected
+    so far. The structured prompt asks Claude to return JSON inside a
+    fenced code block so the UI can render sections; we parse defensively
+    and fall back to the prose summary if the JSON block is missing."""
+    ctx = _serialize_target_analysis_context(session, target)
+    user = (
+        "Analyse the attack surface of this target using only the data below.\n\n"
+        "Return TWO things, in this order:\n"
+        " 1. A 1-2 sentence verdict that an operator can paste into a ticket.\n"
+        " 2. A fenced ```json``` block with exactly these keys:\n"
+        "    - tech_stack: list[str]                inferred from the HTTP probe data\n"
+        "    - high_value_assets: list[{url, why}]  pivot points worth manual review\n"
+        "    - attack_surface: list[str]            short bullets, prioritised\n"
+        "    - recommended_profiles: list[str]      profile_ids from the catalogue\n"
+        "    - payload_categories: list[str]        any of: xss, sqli, ssrf, lfi,\n"
+        "                                            ssti, xxe, nosqli, redirect,\n"
+        "                                            crlf, command-injection\n"
+        "    - risk_level: 'low'|'medium'|'high'|'critical'\n"
+        "    - one_line_next_step: str\n"
+        "Don't invent assets, findings, or CVEs that aren't in the data.\n\n"
+        f"```json\n{ctx}\n```"
+    )
+    result = _call(user)
+    # Parse the optional JSON block out of the body so the frontend gets
+    # the structured fields. If parsing fails, body stays as raw text and
+    # the UI falls back to plain rendering.
+    body_text = result.body.get("text", "") if isinstance(result.body, dict) else ""
+    structured: dict[str, Any] = {}
+    if "```json" in body_text:
+        try:
+            fence = body_text.split("```json", 1)[1].split("```", 1)[0]
+            structured = json.loads(fence.strip())
+        except (json.JSONDecodeError, IndexError, ValueError):
+            structured = {}
+    enriched_body = {**result.body, "structured": structured} if isinstance(result.body, dict) else \
+                     {"text": body_text, "structured": structured}
+    enriched = AdviceResult(
+        summary=result.summary, body=enriched_body,
+        prompt_tokens=result.prompt_tokens,
+        completion_tokens=result.completion_tokens,
+        cached_tokens=result.cached_tokens, model=result.model,
+    )
+    advice = _store(session, workspace_id=target.workspace_id,
+                     kind="target_analysis", ref_id=target.id,
+                     actor=actor, result=enriched)
+    _audit(session, actor, "target_analysis", target.id, enriched)
     session.commit()
     return advice
 

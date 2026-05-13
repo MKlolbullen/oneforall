@@ -550,3 +550,9 @@ button { cursor: pointer; }
   .payload-shell { grid-template-columns: 1fr; }
   .payload-tree { max-height: 320px; }
 }
+
+/* Target-analysis advisor — structured body inside AdvicePanel */
+.analysis-grid { gap: 12px; }
+.advice-bullets { list-style: none; padding: 0; margin: 6px 0 0; display: flex; flex-direction: column; gap: 4px; }
+.advice-bullets li { font-size: 13px; color: #cbd5e1; padding-left: 12px; position: relative; }
+.advice-bullets li::before { content: "›"; position: absolute; left: 0; color: #22d3ee; }

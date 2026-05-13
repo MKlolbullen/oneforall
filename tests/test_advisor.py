@@ -301,3 +301,113 @@ def test_ask_without_refs_works(stack):
     user_msg = fake.messages.calls[-1]["messages"][-1]["content"]
     assert "Run context" not in user_msg  # no auto-attached context
     assert "Target context" not in user_msg
+
+
+# ---------------------------- target analysis -----------------------------
+
+
+_ANALYSIS_FIXTURE = """\
+Target serves a fintech API with admin panel exposed. WAF appears absent.
+
+```json
+{
+  "tech_stack": ["nginx", "react", "node"],
+  "high_value_assets": [
+    {"url": "https://admin.lab.example.com/login", "why": "no MFA, admin login"}
+  ],
+  "attack_surface": [
+    "Admin login reachable without MFA",
+    "Public Jenkins console with script execution"
+  ],
+  "recommended_profiles": ["web_quick", "secrets_supply_chain"],
+  "payload_categories": ["xss", "ssrf"],
+  "risk_level": "high",
+  "one_line_next_step": "Probe /admin for authentication bypasses with dalfox + nuclei"
+}
+```
+"""
+
+
+def _analysis_responder(**kwargs):
+    return _fake_response(_ANALYSIS_FIXTURE)
+
+
+def test_target_analysis_persists_structured_json(stack):
+    client, headers, fake, _ = stack
+    fake.messages._responder = _analysis_responder
+    ws_id, target, _run = _seed_run(client, headers)
+
+    r = client.post(f"/api/advisor/targets/{target['id']}/analyze", headers=headers)
+    assert r.status_code == 201, r.text
+    advice = r.json()
+    assert advice["kind"] == "target_analysis"
+    assert advice["ref_id"] == target["id"]
+
+    structured = advice["body"]["structured"]
+    assert structured["risk_level"] == "high"
+    assert structured["tech_stack"] == ["nginx", "react", "node"]
+    assert structured["recommended_profiles"] == ["web_quick", "secrets_supply_chain"]
+    assert structured["payload_categories"] == ["xss", "ssrf"]
+    assert "admin.lab.example.com" in structured["high_value_assets"][0]["url"]
+
+
+def test_target_analysis_cached_get_returns_same_row(stack):
+    client, headers, fake, _ = stack
+    fake.messages._responder = _analysis_responder
+    _ws, target, _run = _seed_run(client, headers)
+    first = client.post(f"/api/advisor/targets/{target['id']}/analyze", headers=headers).json()
+    cached = client.get(f"/api/advisor/targets/{target['id']}/analyze", headers=headers).json()
+    assert cached["id"] == first["id"]
+    assert cached["body"]["structured"]["risk_level"] == "high"
+
+
+def test_target_analysis_get_returns_null_when_absent(stack):
+    client, headers, _, _ = stack
+    _ws, target, _run = _seed_run(client, headers)
+    r = client.get(f"/api/advisor/targets/{target['id']}/analyze", headers=headers)
+    assert r.status_code == 200
+    assert r.json() is None
+
+
+def test_target_analysis_404_on_unknown_target(stack):
+    client, headers, fake, _ = stack
+    fake.messages._responder = _analysis_responder
+    assert client.post("/api/advisor/targets/tgt_nope/analyze",
+                       headers=headers).status_code == 404
+
+
+def test_target_analysis_anonymous_blocked(stack):
+    client, _, _, _ = stack
+    assert client.post("/api/advisor/targets/tgt_x/analyze").status_code == 401
+
+
+def test_target_analysis_503_without_api_key(stack):
+    client, headers, _, mp = stack
+    mp.delenv("ANTHROPIC_API_KEY", raising=False)
+    _ws, target, _run = _seed_run(client, headers)
+    r = client.post(f"/api/advisor/targets/{target['id']}/analyze", headers=headers)
+    assert r.status_code == 503
+
+
+def test_target_analysis_handles_malformed_json_block(stack):
+    """If Claude returns an unparseable code fence we still persist the text
+    and the body.structured falls back to an empty dict."""
+    client, headers, fake, _ = stack
+    fake.messages._responder = lambda **_: _fake_response(
+        "Quick read.\n```json\n{not valid json,\n```"
+    )
+    _ws, target, _run = _seed_run(client, headers)
+    r = client.post(f"/api/advisor/targets/{target['id']}/analyze", headers=headers)
+    assert r.status_code == 201
+    body = r.json()["body"]
+    assert body["structured"] == {}
+    assert "Quick read" in body["text"]
+
+
+def test_target_analysis_emits_audit_row(stack):
+    client, headers, fake, _ = stack
+    fake.messages._responder = _analysis_responder
+    _ws, target, _run = _seed_run(client, headers)
+    client.post(f"/api/advisor/targets/{target['id']}/analyze", headers=headers)
+    audit = client.get("/api/dashboard/detailed", headers=headers).json()["recent_audit"]
+    assert any(row["action"] == "advisor.target_analysis" for row in audit)

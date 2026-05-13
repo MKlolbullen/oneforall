@@ -101,6 +101,35 @@ def post_suggest_profile(
     return _to_read(advice)
 
 
+@router.get("/targets/{target_id}/analyze", response_model=AdviceRead | None)
+def get_target_analysis(
+    target_id: str,
+    session: Session = Depends(get_session),
+    _user: User = Depends(current_user),
+) -> AdviceRead | None:
+    advice = session.exec(
+        select(Advice).where(
+            Advice.kind == "target_analysis", Advice.ref_id == target_id
+        )
+    ).first()
+    return _to_read(advice) if advice else None
+
+
+@router.post("/targets/{target_id}/analyze",
+             response_model=AdviceRead, status_code=201)
+def post_target_analysis(
+    target_id: str,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_role(Role.operator)),
+) -> AdviceRead:
+    _ensure_configured()
+    target = session.get(Target, target_id)
+    if not target:
+        raise HTTPException(404, "Target not found")
+    advice = advisor.analyze_target(session, target, actor=user)
+    return _to_read(advice)
+
+
 @router.get("/findings/{finding_id}/explain", response_model=AdviceRead | None)
 def get_finding_explain(
     finding_id: str,

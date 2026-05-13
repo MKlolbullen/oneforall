@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Bot, Loader2, RefreshCw } from 'lucide-react';
 import type { Advice } from '../types';
 
@@ -11,6 +11,8 @@ type Props = {
   invoke: () => Promise<Advice>;
   /** Forces a re-fetch when this changes (e.g. when the run/finding ID changes). */
   refKey: string;
+  /** Optional renderer for a structured body section below the summary. */
+  renderBody?: (advice: Advice) => ReactNode;
 };
 
 /**
@@ -19,7 +21,7 @@ type Props = {
  * has no opinions about WHAT it's advising on — every mode (run triage, finding
  * explain, profile suggest) feeds it the same shape.
  */
-export function AdvicePanel({ label, fetchCached, invoke, refKey }: Props) {
+export function AdvicePanel({ label, fetchCached, invoke, refKey, renderBody }: Props) {
   const [advice, setAdvice] = useState<Advice | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +68,7 @@ export function AdvicePanel({ label, fetchCached, invoke, refKey }: Props) {
       {advice && (
         <>
           <div className="advice-summary">{advice.summary}</div>
+          {renderBody?.(advice)}
           <div className="row muted advice-meta">
             <span>tokens in: {advice.prompt_tokens}</span>
             <span>· out: {advice.completion_tokens}</span>

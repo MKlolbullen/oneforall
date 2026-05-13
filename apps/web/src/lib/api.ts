@@ -83,6 +83,10 @@ export const api = {
     request<Advice | null>(`/api/advisor/targets/${targetId}/suggest-profile`),
   suggestProfile: (targetId: string) =>
     request<Advice>(`/api/advisor/targets/${targetId}/suggest-profile`, { method: 'POST' }),
+  getTargetAnalysis: (targetId: string) =>
+    request<Advice | null>(`/api/advisor/targets/${targetId}/analyze`),
+  analyzeTarget: (targetId: string) =>
+    request<Advice>(`/api/advisor/targets/${targetId}/analyze`, { method: 'POST' }),
   getFindingExplain: (findingId: string) =>
     request<Advice | null>(`/api/advisor/findings/${findingId}/explain`),
   explainFinding: (findingId: string) =>

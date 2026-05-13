@@ -119,6 +119,30 @@ The last two edge kinds appear in the screenshots to show where lateral-movement
 *will* slot in once the `internal_pivot` profile starts persisting host/cred records.
 The current API only emits the first four kinds.
 
+## UI tour
+
+Real Chromium captures against the running stack with seeded demo data
+(1 workspace, 10 targets, 1 completed run, 6 findings across all
+severities, 4 assets). Reproduce them by booting the stack
+(`reconforge up`) and running the screenshot script under
+`scripts/render-ui-screenshots.js` (Playwright + chromium required).
+
+| Page | What it shows |
+|---|---|
+| [Dashboard](docs/screenshots/ui/ui-dashboard.png) | KPI strip, severity distribution bar, run-status panel, recent runs / findings / audit feed, auto-refreshing every 10s. |
+| [Targets](docs/screenshots/ui/ui-targets.png) · [with bulk paste](docs/screenshots/ui/ui-targets-bulk.png) | Add-target form + Launch-guardrails card + Bulk-import textarea (skips `#` comments, dedupes inside the workspace). |
+| [Runs](docs/screenshots/ui/ui-runs.png) | Run list + Live-console pane with WebSocket-driven events, Re-run / Cancel buttons. |
+| [Results](docs/screenshots/ui/ui-results.png) · [filtered](docs/screenshots/ui/ui-results-filtered.png) | Workspace-wide findings table with severity-rank SQL ordering, CSV / JSON / MD export buttons, filter chips with × + Clear-all. |
+| [Network Graph](docs/screenshots/ui/ui-network.png) | React Flow render of target → domain → url → ip → finding with centrality-driven node sizing. |
+| [Tool Catalog](docs/screenshots/ui/ui-tools.png) | All 172 registered tools with live availability checks; profiles panel on the right. |
+| [Payloads](docs/screenshots/ui/ui-payloads.png) · [base64-encoded](docs/screenshots/ui/ui-payloads-base64.png) | 10 categories / 18 files / ~233 payloads, on-the-fly encoding (raw / url / url2 / base64 / hex / html / unicode), per-row copy + `.txt` download. |
+| [Settings](docs/screenshots/ui/ui-settings.png) | Theme grid, plugin-matrix counts, Sn1per-style runtime guardrails. |
+| [Keyboard cheatsheet](docs/screenshots/ui/ui-cheatsheet.png) | `?` opens a modal with `/`, `Esc`, and the `g <key>` nav set. |
+
+![Dashboard](docs/screenshots/ui/ui-dashboard.png)
+![Network Graph](docs/screenshots/ui/ui-network.png)
+![Payloads in base64](docs/screenshots/ui/ui-payloads-base64.png)
+
 ## Quick start
 
 ```bash

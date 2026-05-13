@@ -9,7 +9,24 @@ type Props = {
   onClose: () => void;
 };
 
-type Tab = 'overview' | 'assets' | 'findings' | 'runs' | 'tech';
+type Tab = 'overview' | 'assets' | 'findings' | 'runs' | 'tech' | 'analysis';
+
+type TargetAnalysisStructured = {
+  tech_stack?: string[];
+  high_value_assets?: { url: string; why?: string }[];
+  attack_surface?: string[];
+  recommended_profiles?: string[];
+  payload_categories?: string[];
+  risk_level?: 'low' | 'medium' | 'high' | 'critical' | string;
+  one_line_next_step?: string;
+};
+
+function levelBadgeClass(level?: string): string {
+  if (level === 'critical' || level === 'high') return 'badge bad';
+  if (level === 'medium') return 'badge active';
+  if (level === 'low') return 'badge ok';
+  return 'badge passive';
+}
 
 const SEVERITY_RANK: Record<string, number> = {
   critical: 0,
@@ -101,7 +118,7 @@ export function TargetDetail({ target, onClose }: Props) {
 
       <div className="card">
         <div className="row" role="tablist">
-          {(['overview', 'assets', 'findings', 'runs', 'tech'] as Tab[]).map((t) => (
+          {(['overview', 'assets', 'findings', 'runs', 'tech', 'analysis'] as Tab[]).map((t) => (
             <button
               key={t}
               className={`btn small ${tab === t ? '' : 'disabledish'}`}
@@ -254,6 +271,85 @@ export function TargetDetail({ target, onClose }: Props) {
           </div>
         </div>
       )}
+
+      {tab === 'analysis' && (
+        <div className="card">
+          <AdvicePanel
+            label="Target attack-surface analysis"
+            refKey={target.id}
+            fetchCached={() => api.getTargetAnalysis(target.id)}
+            invoke={() => api.analyzeTarget(target.id)}
+            renderBody={(advice) => {
+              const structured = (advice.body?.structured as TargetAnalysisStructured | undefined) ?? {};
+              return <TargetAnalysisBody structured={structured} />;
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TargetAnalysisBody({ structured }: { structured: TargetAnalysisStructured }) {
+  if (!structured || Object.keys(structured).length === 0) return null;
+  return (
+    <div className="grid analysis-grid" style={{ marginTop: 12 }}>
+      {structured.risk_level && (
+        <div className="row space">
+          <strong>Risk level</strong>
+          <span className={levelBadgeClass(structured.risk_level)}>{structured.risk_level}</span>
+        </div>
+      )}
+      {structured.one_line_next_step && (
+        <div className="advice-summary" style={{ background: 'rgba(34,211,238,.08)' }}>
+          <strong>Next step:</strong> {structured.one_line_next_step}
+        </div>
+      )}
+      {structured.tech_stack?.length ? (
+        <div>
+          <strong>Tech stack</strong>
+          <div className="tag-list" style={{ marginTop: 6 }}>
+            {structured.tech_stack.map((t) => <span key={t} className="tag enabled">{t}</span>)}
+          </div>
+        </div>
+      ) : null}
+      {structured.attack_surface?.length ? (
+        <div>
+          <strong>Attack surface</strong>
+          <ul className="advice-bullets">
+            {structured.attack_surface.map((s, i) => <li key={i}>{s}</li>)}
+          </ul>
+        </div>
+      ) : null}
+      {structured.high_value_assets?.length ? (
+        <div>
+          <strong>High-value assets</strong>
+          <ul className="advice-bullets">
+            {structured.high_value_assets.map((a, i) => (
+              <li key={i}>
+                <code className="mono">{a.url}</code>
+                {a.why && <span className="muted"> — {a.why}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {structured.recommended_profiles?.length ? (
+        <div>
+          <strong>Recommended profiles</strong>
+          <div className="tag-list" style={{ marginTop: 6 }}>
+            {structured.recommended_profiles.map((p) => <span key={p} className="tag enabled">{p}</span>)}
+          </div>
+        </div>
+      ) : null}
+      {structured.payload_categories?.length ? (
+        <div>
+          <strong>Payload categories to consider</strong>
+          <div className="tag-list" style={{ marginTop: 6 }}>
+            {structured.payload_categories.map((p) => <span key={p} className="tag">{p}</span>)}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
