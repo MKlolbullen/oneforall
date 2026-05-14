@@ -324,6 +324,78 @@ def _serialize_target_analysis_context(session: Session, target: Target) -> str:
     return json.dumps(payload, indent=2, default=str)
 
 
+def _serialize_finding_pivot_context(session: Session, finding: Finding) -> str:
+    """Bundle a finding + adjacent assets/findings on the same host so
+    Claude can reason about which probe makes sense next. Adjacency is
+    'same workspace + same host(name) suffix' which catches the realistic
+    pivot points (sister subdomains, urls on the same IP)."""
+    run = session.get(Run, finding.run_id) if finding.run_id else None
+    target = session.get(Target, run.target_id) if run else None
+
+    # Best-effort host extraction from evidence (often a URL)
+    evidence = finding.evidence or ""
+    host = ""
+    for token in evidence.split():
+        if "://" in token:
+            from urllib.parse import urlparse
+            try:
+                host = urlparse(token).netloc.split(":", 1)[0].lower()
+            except Exception:  # noqa: BLE001
+                pass
+            if host:
+                break
+
+    # Sibling assets — anything in the workspace touching the same host
+    sibling_assets: list[dict[str, Any]] = []
+    if host:
+        rows = session.exec(
+            select(Asset).where(Asset.workspace_id == finding.workspace_id)
+        ).all()
+        for a in rows:
+            val = (a.value or "").lower()
+            if a.type == "url" and host in val:
+                sibling_assets.append({"type": a.type, "value": a.value,
+                                        "source": a.source})
+            elif a.type == "domain" and (val == host or val.endswith("." + host) or host.endswith("." + val)):
+                sibling_assets.append({"type": a.type, "value": a.value,
+                                        "source": a.source})
+            elif a.type == "ip" and host in val:
+                sibling_assets.append({"type": a.type, "value": a.value,
+                                        "source": a.source})
+        sibling_assets = sibling_assets[:25]
+
+    # Sibling findings on the same host (skip the current one)
+    sibling_findings: list[dict[str, Any]] = []
+    if host:
+        rows = session.exec(
+            select(Finding).where(
+                Finding.workspace_id == finding.workspace_id,
+                Finding.id != finding.id,
+            )
+        ).all()
+        for f in rows[:200]:
+            if host in (f.evidence or ""):
+                sibling_findings.append({"id": f.id, "title": f.title,
+                                          "severity": f.severity,
+                                          "tool_source": f.tool_source})
+        sibling_findings = sibling_findings[:15]
+
+    payload = {
+        "finding": {
+            "id": finding.id, "title": finding.title,
+            "severity": finding.severity, "category": finding.category,
+            "tool_source": finding.tool_source,
+            "evidence": (finding.evidence or "")[:600],
+        },
+        "host": host or None,
+        "target": (target.model_dump() if target else None),
+        "run_profile": (run.profile_id if run else None),
+        "sibling_assets": sibling_assets,
+        "sibling_findings": sibling_findings,
+    }
+    return json.dumps(payload, indent=2, default=str)
+
+
 def _serialize_finding_context(session: Session, finding: Finding) -> str:
     run = session.get(Run, finding.run_id) if finding.run_id else None
     target = session.get(Target, run.target_id) if run else None
@@ -452,9 +524,19 @@ def analyze_target(session: Session, target: Target, *, actor: User | None) -> A
         f"```json\n{ctx}\n```"
     )
     result = _call(user)
-    # Parse the optional JSON block out of the body so the frontend gets
-    # the structured fields. If parsing fails, body stays as raw text and
-    # the UI falls back to plain rendering.
+    enriched = _enrich_with_structured(result)
+    advice = _store(session, workspace_id=target.workspace_id,
+                     kind="target_analysis", ref_id=target.id,
+                     actor=actor, result=enriched)
+    _audit(session, actor, "target_analysis", target.id, enriched)
+    session.commit()
+    return advice
+
+
+def _enrich_with_structured(result: AdviceResult) -> AdviceResult:
+    """If the body text contains a fenced ```json``` block, attach the
+    parsed result under body.structured. Used by analyze_target +
+    pivot_from_finding; flows whose output is pure prose pass through."""
     body_text = result.body.get("text", "") if isinstance(result.body, dict) else ""
     structured: dict[str, Any] = {}
     if "```json" in body_text:
@@ -463,18 +545,86 @@ def analyze_target(session: Session, target: Target, *, actor: User | None) -> A
             structured = json.loads(fence.strip())
         except (json.JSONDecodeError, IndexError, ValueError):
             structured = {}
-    enriched_body = {**result.body, "structured": structured} if isinstance(result.body, dict) else \
-                     {"text": body_text, "structured": structured}
-    enriched = AdviceResult(
+    enriched_body = (
+        {**result.body, "structured": structured}
+        if isinstance(result.body, dict)
+        else {"text": body_text, "structured": structured}
+    )
+    return AdviceResult(
         summary=result.summary, body=enriched_body,
         prompt_tokens=result.prompt_tokens,
         completion_tokens=result.completion_tokens,
         cached_tokens=result.cached_tokens, model=result.model,
     )
-    advice = _store(session, workspace_id=target.workspace_id,
-                     kind="target_analysis", ref_id=target.id,
-                     actor=actor, result=enriched)
-    _audit(session, actor, "target_analysis", target.id, enriched)
+
+
+def maybe_auto_analyze_target(session: Session, target_id: str,
+                                *, cooldown_seconds: int) -> Advice | None:
+    """Called by the runner after a run completes. Skips silently when:
+      * ANTHROPIC_API_KEY is unset
+      * the target was deleted between run-complete and now
+      * a target_analysis advice row exists newer than the cooldown
+    Any error from Claude is swallowed; the operator can always click
+    the Analyze button manually."""
+    if not is_configured():
+        return None
+    target = session.get(Target, target_id)
+    if not target:
+        return None
+    existing = session.exec(
+        select(Advice).where(
+            Advice.kind == "target_analysis",
+            Advice.ref_id == target_id,
+        )
+    ).first()
+    if existing and existing.created_at:
+        from datetime import datetime, timezone, timedelta
+        age = datetime.now(timezone.utc) - existing.created_at
+        if age < timedelta(seconds=cooldown_seconds):
+            logger.info("auto-target-analysis skipped for %s — cached row %.0fs old",
+                         target_id, age.total_seconds())
+            return None
+    try:
+        return analyze_target(session, target, actor=None)
+    except Exception as exc:  # noqa: BLE001 — operator can always re-trigger
+        logger.warning("auto-target-analysis failed for %s: %s", target_id, exc)
+        return None
+
+
+def pivot_from_finding(session: Session, finding: Finding, *,
+                        actor: User | None) -> Advice:
+    """Given a finding, suggest 2-3 concrete next probes to try. Each
+    pivot includes the tool to use, a templated command, the rationale,
+    and the severity of the asset the probe would prove. Output is the
+    same {text, structured} shape analyze_target produces so the UI
+    treats them identically."""
+    ctx = _serialize_finding_pivot_context(session, finding)
+    user = (
+        "Suggest 2-3 specific *pivots* from this finding — what to probe next,\n"
+        "given the sibling assets and findings on the same host.\n\n"
+        "Return TWO things, in this order:\n"
+        " 1. A 1-sentence summary the operator can paste into a ticket.\n"
+        " 2. A fenced ```json``` block with exactly these keys:\n"
+        "    - pivots: list[{title, tool, command, rationale, expected_severity}]\n"
+        "                tool is a real binary name from the registry\n"
+        "                  (nuclei, dalfox, ffuf, httpx, naabu, subfinder,\n"
+        "                   xsstrike, dirsearch, ...).\n"
+        "                command is a runnable shell command (no\n"
+        "                  placeholders — fill in concrete URLs/hosts from\n"
+        "                  the data).\n"
+        "                expected_severity is 'low'|'medium'|'high'|'critical'.\n"
+        "    - related_findings: list[finding_id]  IDs from sibling_findings\n"
+        "                                            that this pivot would extend.\n"
+        "    - confidence: 'low' | 'medium' | 'high'\n"
+        "Don't invent CVEs, tools that aren't in the registry, or hosts that\n"
+        "aren't in the sibling lists.\n\n"
+        f"```json\n{ctx}\n```"
+    )
+    result = _call(user)
+    advice = _store(session, workspace_id=finding.workspace_id,
+                     kind="finding_pivot", ref_id=finding.id,
+                     actor=actor, result=_enrich_with_structured(result))
+    _audit(session, actor, "finding_pivot", finding.id, result)
     session.commit()
     return advice
 

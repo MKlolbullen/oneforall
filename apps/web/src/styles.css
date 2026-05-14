@@ -556,3 +556,18 @@ button { cursor: pointer; }
 .advice-bullets { list-style: none; padding: 0; margin: 6px 0 0; display: flex; flex-direction: column; gap: 4px; }
 .advice-bullets li { font-size: 13px; color: #cbd5e1; padding-left: 12px; position: relative; }
 .advice-bullets li::before { content: "›"; position: absolute; left: 0; color: #22d3ee; }
+
+/* Finding-pivot cards */
+.pivot-list { display: flex; flex-direction: column; gap: 8px; }
+.pivot-card {
+  border: 1px solid #1f2937; border-radius: 10px; padding: 10px 12px;
+  background: rgba(2,6,23,.5);
+}
+.pivot-card:hover { border-color: #155e75; }
+.pivot-rationale { margin: 4px 0 8px; font-size: 12.5px; line-height: 1.45; }
+.pivot-cmd-row { gap: 8px; }
+.pivot-cmd {
+  display: block; flex: 1; min-width: 0; padding: 6px 10px;
+  background: #020617; border: 1px solid #1f2937; border-radius: 8px;
+  color: #67e8f9; font-size: 12.5px; word-break: break-all; white-space: pre-wrap;
+}

@@ -351,7 +351,7 @@ export type PayloadResponse = {
 export type Advice = {
   id: string;
   workspace_id: string;
-  kind: 'run_triage' | 'target_suggest_profile' | 'target_analysis' | 'finding_explain' | 'ask' | string;
+  kind: 'run_triage' | 'target_suggest_profile' | 'target_analysis' | 'finding_explain' | 'finding_pivot' | 'ask' | string;
   ref_id: string | null;
   actor_id: string | null;
   model: string;

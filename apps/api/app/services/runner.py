@@ -381,6 +381,7 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
                 ctx=ctx,
             )
 
+        completed_target_id: str | None = None
         with session_factory() as session:
             run = session.get(Run, run_id)
             if run:
@@ -388,6 +389,7 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
                 run.finished_at = now_utc()
                 session.add(run)
                 session.commit()
+                completed_target_id = run.target_id
             await event_bus.publish(session, run_id, "run.completed", "Run completed")
             await clear_run_cancel(run_id)
         await notify_run_event("run.completed", run_id, {
@@ -405,6 +407,20 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
                                        workspace_id=workspace_id, steps=steps)
                     session.commit()
             await http_capture.stop(ctx.capture)
+        # Auto target-analysis hook — fire-and-forget Claude call so the
+        # Target page is already populated when the operator opens it.
+        # Skips silently when API key unset or cooldown not elapsed.
+        if completed_target_id and settings.auto_target_analysis:
+            try:
+                from app.services import advisor
+                with session_factory() as session:
+                    advisor.maybe_auto_analyze_target(
+                        session, completed_target_id,
+                        cooldown_seconds=settings.auto_target_analysis_cooldown_seconds,
+                    )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("auto target-analysis failed for %s: %s",
+                                completed_target_id, exc)
     except RunCancelled as exc:
         with session_factory() as session:
             run = session.get(Run, run_id)

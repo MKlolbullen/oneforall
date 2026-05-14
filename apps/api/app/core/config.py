@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     execution_mode: str = "live"
     allow_live_execution: bool = True
 
+    # Auto-target-analysis: after every successful run, fire-and-forget a
+    # Claude target-analysis call so the operator sees the panel populated
+    # the moment they open Target detail. No-op when ANTHROPIC_API_KEY is
+    # unset. The cooldown keeps a chatty workspace from spamming the API:
+    # if the latest target_analysis for this target is younger than the
+    # cooldown window, we skip.
+    auto_target_analysis: bool = True
+    auto_target_analysis_cooldown_seconds: int = 300
+
     # queue = external worker via Redis. in_process remains useful for local debugging.
     runner_mode: str = "queue"
     run_queue_name: str = "reconforge:runs:queue"

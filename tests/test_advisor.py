@@ -83,6 +83,10 @@ def stack(tmp_path, monkeypatch):
     monkeypatch.setenv("RECONFORGE_BOOTSTRAP_ADMIN_PASSWORD", "admin-passw0rd")
     monkeypatch.setenv("RECONFORGE_TEST_AUTH_BYPASS", "1")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
+    # Auto-target-analysis is on by default in app.core.config, but most
+    # advisor tests don't care about it firing as a side effect of run
+    # completion. Specific auto-hook tests below opt back in.
+    monkeypatch.setenv("AUTO_TARGET_ANALYSIS", "false")
 
     from conftest import rebind_engine_to_database_url
     rebind_engine_to_database_url()
@@ -411,3 +415,178 @@ def test_target_analysis_emits_audit_row(stack):
     client.post(f"/api/advisor/targets/{target['id']}/analyze", headers=headers)
     audit = client.get("/api/dashboard/detailed", headers=headers).json()["recent_audit"]
     assert any(row["action"] == "advisor.target_analysis" for row in audit)
+
+
+# ---------------------------- finding pivot -----------------------------
+
+
+_PIVOT_FIXTURE = """\
+Likely chain: exposed admin -> SSRF probe via the /v1/users endpoint.
+
+```json
+{
+  "pivots": [
+    {
+      "title": "Probe /v1/users for SSRF via url parameter",
+      "tool": "nuclei",
+      "command": "nuclei -u https://api.lab.example.com/v1/users -t ssrf/",
+      "rationale": "The admin panel reachable from same host suggests the API may proxy URL params",
+      "expected_severity": "high"
+    },
+    {
+      "title": "Brute admin auth bypass on /login",
+      "tool": "ffuf",
+      "command": "ffuf -u https://admin.lab.example.com/FUZZ -w wordlist.txt",
+      "rationale": "Admin login was reachable without MFA — try common bypass paths",
+      "expected_severity": "high"
+    }
+  ],
+  "related_findings": ["f_xyz123"],
+  "confidence": "medium"
+}
+```
+"""
+
+
+def _pivot_responder(**kwargs):
+    return _fake_response(_PIVOT_FIXTURE)
+
+
+def _seed_finding(client, headers, *, evidence_url: str = "https://api.lab.example.com/v1/users"):
+    """Create a run + insert a Finding pointing at evidence_url."""
+    ws_id, _t, run = _seed_run(client, headers)
+    from app.db import engine
+    from app.models import Finding
+    from sqlmodel import Session
+    with Session(engine) as session:
+        f = Finding(
+            workspace_id=ws_id, run_id=run["id"],
+            title="Reflected XSS on /v1/users", severity="high",
+            category="xss", evidence=evidence_url,
+            tool_source="dalfox",
+        )
+        session.add(f)
+        session.commit()
+        session.refresh(f)
+        return ws_id, run, f.id
+
+
+def test_finding_pivot_persists_structured_pivots(stack):
+    client, headers, fake, _ = stack
+    fake.messages._responder = _pivot_responder
+    _ws, _run, fid = _seed_finding(client, headers)
+
+    r = client.post(f"/api/advisor/findings/{fid}/pivot", headers=headers)
+    assert r.status_code == 201, r.text
+    advice = r.json()
+    assert advice["kind"] == "finding_pivot"
+    assert advice["ref_id"] == fid
+    structured = advice["body"]["structured"]
+    assert len(structured["pivots"]) == 2
+    assert structured["pivots"][0]["tool"] == "nuclei"
+    assert "nuclei -u https://api.lab.example.com" in structured["pivots"][0]["command"]
+    assert structured["confidence"] == "medium"
+
+
+def test_finding_pivot_cached_get_returns_same_row(stack):
+    client, headers, fake, _ = stack
+    fake.messages._responder = _pivot_responder
+    _ws, _run, fid = _seed_finding(client, headers)
+    first = client.post(f"/api/advisor/findings/{fid}/pivot", headers=headers).json()
+    cached = client.get(f"/api/advisor/findings/{fid}/pivot", headers=headers).json()
+    assert cached["id"] == first["id"]
+
+
+def test_finding_pivot_404_on_unknown_id(stack):
+    client, headers, fake, _ = stack
+    fake.messages._responder = _pivot_responder
+    assert client.post("/api/advisor/findings/f_nope/pivot",
+                       headers=headers).status_code == 404
+
+
+def test_finding_pivot_anonymous_blocked(stack):
+    client, _, _, _ = stack
+    assert client.post("/api/advisor/findings/f_x/pivot").status_code == 401
+
+
+def test_finding_pivot_includes_sibling_assets_in_prompt(stack):
+    """The prompt should reference sibling URLs/IPs on the same host so
+    Claude can chain. We don't need to assert exactly which fields land,
+    just that the host shows up in the user message body."""
+    client, headers, fake, _ = stack
+    fake.messages._responder = _pivot_responder
+    _ws, _run, fid = _seed_finding(client, headers,
+                                     evidence_url="https://api.lab.example.com/v1/users")
+    client.post(f"/api/advisor/findings/{fid}/pivot", headers=headers)
+    user_msg = fake.messages.calls[-1]["messages"][0]["content"]
+    assert "api.lab.example.com" in user_msg
+    assert "sibling_assets" in user_msg
+    assert "sibling_findings" in user_msg
+
+
+# ---------------------------- auto target-analysis hook --------------------
+
+
+def test_auto_target_analysis_fires_after_run_complete(stack):
+    """A run completion should trigger a fire-and-forget analyze_target
+    call when auto_target_analysis is on + API key is set."""
+    client, headers, fake, mp = stack
+    mp.setenv("AUTO_TARGET_ANALYSIS", "true")
+    from app.core.config import get_settings
+    get_settings.cache_clear()
+    fake.messages._responder = _analysis_responder
+    _ws, target, _run = _seed_run(client, headers)
+
+    cached = client.get(f"/api/advisor/targets/{target['id']}/analyze",
+                        headers=headers).json()
+    assert cached is not None, "expected auto-analysis to populate the cached row"
+    assert cached["kind"] == "target_analysis"
+    assert cached["ref_id"] == target["id"]
+    assert cached["body"]["structured"]["risk_level"] == "high"
+
+
+def test_auto_target_analysis_skipped_without_api_key(stack):
+    client, headers, _, mp = stack
+    mp.setenv("AUTO_TARGET_ANALYSIS", "true")
+    mp.delenv("ANTHROPIC_API_KEY", raising=False)
+    from app.core.config import get_settings
+    get_settings.cache_clear()
+    _ws, target, _run = _seed_run(client, headers)
+    r = client.get(f"/api/advisor/targets/{target['id']}/analyze", headers=headers)
+    assert r.status_code == 200
+    assert r.json() is None
+
+
+def test_auto_target_analysis_respects_cooldown(stack, monkeypatch):
+    """A second run completing inside the cooldown window must not overwrite
+    the existing target_analysis row."""
+    client, headers, fake, mp = stack
+    fake.messages._responder = _analysis_responder
+    mp.setenv("AUTO_TARGET_ANALYSIS", "true")
+    monkeypatch.setenv("AUTO_TARGET_ANALYSIS_COOLDOWN_SECONDS", "9999")
+    from app.core.config import get_settings
+    get_settings.cache_clear()
+
+    # First run triggers analysis
+    _ws_id, target, _run1 = _seed_run(client, headers)
+    first = client.get(f"/api/advisor/targets/{target['id']}/analyze",
+                        headers=headers).json()
+    assert first is not None
+    first_id = first["id"]
+    first_calls = len(fake.messages.calls)
+
+    # Second run completes — cooldown should prevent another Claude call
+    run2 = client.post("/api/runs", headers=headers, json={
+        "workspace_id": _ws_id, "target_id": target["id"],
+        "profile_id": "passive_recon",
+    }).json()
+    deadline = time.monotonic() + 90
+    while time.monotonic() < deadline:
+        if client.get(f"/api/runs/{run2['id']}", headers=headers).json()["status"] == "completed":
+            break
+        time.sleep(0.3)
+
+    cached = client.get(f"/api/advisor/targets/{target['id']}/analyze",
+                        headers=headers).json()
+    assert cached["id"] == first_id, "cooldown was supposed to keep the same row"
+    assert len(fake.messages.calls) == first_calls, "no additional Claude call expected"

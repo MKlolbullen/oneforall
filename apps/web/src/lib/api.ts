@@ -91,6 +91,10 @@ export const api = {
     request<Advice | null>(`/api/advisor/findings/${findingId}/explain`),
   explainFinding: (findingId: string) =>
     request<Advice>(`/api/advisor/findings/${findingId}/explain`, { method: 'POST' }),
+  getFindingPivot: (findingId: string) =>
+    request<Advice | null>(`/api/advisor/findings/${findingId}/pivot`),
+  pivotFromFinding: (findingId: string) =>
+    request<Advice>(`/api/advisor/findings/${findingId}/pivot`, { method: 'POST' }),
 
   runNetwork: (runId: string, opts: {
     host?: string;

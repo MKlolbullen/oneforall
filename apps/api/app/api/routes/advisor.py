@@ -157,6 +157,34 @@ def post_finding_explain(
     return _to_read(advice)
 
 
+@router.get("/findings/{finding_id}/pivot", response_model=AdviceRead | None)
+def get_finding_pivot(
+    finding_id: str,
+    session: Session = Depends(get_session),
+    _user: User = Depends(current_user),
+) -> AdviceRead | None:
+    advice = session.exec(
+        select(Advice).where(Advice.kind == "finding_pivot",
+                              Advice.ref_id == finding_id)
+    ).first()
+    return _to_read(advice) if advice else None
+
+
+@router.post("/findings/{finding_id}/pivot",
+             response_model=AdviceRead, status_code=201)
+def post_finding_pivot(
+    finding_id: str,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_role(Role.operator)),
+) -> AdviceRead:
+    _ensure_configured()
+    finding = session.get(Finding, finding_id)
+    if not finding:
+        raise HTTPException(404, "Finding not found")
+    advice = advisor.pivot_from_finding(session, finding, actor=user)
+    return _to_read(advice)
+
+
 @router.post("/ask", response_model=AdviceRead, status_code=201)
 def post_ask(
     payload: AskPayload,

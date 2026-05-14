@@ -319,10 +319,76 @@ function ResultsRow({
                 fetchCached={() => api.getFindingExplain(finding.id)}
                 invoke={() => api.explainFinding(finding.id)}
               />
+              <AdvicePanel
+                label="Pivot from this finding"
+                refKey={finding.id}
+                fetchCached={() => api.getFindingPivot(finding.id)}
+                invoke={() => api.pivotFromFinding(finding.id)}
+                renderBody={(advice) => {
+                  const s = (advice.body?.structured ?? {}) as FindingPivotStructured;
+                  return <FindingPivotBody structured={s} />;
+                }}
+              />
             </div>
           </td>
         </tr>
       )}
     </>
+  );
+}
+
+type FindingPivotStructured = {
+  pivots?: { title: string; tool: string; command: string;
+              rationale?: string; expected_severity?: string }[];
+  related_findings?: string[];
+  confidence?: 'low' | 'medium' | 'high' | string;
+};
+
+function severityChipClass(sev?: string): string {
+  if (sev === 'critical' || sev === 'high') return 'badge bad';
+  if (sev === 'medium') return 'badge active';
+  if (sev === 'low') return 'badge ok';
+  return 'badge';
+}
+
+function FindingPivotBody({ structured }: { structured: FindingPivotStructured }) {
+  if (!structured || !structured.pivots?.length) return null;
+  return (
+    <div className="grid analysis-grid" style={{ marginTop: 12 }}>
+      {structured.confidence && (
+        <div className="row space">
+          <strong>Confidence</strong>
+          <span className={`badge ${
+            structured.confidence === 'high' ? 'ok' :
+            structured.confidence === 'low'  ? 'bad' : 'passive'}`}>
+            {structured.confidence}
+          </span>
+        </div>
+      )}
+      <div className="pivot-list">
+        {structured.pivots.map((p, i) => (
+          <div key={i} className="pivot-card">
+            <div className="row space">
+              <strong>{p.title}</strong>
+              {p.expected_severity && (
+                <span className={severityChipClass(p.expected_severity)}>
+                  ⇒ {p.expected_severity}
+                </span>
+              )}
+            </div>
+            {p.rationale && <p className="muted pivot-rationale">{p.rationale}</p>}
+            <div className="row space pivot-cmd-row">
+              <code className="mono pivot-cmd">{p.command}</code>
+              <span className="badge passive">{p.tool}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      {structured.related_findings?.length ? (
+        <div className="muted" style={{ fontSize: 12 }}>
+          Related findings: {structured.related_findings.join(', ')}
+        </div>
+      ) : null}
+    </div>
   );
 }
