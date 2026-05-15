@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Activity, Boxes, Crosshair, FileSearch, Keyboard, LayoutDashboard, Network, RefreshCw, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Activity, Boxes, Crosshair, FileSearch, LayoutDashboard, MessageSquare, Network, RefreshCw, Settings as SettingsIcon, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
 import { ReactFlow, Background, Controls, Handle, Position } from '@xyflow/react';
 import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
 import { classifyArtifact } from './lib/artifactKind';
 import { TargetDetail } from './lib/TargetDetail';
 import { AdvicePanel } from './lib/AdvicePanel';
+import { AdvisorChat } from './lib/AdvisorChat';
+import { AdvisorProvider, AdvisorScopeBinder } from './lib/advisorContext';
 import { NetworkTab } from './lib/NetworkTab';
 import { CopyButton } from './lib/CopyButton';
 import { EmptyState } from './lib/EmptyState';
@@ -80,6 +82,7 @@ export function App() {
   }, [theme]);
 
   return (
+    <AdvisorProvider>
     <div className="shell">
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark">RF</span><span>ReconForge</span></div>
@@ -110,13 +113,12 @@ export function App() {
             <span className="badge passive">{String(health.execution_mode ?? 'unknown')} mode</span>
             {health.live_execution_enabled === true ? <span className="badge active">live execution</span> : <span className="badge passive">dry-run safe</span>}
             <button
-              className="icon-btn"
-              onClick={() => setShowCheat(true)}
-              title="Keyboard shortcuts (?)"
               type="button"
-              aria-label="Keyboard shortcuts"
+              className="btn small advisor-topbar-btn"
+              title="Open AI advisor chat"
+              onClick={() => window.dispatchEvent(new CustomEvent('reconforge:advisor-open'))}
             >
-              <Keyboard size={16} />
+              <MessageSquare size={14} /> Advisor
             </button>
             <label className="theme-toggle muted" title="Switch UI theme">
               theme
@@ -140,8 +142,11 @@ export function App() {
       <ShortcutsCheatsheet open={showCheat} onClose={() => setShowCheat(false)} />
       <PendingGHint visible={pendingG} />
     </div>
+      <AdvisorChat />
+    </AdvisorProvider>
   );
 }
+
 
 function Metric({ title, value, icon }: { title: string; value: number; icon: ReactNode }) {
   return <div className="card"><div className="row space"><span className="muted">{title}</span>{icon}</div><div className="metric">{value}</div></div>;
@@ -323,8 +328,20 @@ function RunTable({ runs, onSelect }: { runs: Run[]; onSelect?: (run: Run) => vo
 type RunTab = 'console' | 'steps' | 'network' | 'artifacts' | 'advisor';
 
 function RunConsole({ run, onChanged }: { run: Run; onChanged?: () => void }) {
-  const toast = useToast();
-  const confirm = useConfirm();
+  return (
+    <>
+      <AdvisorScopeBinder
+        workspaceId={run.workspace_id}
+        runId={run.id}
+        runLabel={run.profile_id}
+        targetId={run.target_id}
+      />
+      <RunConsoleInner run={run} onChanged={onChanged} />
+    </>
+  );
+}
+
+function RunConsoleInner({ run, onChanged }: { run: Run; onChanged?: () => void }) {
   const [events, setEvents] = useState<RunEvent[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [steps, setSteps] = useState<RunStep[]>([]);
@@ -457,12 +474,24 @@ function RunConsole({ run, onChanged }: { run: Run; onChanged?: () => void }) {
       </div>
     )}
     {tab === 'advisor' && (
-      <AdvicePanel
-        label="Triage with Claude"
-        refKey={run.id}
-        fetchCached={() => api.getRunTriage(run.id)}
-        invoke={() => api.triageRun(run.id)}
-      />
+      <div className="grid">
+        <div className="row space">
+          <p className="muted">One-shot triage below, or use the global chat for back-and-forth Q&amp;A.</p>
+          <button
+            type="button"
+            className="btn small"
+            onClick={() => window.dispatchEvent(new CustomEvent('reconforge:advisor-open'))}
+          >
+            <MessageSquare size={14} /> Open chat
+          </button>
+        </div>
+        <AdvicePanel
+          label="Triage with Claude"
+          refKey={run.id}
+          fetchCached={() => api.getRunTriage(run.id)}
+          invoke={() => api.triageRun(run.id)}
+        />
+      </div>
     )}
   </div>;
 }

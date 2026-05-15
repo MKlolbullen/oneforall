@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Boxes, Globe, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
 import { api } from './api';
 import { AdvicePanel } from './AdvicePanel';
+import { AdvisorScopeBinder } from './advisorContext';
 import type { Asset, Finding, Run, Target, TargetSummary, TargetTech } from '../types';
 
 type Props = {
@@ -86,6 +87,11 @@ export function TargetDetail({ target, onClose }: Props) {
 
   return (
     <div className="grid">
+      <AdvisorScopeBinder
+        workspaceId={target.workspace_id}
+        targetId={target.id}
+        targetLabel={target.value}
+      />
       <div className="row space">
         <button className="btn small" onClick={onClose} type="button">
           <ArrowLeft size={14} /> Back to targets
