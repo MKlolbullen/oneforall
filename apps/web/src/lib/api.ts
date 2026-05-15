@@ -87,6 +87,13 @@ export const api = {
     request<Advice | null>(`/api/advisor/findings/${findingId}/explain`),
   explainFinding: (findingId: string) =>
     request<Advice>(`/api/advisor/findings/${findingId}/explain`, { method: 'POST' }),
+  askAdvisor: (payload: {
+    question: string;
+    workspace_id: string;
+    run_id?: string;
+    target_id?: string;
+  }) =>
+    request<Advice>('/api/advisor/ask', { method: 'POST', body: JSON.stringify(payload) }),
 
   runNetwork: (runId: string, opts: {
     host?: string;
