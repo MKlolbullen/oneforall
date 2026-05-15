@@ -1,0 +1,32 @@
+id: internal_pivot
+name: Internal pivot (AD enumeration + credential probing)
+risk: high_active
+description: |
+  Authenticated lateral-movement / AD-enumeration sweep — designed for an
+  authorized internal pentest. Every step requires `target.active_allowed=true`
+  AND a populated scope.yaml. The chain assumes the operator has already
+  obtained valid credentials and configured them via the tool-specific
+  environment (impacket reads from -hashes / -k flags; netexec from --user
+  / --password / --hash). Tool-level credential injection is intentionally
+  out of scope here — pre-flight credentials in the worker container.
+steps:
+- tool: netexec
+  timeout_seconds: 1800
+  max_retries: 0
+  continue_on_error: true
+- tool: impacket_getuserspns
+  timeout_seconds: 1200
+  max_retries: 0
+  continue_on_error: true
+- tool: impacket_secretsdump
+  timeout_seconds: 1800
+  max_retries: 0
+  continue_on_error: true
+- tool: impacket_smbexec
+  timeout_seconds: 900
+  max_retries: 0
+  continue_on_error: true
+- tool: impacket_wmiexec
+  timeout_seconds: 900
+  max_retries: 0
+  continue_on_error: true

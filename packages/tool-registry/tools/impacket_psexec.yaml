@@ -1,0 +1,35 @@
+id: impacket_psexec
+name: "Impacket: psexec"
+category: lateral-movement
+description: "Remote service-creation shell over SMB (PsExec-equivalent)."
+binary: impacket-psexec
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: ip_or_host
+  required: true
+outputs:
+- name: results
+  type: text
+command:
+  argv:
+  - "impacket-psexec"
+  - "{{target}}"
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 0
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- impacket
+- smb
+- lateral-movement
+install:
+  method: pipx
+  package: "impacket"
+dry_run_output:
+- "[*] Requesting shares on {{target}}....."
+- "C:\\>"

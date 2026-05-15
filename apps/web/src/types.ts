@@ -300,6 +300,28 @@ export type NetworkPage = {
   statuses: number[];
 };
 
+export type GraphNode = {
+  id: string;
+  kind: 'target' | 'domain' | 'ip' | 'url' | 'finding' | string;
+  label: string;
+  severity?: string | null;
+  centrality: number;
+  ref_id?: string | null;
+};
+
+export type GraphEdge = {
+  source: string;
+  target: string;
+  kind: 'owns' | 'resolves_to' | 'hosts' | 'finds' | string;
+};
+
+export type GraphPayload = {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  stats: { by_kind?: Record<string, number>; node_count?: number; edge_count?: number; max_nodes?: number };
+  truncated: boolean;
+};
+
 export type Advice = {
   id: string;
   workspace_id: string;

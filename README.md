@@ -1,12 +1,18 @@
-# ReconForge Control Plane
+# ReconForge - Multi panel Web GUI with recon/ASM/bug bounty workflows.
 
-Clean-room, Sn1per-class inspired web control plane for authorized recon/ASM/bug bounty workflows.
-
-**Important:** this project intentionally contains no Sn1per code, assets, templates, names, or branding. It implements the *product pattern* clean-room: workspace-first UX, controlled tool execution, normalized assets/findings, evented runs, and artifact-backed reporting.
 
 > **History note.** This repo previously hosted a CLI-only 10-stage pipeline called *OneForAll*. That package is preserved under [`legacy/`](./legacy) and wired into the new system as registry tools (`oneforall`, `oneforall_s01_passive` … `oneforall_s10_report`) and a profile (`oneforall_chain`). See [`legacy/README.md`](./legacy/README.md).
 
-> **Default safety posture for this branch is *lab mode*** — `EXECUTION_MODE=live` and `ALLOW_LIVE_EXECUTION=true` in `.env.example`. Flip both back to `dry_run` / `false` before running against anything you don't fully control.
+> **Default safety posture for this branch is *lab mode*.**
+> `EXECUTION_MODE=live` and `ALLOW_LIVE_EXECUTION=true` are baked in everywhere
+> — `.env.example`, `apps/api/app/core/config.py` Pydantic defaults, the
+> `.env` template `scripts/install-stack.sh` writes, and the
+> `packages/platform-config/sniper-inspired.yaml` plugin matrix has every
+> scanner / channel / integration enabled. The platform still gates each run
+> behind `target.active_allowed=true` and a populated `scope.yaml`, but real
+> tools will fire as soon as those conditions are met. Flip both env flags
+> back to `dry_run` / `false` before exposing this to anything you don't
+> fully control.
 
 ## What is included
 
@@ -68,7 +74,51 @@ packages/
 infra/
   minio/     MinIO notes
 scripts/     helper scripts
+docs/
+  screenshots/      generated UI screenshots (see `scripts/render-graph-screenshots.py`)
 ```
+
+## Network graph
+
+The web UI ships a Network Graph page that renders every workspace as a force-laid graph
+of `target → domain → url → ip → finding` (plus internal `host` and captured `cred`
+nodes once `internal_pivot` lands creds). Node size scales with networkx betweenness
+centrality so pivot points jump out; edges are colored by relationship kind so an
+operator can spot the critical hops at a glance.
+
+The simulated screenshots below are produced by `scripts/render-graph-screenshots.py`,
+which uses the same color palette, edge kinds, and centrality logic as the live
+endpoint at `GET /api/workspaces/{id}/graph`. Re-run it after changing the layout to
+keep the docs in sync:
+
+```bash
+python scripts/render-graph-screenshots.py   # writes docs/screenshots/*.png
+```
+
+### Engagement timeline (`acme-bank.com`)
+
+![Engagement timeline — passive → active scan → internal pivot](docs/screenshots/network-graph-timeline.png)
+
+| Frame | What's happening |
+|---|---|
+| **T+0 — Passive recon** ([single frame](docs/screenshots/network-graph-passive.png)) | `subfinder + dnsx + httpx` complete. Target hub at the centre, 12 subdomains, 10 URLs, 7 IPs. No findings yet — every edge is gray (`owns / hosts / resolves_to`). |
+| **T+15 — Active scan** ([single frame](docs/screenshots/network-graph-attack.png)) | `nuclei + dalfox + arjun` running. 9 findings appear on the outer ring with severity-tinted labels (2 critical: exposed `.git`, Jenkins script-console RCE). Pink `finds` edges light up. |
+| **T+45 — Internal pivot** ([single frame](docs/screenshots/network-graph-lateral.png)) | Jenkins RCE → `netexec + impacket` on `10.10.20.0/24`. Three orange `host` nodes (`DC01`, `FILES01`, `WS-FINANCE-07`), two yellow `cred` nodes (`svc_jenkins:S3cret!`, `ACME\administrator (NTLM)`), and orange `pivots_to` edges crossing from public IPs into the internal segment. 15 findings, 4 critical. |
+
+Edge kinds in the live graph endpoint:
+
+| Kind | Used between | Example |
+|---|---|---|
+| `owns` | target → domain | `acme-bank.com` → `api.acme-bank.com` |
+| `hosts` | domain → url | `api.acme-bank.com` → `https://api.acme-bank.com/v1/users/{id}` |
+| `resolves_to` | url → ip, host → ip | `https://...` → `10.0.4.21` |
+| `finds` | target/asset → finding | `acme-bank.com` → `Reflected XSS on /v1/users` |
+| `pivots_to` *(simulation only — not yet emitted by the API)* | external ip → internal ip | `10.0.4.41` → `10.10.20.5` |
+| `captures` *(simulation only)* | host/ip → cred | `DC01.acme.local` → `ACME\administrator (NTLM)` |
+
+The last two edge kinds appear in the screenshots to show where lateral-movement data
+*will* slot in once the `internal_pivot` profile starts persisting host/cred records.
+The current API only emits the first four kinds.
 
 ## Quick start
 

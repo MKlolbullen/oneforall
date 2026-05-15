@@ -1,0 +1,179 @@
+#!/usr/bin/env bash
+#
+# ReconForge launcher — single entry point for starting the API, the worker,
+# the web UI, or the whole stack. Installed at /usr/local/bin/reconforge by
+# scripts/install-stack.sh.
+#
+# Subcommands:
+#   up         API + web in foreground (Ctrl-C kills both)
+#   api        FastAPI on :8000 (uvicorn --reload)
+#   worker     in-process worker (RUNNER_MODE=in_process by default)
+#   web        Vite dev server on :5173
+#   test       pytest under the API venv
+#   stop       kill anything reconforge started in the background
+#   status     show running services
+#   logs       tail logs/*.log
+#   migrate    alembic upgrade head
+#   --help     this text
+
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+API_DIR="${REPO_DIR}/apps/api"
+WEB_DIR="${REPO_DIR}/apps/web"
+VENV_DIR="${API_DIR}/.venv"
+RUN_DIR="${REPO_DIR}/.runtime"
+LOG_DIR="${REPO_DIR}/logs"
+mkdir -p "${RUN_DIR}" "${LOG_DIR}"
+
+PY="${VENV_DIR}/bin/python"
+UVICORN="${VENV_DIR}/bin/uvicorn"
+ALEMBIC="${VENV_DIR}/bin/alembic"
+PYTEST="${VENV_DIR}/bin/pytest"
+
+color() { printf '\033[1;36m%s\033[0m\n' "$*"; }
+err()   { printf '\033[1;31m%s\033[0m\n' "$*" >&2; }
+
+require_venv() {
+  [[ -x "${PY}" ]] || { err "API venv missing — run scripts/install-stack.sh first."; exit 1; }
+}
+
+pidfile() { echo "${RUN_DIR}/$1.pid"; }
+logfile() { echo "${LOG_DIR}/$1.log"; }
+
+# Spawn in the background and write the PID; subsequent stop/status read it back.
+spawn_bg() {
+  local name="$1"; shift
+  local pf; pf=$(pidfile "${name}")
+  if [[ -f "${pf}" ]] && kill -0 "$(cat "${pf}")" 2>/dev/null; then
+    color "${name} already running (pid $(cat "${pf}"))"
+    return 0
+  fi
+  color "starting ${name}: $*"
+  ( "$@" >"$(logfile "${name}")" 2>&1 & echo $! > "${pf}" )
+}
+
+cmd_api() {
+  require_venv
+  cd "${API_DIR}"
+  exec "${UVICORN}" app.main:app --host 0.0.0.0 --port 8000 --reload
+}
+
+cmd_worker() {
+  require_venv
+  cd "${API_DIR}"
+  exec "${PY}" -m app.worker
+}
+
+cmd_web() {
+  [[ -d "${WEB_DIR}/node_modules" ]] || { err "web deps missing — run scripts/install-stack.sh first."; exit 1; }
+  cd "${WEB_DIR}"
+  exec npm run dev
+}
+
+cmd_up() {
+  require_venv
+  cd "${REPO_DIR}"
+  spawn_bg api    "${UVICORN}" --app-dir "${API_DIR}" app.main:app --host 0.0.0.0 --port 8000 --reload
+  spawn_bg web    bash -c "cd '${WEB_DIR}' && npm run dev"
+  color "API : http://localhost:8000  (logs: $(logfile api))"
+  color "Web : http://localhost:5173  (logs: $(logfile web))"
+  color "Tail with: reconforge logs    Stop with: reconforge stop"
+  # Wait on the children so Ctrl-C cleans up.
+  trap 'cmd_stop' INT TERM
+  wait
+}
+
+cmd_stop() {
+  local stopped=0
+  for pf in "${RUN_DIR}"/*.pid; do
+    [[ -f "${pf}" ]] || continue
+    local pid name
+    pid=$(cat "${pf}")
+    name=$(basename "${pf}" .pid)
+    if kill -0 "${pid}" 2>/dev/null; then
+      color "stopping ${name} (pid ${pid})"
+      kill "${pid}" 2>/dev/null || true
+      stopped=$((stopped+1))
+    fi
+    rm -f "${pf}"
+  done
+  (( stopped == 0 )) && color "nothing running"
+}
+
+cmd_status() {
+  shopt -s nullglob
+  local found=0
+  for pf in "${RUN_DIR}"/*.pid; do
+    local pid name
+    pid=$(cat "${pf}")
+    name=$(basename "${pf}" .pid)
+    if kill -0 "${pid}" 2>/dev/null; then
+      printf '  %-8s pid=%s  log=%s\n' "${name}" "${pid}" "$(logfile "${name}")"
+    else
+      printf '  %-8s STALE pid=%s — cleaning up\n' "${name}" "${pid}"
+      rm -f "${pf}"
+    fi
+    found=1
+  done
+  (( found == 0 )) && color "no reconforge processes running"
+}
+
+cmd_logs() {
+  shopt -s nullglob
+  local files=("${LOG_DIR}"/*.log)
+  if (( ${#files[@]} == 0 )); then
+    color "no logs yet"
+    return
+  fi
+  exec tail -F "${files[@]}"
+}
+
+cmd_test() {
+  require_venv
+  cd "${REPO_DIR}"
+  exec "${PYTEST}" tests/ -v "$@"
+}
+
+cmd_migrate() {
+  require_venv
+  cd "${API_DIR}"
+  exec "${ALEMBIC}" upgrade head
+}
+
+usage() {
+  cat <<USAGE
+ReconForge launcher — single entry point for the API, worker, and web UI.
+
+Usage: reconforge <command> [args...]
+
+Subcommands:
+  up         API + web in foreground (Ctrl-C kills both)
+  api        FastAPI on :8000 (uvicorn --reload)
+  worker     in-process worker
+  web        Vite dev server on :5173
+  test       pytest under the API venv
+  stop       kill anything reconforge started in the background
+  status     show running services
+  logs       tail logs/*.log
+  migrate    alembic upgrade head
+  --help     this text
+
+Logs:    ${LOG_DIR}
+PIDs:    ${RUN_DIR}
+USAGE
+}
+
+case "${1:---help}" in
+  up)      shift; cmd_up      "$@" ;;
+  api)     shift; cmd_api     "$@" ;;
+  worker)  shift; cmd_worker  "$@" ;;
+  web)     shift; cmd_web     "$@" ;;
+  test)    shift; cmd_test    "$@" ;;
+  stop)    shift; cmd_stop    "$@" ;;
+  status)  shift; cmd_status  "$@" ;;
+  logs)    shift; cmd_logs    "$@" ;;
+  migrate) shift; cmd_migrate "$@" ;;
+  --help|-h|help) usage ;;
+  *) err "unknown command: $1"; usage; exit 2 ;;
+esac

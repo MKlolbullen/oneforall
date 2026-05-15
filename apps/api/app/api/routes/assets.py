@@ -9,6 +9,11 @@ from app.services import audit
 from app.services.artifacts import ArtifactStore
 from app.services.auth import current_user, require_role
 
+import csv
+import io
+import json
+from datetime import datetime, timezone
+
 router = APIRouter(tags=["assets-findings"])
 
 VALID_FINDING_STATUSES = {"new", "triaged", "false_positive", "fixed", "closed"}
@@ -130,6 +135,121 @@ def list_findings(
             "severities": severities,
             "statuses": statuses,
             "tools": tools,
+        },
+    )
+
+
+EXPORT_FORMATS = {"csv", "json", "md"}
+EXPORT_MEDIA = {
+    "csv": "text/csv; charset=utf-8",
+    "json": "application/json",
+    "md": "text/markdown; charset=utf-8",
+}
+# Capped at 10k rows so a misconfigured filter can't try to ship a 5GB CSV
+# through uvicorn. Operators who need everything should paginate via /api/findings.
+EXPORT_MAX_ROWS = 10_000
+
+
+def _filter_findings(
+    *,
+    workspace_id: str | None,
+    severity: str | None,
+    status: str | None,
+    tool: str | None,
+    target_id: str | None,
+    q: str | None,
+):
+    """Build the same select() the list endpoint does, minus pagination.
+    Kept inline-duplicated rather than refactored out of list_findings to
+    avoid touching the page-shape contract the SPA already speaks."""
+    base = select(Finding)
+    if workspace_id:
+        base = base.where(Finding.workspace_id == workspace_id)
+    if severity:
+        base = base.where(Finding.severity == severity)
+    if status:
+        base = base.where(Finding.status == status)
+    if tool:
+        base = base.where(Finding.tool_source == tool)
+    if target_id:
+        base = base.join(Run, Run.id == Finding.run_id).where(Run.target_id == target_id)
+    if q:
+        like = f"%{_escape_like(q)}%"
+        base = base.where(
+            (Finding.title.ilike(like, escape="\\"))  # type: ignore[union-attr]
+            | (Finding.evidence.ilike(like, escape="\\"))  # type: ignore[union-attr]
+        )
+    return base.order_by(_SEVERITY_CASE, Finding.created_at.desc())
+
+
+@router.get("/findings/export")
+def export_findings(
+    fmt: str = Query("csv", alias="format", description="csv | json | md"),
+    workspace_id: str | None = None,
+    severity: str | None = None,
+    status: str | None = None,
+    tool: str | None = None,
+    target_id: str | None = None,
+    q: str | None = None,
+    session: Session = Depends(get_session),
+    _user: User = Depends(current_user),
+) -> Response:
+    """Export findings (filtered same way as /api/findings) as CSV / JSON /
+    Markdown so operators can drop them straight into a ticket / report.
+    Capped at EXPORT_MAX_ROWS rows."""
+    if fmt not in EXPORT_FORMATS:
+        raise HTTPException(400, f"invalid format {fmt!r}; one of {sorted(EXPORT_FORMATS)}")
+
+    rows = list(session.exec(
+        _filter_findings(
+            workspace_id=workspace_id, severity=severity, status=status,
+            tool=tool, target_id=target_id, q=q,
+        ).limit(EXPORT_MAX_ROWS)
+    ).all())
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    filename = f"reconforge-findings-{stamp}.{fmt}"
+
+    if fmt == "csv":
+        buf = io.StringIO()
+        w = csv.writer(buf, quoting=csv.QUOTE_MINIMAL)
+        w.writerow(["id", "workspace_id", "run_id", "asset_id",
+                    "title", "severity", "confidence", "category", "status",
+                    "tool_source", "evidence", "created_at"])
+        for r in rows:
+            w.writerow([r.id, r.workspace_id, r.run_id or "", r.asset_id or "",
+                        r.title, r.severity, r.confidence, r.category, r.status,
+                        r.tool_source or "", (r.evidence or "").replace("\n", " ⏎ "),
+                        r.created_at.isoformat() if r.created_at else ""])
+        body = buf.getvalue().encode()
+    elif fmt == "json":
+        body = json.dumps(
+            [{**r.model_dump(), "created_at": r.created_at.isoformat() if r.created_at else None,
+              "updated_at": r.updated_at.isoformat() if r.updated_at else None} for r in rows],
+            indent=2,
+        ).encode()
+    else:  # md
+        lines = [
+            f"# Findings export — {len(rows)} rows",
+            "",
+            f"_Generated: {stamp} UTC_",
+            "",
+            "| Severity | Status | Category | Title | Tool | Run |",
+            "|---|---|---|---|---|---|",
+        ]
+        for r in rows:
+            title = (r.title or "").replace("|", "\\|")
+            tool_s = (r.tool_source or "").replace("|", "\\|")
+            lines.append(f"| {r.severity} | {r.status} | {r.category} | {title} | {tool_s} | `{r.run_id or ''}` |")
+        body = ("\n".join(lines) + "\n").encode()
+
+    return Response(
+        content=body,
+        media_type=EXPORT_MEDIA[fmt],
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Row-Count": str(len(rows)),
+            "X-Row-Cap": str(EXPORT_MAX_ROWS),
         },
     )
 

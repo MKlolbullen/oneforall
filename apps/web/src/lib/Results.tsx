@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Filter, RefreshCw, Search, ShieldAlert } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, Filter, RefreshCw, Search, ShieldAlert, X } from 'lucide-react';
 import { api } from './api';
 import { AdvicePanel } from './AdvicePanel';
+import { EmptyState } from './EmptyState';
+import { useToast } from './Toast';
 import type { Finding, FindingPage, Workspace } from '../types';
 
 const SEVERITY_RANK: Record<string, number> = {
@@ -24,6 +26,7 @@ function statusBadgeClass(s: string): string {
 }
 
 export function Results() {
+  const toast = useToast();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceId, setWorkspaceId] = useState('');
   const [page, setPage] = useState<FindingPage | null>(null);
@@ -36,6 +39,17 @@ export function Results() {
   const [tool, setTool] = useState('');
   const [q, setQ] = useState('');
   const [offset, setOffset] = useState(0);
+
+  const activeFilters = useMemo(() => {
+    const chips: { key: string; label: string; clear: () => void }[] = [];
+    if (severity) chips.push({ key: 'severity', label: `severity: ${severity}`, clear: () => { setSeverity(''); setOffset(0); } });
+    if (status)   chips.push({ key: 'status',   label: `status: ${status}`,     clear: () => { setStatus('');   setOffset(0); } });
+    if (tool)     chips.push({ key: 'tool',     label: `tool: ${tool}`,         clear: () => { setTool('');     setOffset(0); } });
+    if (q)        chips.push({ key: 'q',        label: `search: "${q}"`,        clear: () => { setQ('');        setOffset(0); } });
+    return chips;
+  }, [severity, status, tool, q]);
+
+  const clearAll = () => { setSeverity(''); setStatus(''); setTool(''); setQ(''); setOffset(0); };
 
   // Selection
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -64,7 +78,9 @@ export function Results() {
       });
       setPage(result);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      toast.error('Failed to load findings', msg);
     } finally { setLoading(false); }
   };
 
@@ -100,9 +116,53 @@ export function Results() {
           <strong>Results</strong>
           <span className="muted">workspace-wide findings</span>
         </div>
-        <button className="btn small" onClick={() => reload()} disabled={loading} type="button">
-          <RefreshCw size={13} className={loading ? 'spin' : ''} /> Refresh
-        </button>
+        <div className="row">
+          <button className="btn small" onClick={() => reload()} disabled={loading} type="button">
+            <RefreshCw size={13} className={loading ? 'spin' : ''} /> Refresh
+          </button>
+          <a
+            className="btn small"
+            href={api.findingsExportUrl({
+              workspace_id: workspaceId,
+              severity: severity || undefined,
+              status: status || undefined,
+              tool: tool || undefined,
+              q: q || undefined,
+              format: 'csv',
+            })}
+            title="Download current filter as CSV"
+          >
+            <Download size={13} /> CSV
+          </a>
+          <a
+            className="btn small"
+            href={api.findingsExportUrl({
+              workspace_id: workspaceId,
+              severity: severity || undefined,
+              status: status || undefined,
+              tool: tool || undefined,
+              q: q || undefined,
+              format: 'json',
+            })}
+            title="Download current filter as JSON"
+          >
+            <Download size={13} /> JSON
+          </a>
+          <a
+            className="btn small"
+            href={api.findingsExportUrl({
+              workspace_id: workspaceId,
+              severity: severity || undefined,
+              status: status || undefined,
+              tool: tool || undefined,
+              q: q || undefined,
+              format: 'md',
+            })}
+            title="Download current filter as Markdown"
+          >
+            <Download size={13} /> MD
+          </a>
+        </div>
       </div>
 
       <div className="card">
@@ -129,11 +189,25 @@ export function Results() {
           <div className="row" style={{ position: 'relative', flex: 1 }}>
             <Search size={13} className="search-icon" />
             <input className="input search-input"
-                    placeholder="search title or evidence…"
+                    placeholder="search title or evidence… (press / to focus)"
+                    data-shortcut-target="search"
                     value={q}
                     onChange={(e) => { setQ(e.target.value); setOffset(0); }} />
           </div>
         </div>
+        {activeFilters.length > 0 && (
+          <div className="filter-chips">
+            {activeFilters.map((c) => (
+              <span key={c.key} className="filter-chip">
+                {c.label}
+                <button className="filter-chip-x" onClick={c.clear} aria-label={`Clear ${c.key}`} type="button">
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+            <button className="filter-chip-clear" onClick={clearAll} type="button">Clear all</button>
+          </div>
+        )}
       </div>
 
       {error && <div className="card"><p className="advice-error">{error}</p></div>}
@@ -159,8 +233,17 @@ export function Results() {
           </tr></thead>
           <tbody>
             {items.length === 0 && !loading && (
-              <tr><td colSpan={6} className="muted" style={{ padding: 16 }}>
-                No findings match these filters.
+              <tr><td colSpan={6} style={{ padding: 16 }}>
+                <EmptyState
+                  icon={<ShieldAlert size={26} />}
+                  title={activeFilters.length > 0 ? 'No findings match these filters' : 'No findings yet'}
+                  body={activeFilters.length > 0
+                    ? 'Try clearing a filter or widening the search.'
+                    : 'Run a profile against a target to populate this view.'}
+                  action={activeFilters.length > 0 && (
+                    <button className="btn small" onClick={clearAll} type="button">Clear filters</button>
+                  )}
+                />
               </td></tr>
             )}
             {items.map((f) => (

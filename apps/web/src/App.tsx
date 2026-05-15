@@ -9,18 +9,25 @@ import { AdvicePanel } from './lib/AdvicePanel';
 import { AdvisorChat } from './lib/AdvisorChat';
 import { AdvisorProvider, AdvisorScopeBinder } from './lib/advisorContext';
 import { NetworkTab } from './lib/NetworkTab';
+import { CopyButton } from './lib/CopyButton';
+import { EmptyState } from './lib/EmptyState';
 import { Dashboard } from './lib/Dashboard';
+import { NetworkGraph } from './lib/NetworkGraph';
 import { Results } from './lib/Results';
+import { PendingGHint, ShortcutsCheatsheet, useShortcuts } from './lib/Shortcuts';
+import { useToast } from './lib/Toast';
+import { useConfirm } from './lib/Confirm';
 import { applyTheme, loadTheme, persistTheme, THEMES, type Theme } from './lib/theme';
 import type { Artifact, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from './types';
 
-type Page = 'dashboard' | 'targets' | 'runs' | 'results' | 'tools' | 'workflow' | 'settings';
+type Page = 'dashboard' | 'targets' | 'runs' | 'results' | 'network' | 'tools' | 'workflow' | 'settings';
 
 const pages: { id: Page; label: string; icon: ReactNode }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
   { id: 'targets', label: 'Targets', icon: <Crosshair size={16} /> },
   { id: 'runs', label: 'Runs', icon: <TerminalSquare size={16} /> },
   { id: 'results', label: 'Results', icon: <FileSearch size={16} /> },
+  { id: 'network', label: 'Network Graph', icon: <Share2 size={16} /> },
   { id: 'tools', label: 'Tool Catalog', icon: <Wrench size={16} /> },
   { id: 'workflow', label: 'Workflow Builder', icon: <Network size={16} /> },
   { id: 'settings', label: 'Settings Pack', icon: <SettingsIcon size={16} /> },
@@ -42,9 +49,31 @@ export function App() {
   const [page, setPage] = useState<Page>('dashboard');
   const [health, setHealth] = useState<Record<string, unknown>>({});
   const [theme, setTheme] = useState<Theme>(() => loadTheme());
+  const [activeRuns, setActiveRuns] = useState(0);
+
+  const navigate = useCallback((target: string) => {
+    if (pages.some((p) => p.id === target)) setPage(target as Page);
+  }, []);
+  const { showCheat, setShowCheat, pendingG } = useShortcuts(navigate);
 
   useEffect(() => {
     api.health().then(setHealth).catch(console.error);
+  }, []);
+
+  // Active-runs pulse — polls every 5s so the sidebar reflects what's
+  // happening even when the operator is reading a different page.
+  useEffect(() => {
+    let cancelled = false;
+    const poll = () => {
+      api.runs().then((rows) => {
+        if (cancelled) return;
+        setActiveRuns(rows.filter((r) =>
+          r.status === 'running' || r.status === 'queued').length);
+      }).catch(() => { /* sidebar pulse is decorative — silent failure is fine */ });
+    };
+    poll();
+    const t = window.setInterval(poll, 5000);
+    return () => { cancelled = true; window.clearInterval(t); };
   }, []);
 
   useEffect(() => {
@@ -60,7 +89,19 @@ export function App() {
         <nav className="nav">
           {pages.map((item) => (
             <button key={item.id} className={page === item.id ? 'active' : ''} onClick={() => setPage(item.id)}>
-              <span className="row">{item.icon}{item.label}</span>
+              <span className="row">
+                {item.icon}
+                {item.label}
+                {item.id === 'runs' && activeRuns > 0 && (
+                  <span className="nav-badge active" title={`${activeRuns} active run(s)`}>
+                    {activeRuns}
+                  </span>
+                )}
+                {item.id === 'runs' && activeRuns === 0 && page !== 'runs' && (
+                  /* keep the row stable by reserving width — but invisible */
+                  <span style={{ marginLeft: 'auto' }} />
+                )}
+              </span>
             </button>
           ))}
         </nav>
@@ -92,11 +133,14 @@ export function App() {
           {page === 'targets' && <Targets />}
           {page === 'runs' && <Runs />}
           {page === 'results' && <Results />}
+          {page === 'network' && <NetworkGraph />}
           {page === 'tools' && <Tools />}
           {page === 'workflow' && <Workflow />}
           {page === 'settings' && <SettingsPack />}
         </div>
       </main>
+      <ShortcutsCheatsheet open={showCheat} onClose={() => setShowCheat(false)} />
+      <PendingGHint visible={pendingG} />
     </div>
       <AdvisorChat />
     </AdvisorProvider>
@@ -109,6 +153,7 @@ function Metric({ title, value, icon }: { title: string; value: number; icon: Re
 }
 
 function Targets() {
+  const toast = useToast();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [targets, setTargets] = useState<Target[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -140,14 +185,15 @@ function Targets() {
   const launch = async (target: Target, profileId: string) => {
     const check = profileAvailability[profileId];
     if (liveEnabled && check && !check.runnable) {
-      alert(`Live run blocked locally: missing tools for ${check.name}: ${check.missing_tools.join(', ')}`);
+      toast.warn(`Live run blocked: ${check.name}`,
+                 `Missing tools: ${check.missing_tools.join(', ')}`);
       return;
     }
     try {
       const run = await api.createRun({ workspace_id: target.workspace_id, target_id: target.id, profile_id: profileId });
-      alert(`Run queued: ${run.id}`);
+      toast.success('Run queued', run.id);
     } catch (error) {
-      alert(error instanceof Error ? error.message : String(error));
+      toast.fromError(error, 'Run launch failed');
     }
   };
 
@@ -173,8 +219,20 @@ function Targets() {
         <p className="muted">Dry-run mode ignores missing binaries and uses registry fixtures. Live mode blocks profiles with missing or broken tools before a worker can faceplant.</p>
         <div className="row"><span className="badge passive">mode</span><span>{liveEnabled ? 'live' : 'dry_run'}</span></div>
       </div>
+      <BulkImport
+        workspaceId={workspaceId}
+        defaultActiveAllowed={activeAllowed}
+        onImported={() => reload().catch(console.error)}
+      />
       <div className="card" style={{ gridColumn: '1 / -1' }}>
         <h3>Targets</h3>
+        {targets.length === 0 ? (
+          <EmptyState
+            icon={<Crosshair size={28} />}
+            title="No targets yet"
+            body="Add one with the form above, or paste a list into the bulk-import card to seed many at once."
+          />
+        ) : (
         <table className="table"><thead><tr><th>Value</th><th>Type</th><th>Scope</th><th>Active</th><th>Launch</th></tr></thead><tbody>
           {targets.map((t) => <tr key={t.id}><td><button className="link" onClick={() => setSelected(t)} type="button">{t.value}</button></td><td>{t.type}</td><td>{t.in_scope ? <span className="badge ok">in scope</span> : <span className="badge bad">out</span>}</td><td>{t.active_allowed ? <span className="badge active">authorized</span> : <span className="badge">blocked</span>}</td><td><div className="launch-grid">{profiles.map((p) => {
             const check = profileAvailability[p.id];
@@ -184,7 +242,61 @@ function Targets() {
               <span className={availabilityClass(check)}>{check ? `${check.available_tools}/${check.total_tools}` : '?'}</span>
             </button>;
           })}</div></td></tr>)}
-        </tbody></table>
+        </tbody></table>)}
+      </div>
+    </div>
+  );
+}
+
+function BulkImport({ workspaceId, defaultActiveAllowed, onImported }:
+  { workspaceId: string; defaultActiveAllowed: boolean; onImported: () => void }) {
+  const toast = useToast();
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    setBusy(true);
+    try {
+      const values = text.split(/[\r\n,]+/).map((s) => s.trim()).filter(Boolean);
+      if (!values.length) { toast.warn('Nothing to import', 'Paste at least one domain.'); return; }
+      if (!workspaceId)   { toast.warn('No workspace', 'Pick a workspace first.'); return; }
+      const r = await api.bulkTargets({
+        workspace_id: workspaceId,
+        values,
+        active_allowed: defaultActiveAllowed,
+      });
+      const detail = r.skipped.length
+        ? `Created ${r.created.length}, skipped ${r.skipped.length} duplicate${r.skipped.length === 1 ? '' : 's'}.`
+        : `Created ${r.created.length} target${r.created.length === 1 ? '' : 's'}.`;
+      if (r.created.length) {
+        toast.success('Bulk import complete', detail);
+        setText('');
+      } else {
+        toast.info('Nothing new added', detail);
+      }
+      onImported();
+    } catch (e: unknown) {
+      toast.fromError(e, 'Bulk import failed');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="card">
+      <h3>Bulk import</h3>
+      <p className="muted">Paste one domain per line (commas also work). Lines starting with <code>#</code> are skipped, dupes inside the workspace are reported.</p>
+      <textarea
+        className="input"
+        rows={5}
+        placeholder={"a.example.com\nb.example.com\n# c.example.com is out of scope"}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        style={{ fontFamily: 'ui-monospace, monospace' }}
+      />
+      <div className="row space" style={{ marginTop: 8 }}>
+        <span className="muted">{busy ? 'Importing…' : ''}</span>
+        <button className="btn" onClick={submit} disabled={busy || !text.trim()}>
+          {busy ? 'Importing…' : 'Import'}
+        </button>
       </div>
     </div>
   );
@@ -240,9 +352,32 @@ function RunConsoleInner({ run, onChanged }: { run: Run; onChanged?: () => void 
   const reloadSteps = () => api.runSteps(run.id).then(setSteps).catch(console.error);
 
   const cancel = async () => {
-    await api.cancelRun(run.id);
-    await reloadSteps();
-    onChanged?.();
+    const ok = await confirm({
+      title: `Cancel run ${run.id}?`,
+      body: "Any tools still in flight will be interrupted at their next checkpoint. Already-collected assets and findings stay in place.",
+      confirmLabel: 'Cancel run',
+      cancelLabel: 'Keep running',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await api.cancelRun(run.id);
+      await reloadSteps();
+      onChanged?.();
+      toast.info('Cancellation requested', run.id);
+    } catch (e) {
+      toast.fromError(e, 'Cancel failed');
+    }
+  };
+
+  const rerun = async () => {
+    try {
+      const fresh = await api.rerun(run.id);
+      onChanged?.();
+      toast.success('Re-run queued', fresh.id);
+    } catch (error) {
+      toast.fromError(error, 'Re-run failed');
+    }
   };
 
   useEffect(() => {
@@ -274,8 +409,19 @@ function RunConsoleInner({ run, onChanged }: { run: Run; onChanged?: () => void 
 
   return <div className="grid">
     <div className="row space">
-      <span className={`badge ${run.status === 'completed' ? 'ok' : run.status === 'failed' || run.status === 'cancelled' ? 'bad' : 'passive'}`}>{run.status}</span>
-      <button className="btn danger" disabled={!canCancel} onClick={cancel}>Cancel run</button>
+      <div className="row">
+        <span className={`badge ${run.status === 'completed' ? 'ok' : run.status === 'failed' || run.status === 'cancelled' ? 'bad' : 'passive'}`}>{run.status}</span>
+        <span className="mono muted" style={{ fontSize: 12 }}>
+          {run.id}
+          <CopyButton value={run.id} title="Copy run ID" />
+        </span>
+      </div>
+      <div className="row">
+        <button className="btn small" onClick={rerun} title="Queue a new run with the same target + profile + params">
+          Re-run
+        </button>
+        <button className="btn danger" disabled={!canCancel} onClick={cancel}>Cancel run</button>
+      </div>
     </div>
     <div className="row" role="tablist">
       {tabs.map((t) => (

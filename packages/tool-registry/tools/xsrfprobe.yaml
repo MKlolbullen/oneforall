@@ -1,0 +1,39 @@
+id: xsrfprobe
+name: XSRFProbe
+category: csrf-testing
+description: CSRF vulnerability scanner and proof-of-concept generator.
+binary: xsrfprobe
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url_or_domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - xsrfprobe
+  - --url
+  - https://{{target}}
+  - --crawl
+  - --no-analysis
+  - --quiet
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: true
+tags:
+- csrf
+- vulnerability
+- active
+install:
+  method: pipx
+  package: xsrfprobe
+dry_run_output:
+- '[+] CSRF token absent on POST /login'
+- '[!] Anti-CSRF mechanism: NONE'

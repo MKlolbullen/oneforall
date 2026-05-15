@@ -60,6 +60,7 @@ app.include_router(advisor_routes.router, prefix="/api")
 app.include_router(agent_routes.router, prefix="/api")
 app.include_router(loot_routes.router, prefix="/api")
 app.include_router(network_routes.router, prefix="/api")
+app.include_router(graph_routes.router, prefix="/api")
 app.include_router(ws.router)
 
 

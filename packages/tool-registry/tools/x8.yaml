@@ -1,0 +1,41 @@
+id: x8
+name: x8
+category: parameter-discovery
+description: Hidden HTTP parameter discovery via brute-force.
+binary: x8
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url_or_domain
+  required: true
+outputs:
+- name: parameters
+  type: parameter_list
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - x8
+  - -u
+  - https://{{target}}/
+  - -w
+  - /usr/share/wordlists/x8/params.txt
+  - --one-worker-per-host
+parser:
+  type: line_based
+  entity: parameter
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: true
+tags:
+- parameter
+- fuzzing
+- active
+install:
+  method: cargo_install
+  package: x8
+dry_run_output:
+- '[+] https://www.example.com/ (200) -> id=42 (size 1234)'
+- '[+] https://www.example.com/ (200) -> debug=1 (size 5678)'

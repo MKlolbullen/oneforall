@@ -1,4 +1,4 @@
-import type { Advice, Artifact, Asset, DashboardDetailed, DashboardStats, Finding, FindingPage, GrepPatternPack, HttpExchangeDetail, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
+import type { Advice, Artifact, Asset, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000';
@@ -115,4 +115,46 @@ export const api = {
   },
   runExchange: (runId: string, exchangeId: string) =>
     request<HttpExchangeDetail>(`/api/runs/${runId}/network/${exchangeId}`),
+
+  workspaceGraph: (workspaceId: string, maxNodes?: number) => {
+    const qs = maxNodes != null ? `?max_nodes=${maxNodes}` : '';
+    return request<GraphPayload>(`/api/workspaces/${workspaceId}/graph${qs}`);
+  },
+
+  // Build a download URL the browser can hit directly (anchor with href).
+  // Browser sends cookies for same-origin; for the dev cross-origin case the
+  // /api/findings/export response includes the bearer auth via the API
+  // session cookie or is opened in a tab where the cookie is set. If you
+  // need bearer-only export, switch this to a fetch+blob helper.
+  findingsExportUrl: (opts: {
+    workspace_id?: string;
+    severity?: string;
+    status?: string;
+    tool?: string;
+    target_id?: string;
+    q?: string;
+    format?: 'csv' | 'json' | 'md';
+  } = {}) => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(opts)) {
+      if (v != null && v !== '') p.set(k, String(v));
+    }
+    return `${API_BASE_URL}/api/findings/export${p.toString() ? `?${p}` : ''}`;
+  },
+
+  bulkTargets: (payload: {
+    workspace_id: string;
+    values: string[];
+    type?: string;
+    in_scope?: boolean;
+    passive_allowed?: boolean;
+    active_allowed?: boolean;
+    notes?: string;
+  }) => request<{
+    created: Target[];
+    skipped: { value: string; reason: string }[];
+    workspace_id: string;
+  }>('/api/targets/bulk', { method: 'POST', body: JSON.stringify(payload) }),
+
+  rerun: (runId: string) => request<Run>(`/api/runs/${runId}/rerun`, { method: 'POST' }),
 };
