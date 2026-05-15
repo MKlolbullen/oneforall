@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 from app.core.config import get_settings
 from app.models import Artifact, Run, RunStatus, RunStep, StepStatus, now_utc
 from app.services.artifacts import ArtifactStore
+from app.services import loot as loot_svc
 from app.services.events import event_bus
 from app.services import http_capture
 from app.services.normalizer import normalize_tool_line
@@ -388,6 +389,19 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
                 run.finished_at = now_utc()
                 session.add(run)
                 session.commit()
+                if loot_svc.loot_enabled():
+                    loot_svc.index_run(session, workspace_id=workspace_id, run_id=run_id)
+                    manifest = loot_svc.manifest_json(
+                        session, workspace_id=workspace_id, run_id=run_id,
+                    )
+                    session.commit()
+                    await _write_artifact(
+                        session_factory,
+                        run_id,
+                        workspace_id,
+                        "loot.manifest.json",
+                        manifest,
+                    )
             await event_bus.publish(session, run_id, "run.completed", "Run completed")
             await clear_run_cancel(run_id)
         await notify_run_event("run.completed", run_id, {

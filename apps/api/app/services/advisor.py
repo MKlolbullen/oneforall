@@ -31,8 +31,8 @@ from typing import Any
 import anthropic
 from sqlmodel import Session, select
 
-from app.models import Advice, Asset, Finding, Run, RunStep, Target, User
-from app.services import audit
+from app.models import Advice, Artifact, Asset, Finding, LootItem, Run, RunStep, Target, User
+from app.services import audit, loot as loot_svc
 from app.services.tool_registry import get_registry
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,9 @@ A *Run* is one execution of a *Profile* (an ordered list of tool steps) against
 one *Target*. Each step's stdout is captured. The platform also normalises
 domain/url/ip lines into Assets, and parses nuclei/dalfox/etc. output into
 Findings (severity-ranked: critical > high > medium > low > info).
+Loot = curated high-signal rows (secrets, creds, critical vulns) derived from
+findings; Artifacts = durable stdout/stderr/report bytes (fetch via API, never
+inline megabytes into prompts).
 
 # Profiles
 
@@ -182,6 +185,15 @@ def _serialize_run_context(session: Session, run: Run) -> str:
     severity_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
     findings.sort(key=lambda f: severity_rank.get(f.severity, 5))
 
+    artifacts = list(session.exec(
+        select(Artifact).where(Artifact.run_id == run.id).order_by(Artifact.created_at)
+    ).all())
+    loot_items = list(session.exec(
+        select(LootItem).where(LootItem.run_id == run.id)
+    ).all())
+    if not loot_items and loot_svc.loot_enabled():
+        loot_items = loot_svc.index_run(session, workspace_id=run.workspace_id, run_id=run.id)
+
     assets_by_type: dict[str, list[str]] = {}
     for a in assets:
         assets_by_type.setdefault(a.type, []).append(a.value)
@@ -208,6 +220,12 @@ def _serialize_run_context(session: Session, run: Run) -> str:
         ],
         "assets_total": len(assets),
         "assets_by_type": {k: v[:25] for k, v in assets_by_type.items()},
+        "artifacts": [
+            {"id": a.id, "name": a.name, "type": a.type, "size_bytes": a.size_bytes,
+             "sha256": a.sha256}
+            for a in artifacts[:40]
+        ],
+        "loot": loot_svc.summarize_loot(loot_items),
     }
     return json.dumps(payload, indent=2, default=str)
 

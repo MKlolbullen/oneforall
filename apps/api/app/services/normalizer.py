@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 from typing import Any
@@ -7,6 +8,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from app.models import Asset, Finding
+from app.services import loot as loot_svc
 
 DOMAIN_RE = re.compile(r"^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$")
 IP_RE = re.compile(r"^(?:\d{1,3}\.){3}\d{1,3}$")
@@ -81,6 +83,8 @@ def _finding(
     session.add(finding)
     session.commit()
     session.refresh(finding)
+    with contextlib.suppress(Exception):
+        loot_svc.record_from_finding(session, finding)
     return finding
 
 

@@ -220,6 +220,28 @@ class HttpExchange(SQLModel, table=True):
     started_at: datetime = Field(default_factory=now_utc, index=True)
 
 
+class LootItem(SQLModel, table=True):
+    """High-signal recon output: secrets, credentials, tokens, paths, payloads.
+
+    Loot is derived from Findings and tool output — not a second copy of every
+    scanner line. Operators and agents use it as the curated 'what to steal
+    attention' layer; raw evidence stays on the Finding / Artifact.
+    """
+    id: str = Field(default_factory=lambda: new_id("loot"), primary_key=True)
+    workspace_id: str = Field(index=True, foreign_key="workspace.id")
+    run_id: str | None = Field(default=None, index=True, foreign_key="run.id")
+    finding_id: str | None = Field(default=None, index=True, foreign_key="finding.id")
+    artifact_id: str | None = Field(default=None, index=True, foreign_key="artifact.id")
+    kind: str = Field(index=True, max_length=32)
+    label: str = Field(index=True, max_length=255)
+    value_preview: str = Field(default="", max_length=512)
+    severity: str = Field(default="info", index=True)
+    source_tool: str | None = Field(default=None, index=True, max_length=64)
+    host: str | None = Field(default=None, index=True, max_length=255)
+    meta: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=now_utc)
+
+
 class Advice(SQLModel, table=True):
     """A stored Claude advisor response.
 

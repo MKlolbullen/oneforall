@@ -50,6 +50,10 @@ flowchart LR
 
 The API does **not** execute tools directly when `RUNNER_MODE=queue`. It validates scope, creates a run, persists a `run.queued` event, and pushes a job into Redis. The worker consumes that job, executes each profile step, persists events/assets/findings/artifacts, and publishes live events through Redis Pub/Sub.
 
+## AI agents & automation
+
+See **[AGENTS.md](./AGENTS.md)** for how external agents should communicate with the control plane: Claude advisor endpoints, structured run briefs (`GET /api/agent/runs/{id}/brief`), WebSocket events, artifact fetch patterns, and the **loot** layer (curated secrets/critical findings vs raw scanner noise).
+
 ## Repository layout
 
 ```text
