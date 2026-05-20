@@ -38,6 +38,10 @@ Clean-room, Sn1per-class inspired web control plane for authorized recon/ASM/bug
 
 ## Architecture
 
+### Logical view
+
+The shape of the platform — read this first if you're new to the codebase.
+
 ```mermaid
 flowchart LR
     UI[React Web UI] --> API[FastAPI Control Plane]
@@ -58,6 +62,103 @@ flowchart LR
 ```
 
 The API does **not** execute tools directly when `RUNNER_MODE=queue`. It validates scope, creates a run, persists a `run.queued` event, and pushes a job into Redis. The worker consumes that job, executes each profile step, persists events/assets/findings/artifacts, and publishes live events through Redis Pub/Sub.
+
+### Detailed view — Claude advisor + agent squad
+
+Same graph, blown out to include everything this branch adds:
+the `/api/advisor/*` flows, the prompt-cached Claude calls, the
+auto-target-analysis hook on `run.completed`, the `proxify` capture
+sidecar, the network-graph + payloads endpoints, and the five-agent
+squad an operator can invoke from Claude Code.
+
+![Detailed architecture](docs/screenshots/architecture-updated.png)
+
+```mermaid
+flowchart LR
+    OP(["Operator"])
+
+    subgraph Browser ["Browser"]
+        UI["React Web UI<br/>Dashboard · Targets · Runs<br/>Results · Network Graph · Payloads"]
+    end
+
+    subgraph Control ["FastAPI control plane"]
+        API["/api/runs · /api/findings<br/>/api/workspaces/:id/graph<br/>/api/payloads · /api/config"]
+        ADV["/api/advisor/*<br/>triage · suggest-profile<br/>analyze · pivot · explain · ask"]
+        WS["WebSocket<br/>/ws/runs/:id"]
+        REG["Tool Registry<br/>172 YAMLs · 28 profiles"]
+        PL["Payload Library<br/>10 categories · 18 files<br/>encoding service"]
+    end
+
+    subgraph Storage ["Storage"]
+        DB[("PostgreSQL<br/>SQLModel<br/>Workspace · Target · Run<br/>Asset · Finding · Advice · Audit")]
+        REDIS[("Redis<br/>queue + pubsub")]
+        MINIO[("MinIO / S3<br/>artifacts")]
+    end
+
+    subgraph Workers ["Workers"]
+        WORKER["Runner Worker<br/>execute_run()"]
+        TOOLS["CLI tools<br/>subfinder · nuclei · dalfox<br/>impacket · netexec · ..."]
+        PROXY["proxify sidecar<br/>HTTP capture"]
+    end
+
+    subgraph AI ["Claude advisor"]
+        CLAUDE["claude-opus-4-7<br/>adaptive thinking · 16k tokens<br/>cache_control: ephemeral"]
+    end
+
+    subgraph Agents [".claude/agents/ — squad"]
+        CMD{{"commander"}}
+        SCT[/scout/]
+        PRB[/prober/]
+        PIV[/pivot/]
+        SCB[/scribe/]
+    end
+
+    OP --> UI
+    OP -.->|"Use the X subagent"| CMD
+
+    UI -->|fetch| API
+    UI -->|fetch| ADV
+    UI --> WS
+
+    CMD -.->|Task| SCT & PRB & PIV & SCB
+    SCT --> API
+    PRB --> API
+    PIV --> API
+    SCB --> API
+
+    API --> DB
+    API --> REDIS
+    API --> REG
+    API --> PL
+    ADV --> DB
+    ADV -->|"system: tool catalogue + rubric<br/>cached preamble"| CLAUDE
+    CLAUDE -.->|"response + usage<br/>(cached_tokens)"| ADV
+
+    REDIS -->|"enqueue_run"| WORKER
+    WORKER --> TOOLS
+    WORKER --> PROXY
+    PROXY -->|"HttpExchange rows"| DB
+    WORKER --> DB
+    WORKER --> MINIO
+    WORKER -->|"run events"| REDIS
+    WORKER -.->|"auto_target_analysis<br/>on run.completed"| ADV
+
+    REDIS -->|"run.* events"| WS
+    WS --> UI
+
+    classDef ui     fill:#0f1f2e,stroke:#22d3ee,color:#67e8f9
+    classDef api    fill:#1a1a2e,stroke:#a78bfa,color:#e9d5ff
+    classDef store  fill:#1f1f1f,stroke:#fbbf24,color:#fde68a
+    classDef ai     fill:#2e1a2e,stroke:#f472b6,color:#fbcfe8
+    classDef worker fill:#1a2e1a,stroke:#86efac,color:#bbf7d0
+    classDef agent  fill:#2e1a1a,stroke:#fca5a5,color:#fecaca
+    class UI ui
+    class API,ADV,WS,REG,PL api
+    class DB,REDIS,MINIO store
+    class CLAUDE ai
+    class WORKER,TOOLS,PROXY worker
+    class CMD,SCT,PRB,PIV,SCB agent
+```
 
 ## Repository layout
 
