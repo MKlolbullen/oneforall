@@ -31,7 +31,7 @@ def test_alembic_upgrade_head_creates_expected_tables(tmp_path):
     tables = set(inspect(eng).get_table_names())
     expected = {
         "workspace", "target", "run", "runevent", "runstep",
-        "asset", "finding", "artifact", "alembic_version",
+        "asset", "finding", "artifact", "lootitem", "alembic_version",
     }
     missing = expected - tables
     assert not missing, f"missing tables after upgrade head: {missing}"

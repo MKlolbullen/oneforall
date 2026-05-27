@@ -139,6 +139,17 @@ def test_full_dry_run_through_api():
         # subfinder is the first step in passive_recon and emits dry_run_output
         assert any("subfinder" in n for n in names), f"no subfinder artifact in {names}"
 
+        # 8. Loot is indexed at completion (enabled by default) and its manifest
+        #    is persisted as an artifact — a valid, parseable loot document.
+        loot_art = next((a for a in arts if a["name"] == "loot.manifest.json"), None)
+        assert loot_art is not None, f"no loot.manifest.json artifact in {names}"
+        content = client.get(f"/api/artifacts/{loot_art['id']}/content", headers=headers)
+        assert content.status_code == 200, content.text
+        manifest = content.json()
+        assert manifest["schema"] == "reconforge.loot.manifest/v1"
+        assert manifest["run_id"] == run_id
+        assert "summary" in manifest and "loot" in manifest
+
 
 def test_oneforall_chain_profile_dry_run():
     """The wired-up oneforall_chain profile must resolve all 8 of its steps."""
