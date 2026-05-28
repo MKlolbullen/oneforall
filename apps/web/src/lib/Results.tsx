@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNav } from './nav';
 import { ChevronDown, ChevronRight, Download, Filter, RefreshCw, Search, ShieldAlert, X } from 'lucide-react';
 import { api } from './api';
 import { AdvicePanel } from './AdvicePanel';
@@ -55,13 +56,22 @@ export function Results() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const limit = 50;
+  const { consume } = useNav();
 
-  // Initial: load workspaces, default to the first one.
+  // Initial: load workspaces. A deeplink with workspaceId wins over the
+  // default-to-first behaviour so opening Results from a Workspace card
+  // lands in the right place.
   useEffect(() => {
+    const params = consume();
     api.workspaces().then((ws) => {
       setWorkspaces(ws);
-      if (ws[0]) setWorkspaceId(ws[0].id);
+      if (params.workspaceId && ws.some((w) => w.id === params.workspaceId)) {
+        setWorkspaceId(params.workspaceId);
+      } else if (ws[0]) {
+        setWorkspaceId(ws[0].id);
+      }
     }).catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const reload = async () => {

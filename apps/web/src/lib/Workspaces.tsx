@@ -171,11 +171,14 @@ export function Workspaces() {
                 <span className="mono small muted" title={ws.id}>{ws.id.slice(0, 14)}…</span>
               </div>
               <div className="row" style={{ marginTop: 10, flexWrap: 'wrap', gap: 6 }}>
-                <button className="btn small" onClick={() => navigate('targets')} title="Open the Targets page">
+                <button className="btn small" onClick={() => navigate('targets', { workspaceId: ws.id })} title="Open Targets filtered to this workspace">
                   Targets
                 </button>
-                <button className="btn small" onClick={() => navigate('runs')} title="Open the Runs page">
+                <button className="btn small" onClick={() => navigate('runs', { workspaceId: ws.id })} title="Open Runs filtered to this workspace">
                   Runs
+                </button>
+                <button className="btn small" onClick={() => navigate('results', { workspaceId: ws.id })} title="Open Findings filtered to this workspace">
+                  Results
                 </button>
                 <button className="btn small" onClick={() => navigate('loot', { workspaceId: ws.id })} title="Open Loot filtered to this workspace">
                   Loot

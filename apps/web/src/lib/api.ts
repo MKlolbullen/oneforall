@@ -1,4 +1,4 @@
-import type { AdHocRunCreate, Advice, Artifact, Asset, AuditPage, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WhoAmI, WordlistInfo, Workspace } from '../types';
+import type { AdHocRunCreate, Advice, APIKeyPublic, Artifact, Asset, AuditPage, CreatedAPIKey, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, UserPublic, WhoAmI, WordlistInfo, Workspace } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000';
@@ -13,6 +13,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(`${response.status} ${response.statusText}: ${body}`);
   }
   return response.json() as Promise<T>;
+}
+
+// 204 No Content + DELETE-style endpoints can't be JSON-parsed; request<T>
+// would throw on response.json(). Use this helper for void endpoints.
+async function requestVoid(path: string, init?: RequestInit): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    ...init,
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`${response.status} ${response.statusText}: ${body}`);
+  }
 }
 
 export const api = {
@@ -203,4 +216,24 @@ export const api = {
   // Identity + audit. /auth/audit is admin-only — non-admins get 403.
   me: () => request<WhoAmI>('/api/auth/me'),
   audit: (limit = 100) => request<AuditPage>(`/api/auth/audit?limit=${limit}`),
+
+  // User admin (admin-only roster + role/active toggles).
+  listUsers: () => request<UserPublic[]>('/api/auth/users'),
+  createUser: (payload: { username: string; password: string; role: string }) =>
+    request<WhoAmI>('/api/auth/users', { method: 'POST', body: JSON.stringify(payload) }),
+  updateUser: (userId: string, payload: { role?: string; is_active?: boolean }) =>
+    request<UserPublic>(`/api/auth/users/${userId}`, {
+      method: 'PATCH', body: JSON.stringify(payload),
+    }),
+
+  // Per-user API keys. List + create + revoke. The token is only returned by
+  // POST /api/auth/api-keys; it must be shown to the operator once and never
+  // re-fetched (only its sha256 + prefix are persisted).
+  listApiKeys: () => request<APIKeyPublic[]>('/api/auth/api-keys'),
+  createApiKey: (name: string) =>
+    request<CreatedAPIKey>('/api/auth/api-keys', {
+      method: 'POST', body: JSON.stringify({ name }),
+    }),
+  revokeApiKey: (apiKeyId: string) =>
+    requestVoid(`/api/auth/api-keys/${apiKeyId}`, { method: 'DELETE' }),
 };

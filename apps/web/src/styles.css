@@ -801,3 +801,31 @@ body.advisor-docked .content { max-width: 100%; }
 [data-theme="pd-cloud"] .wf-node.tool { border-color: var(--pd-border); }
 [data-theme="pd-cloud"] .wf-node.tool.selected { border-color: var(--pd-pink); }
 [data-theme="pd-cloud"] .wf-palette-tool:hover { border-color: var(--pd-pink); }
+
+/* Users page ========================================================== */
+.key-reveal {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #f59e0b;
+  background: rgba(245,158,11,.07);
+  border-radius: 10px;
+  display: grid;
+  gap: 6px;
+}
+.key-reveal-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: #0b1220;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  font-size: 12.5px;
+  overflow: auto;
+}
+.key-reveal-box code { user-select: all; word-break: break-all; }
+.btn.danger { border-color: #7f1d1d; color: #fca5a5; }
+.btn.danger:hover { background: rgba(220,38,38,.08); }
+.row-selected td { background: rgba(8,145,178,.10); }
+
+[data-theme="pd-cloud"] .key-reveal { border-color: var(--pd-pink); background: var(--pd-pink-soft); }

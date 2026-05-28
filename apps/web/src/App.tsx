@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Activity, Boxes, Coins, Crosshair, FileSearch, FileText, History, LayoutDashboard, MessageSquare, Network, RefreshCw, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
+import { Activity, Boxes, Coins, Crosshair, FileSearch, FileText, History, LayoutDashboard, MessageSquare, Network, RefreshCw, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Users as UsersIcon, Wrench } from 'lucide-react';
 import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
 import { classifyArtifact } from './lib/artifactKind';
@@ -10,6 +10,7 @@ import { AdvisorProvider, AdvisorScopeBinder } from './lib/advisorContext';
 import { AuditLog } from './lib/AuditLog';
 import { Loot } from './lib/Loot';
 import { Templates } from './lib/Templates';
+import { Users as UsersPage } from './lib/Users';
 import { WorkflowBuilder } from './lib/WorkflowBuilder';
 import { Workspaces as WorkspacesPage } from './lib/Workspaces';
 import { useNav, type Page } from './lib/nav';
@@ -36,6 +37,7 @@ const pages: { id: Page; label: string; icon: ReactNode }[] = [
   { id: 'network', label: 'Network Graph', icon: <Share2 size={16} /> },
   { id: 'tools', label: 'Tool Catalog', icon: <Wrench size={16} /> },
   { id: 'workflow', label: 'Workflow Builder', icon: <Network size={16} /> },
+  { id: 'users', label: 'Users', icon: <UsersIcon size={16} /> },
   { id: 'audit', label: 'Audit Log', icon: <History size={16} /> },
   { id: 'settings', label: 'Settings Pack', icon: <SettingsIcon size={16} /> },
 ];
@@ -148,6 +150,7 @@ export function App() {
           {page === 'network' && <NetworkGraph />}
           {page === 'tools' && <Tools />}
           {page === 'workflow' && <WorkflowBuilder />}
+          {page === 'users' && <UsersPage />}
           {page === 'audit' && <AuditLog />}
           {page === 'settings' && <SettingsPack />}
         </div>
@@ -167,12 +170,17 @@ function Metric({ title, value, icon }: { title: string; value: number; icon: Re
 
 function Targets() {
   const toast = useToast();
+  const { consume } = useNav();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [targets, setTargets] = useState<Target[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [profileAvailability, setProfileAvailability] = useState<Record<string, ProfileAvailability>>({});
   const [health, setHealth] = useState<Record<string, unknown>>({});
   const [workspaceId, setWorkspaceId] = useState('');
+  // List filter — distinct from the create form's workspaceId so an operator
+  // can review one workspace while the form is queued to drop into another.
+  // Deeplinks from the Workspaces page seed it.
+  const [filterWsId, setFilterWsId] = useState<string>('');
   const [value, setValue] = useState('');
   const [activeAllowed, setActiveAllowed] = useState(false);
   const [selected, setSelected] = useState<Target | null>(null);
@@ -187,7 +195,19 @@ function Targets() {
     setProfileAvailability(Object.fromEntries(checks.filter(Boolean).map((check) => [check!.profile_id, check!])));
   };
 
-  useEffect(() => { reload().catch(console.error); }, []);
+  useEffect(() => {
+    // Consume the workspace deeplink once on mount and snap both the filter
+    // and the create form to it so the user lands somewhere coherent.
+    const params = consume();
+    if (params.workspaceId) {
+      setFilterWsId(params.workspaceId);
+      setWorkspaceId(params.workspaceId);
+    }
+    reload().catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const visibleTargets = filterWsId ? targets.filter((t) => t.workspace_id === filterWsId) : targets;
 
   const createTarget = async () => {
     if (!workspaceId || !value) return;
@@ -238,16 +258,33 @@ function Targets() {
         onImported={() => reload().catch(console.error)}
       />
       <div className="card" style={{ gridColumn: '1 / -1' }}>
-        <h3>Targets</h3>
-        {targets.length === 0 ? (
+        <div className="row space">
+          <h3>Targets</h3>
+          <div className="row" style={{ gap: 8 }}>
+            <span className="muted small">{visibleTargets.length} of {targets.length}</span>
+            <select
+              className="input"
+              style={{ maxWidth: 220 }}
+              value={filterWsId}
+              onChange={(e) => setFilterWsId(e.target.value)}
+              title="Filter the list by workspace"
+            >
+              <option value="">All workspaces</option>
+              {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+        </div>
+        {visibleTargets.length === 0 ? (
           <EmptyState
             icon={<Crosshair size={28} />}
-            title="No targets yet"
-            body="Add one with the form above, or paste a list into the bulk-import card to seed many at once."
+            title={targets.length === 0 ? 'No targets yet' : 'No targets in this workspace'}
+            body={targets.length === 0
+              ? 'Add one with the form above, or paste a list into the bulk-import card to seed many at once.'
+              : 'Clear the workspace filter to see other targets, or add one to this workspace.'}
           />
         ) : (
         <table className="table"><thead><tr><th>Value</th><th>Type</th><th>Scope</th><th>Active</th><th>Launch</th></tr></thead><tbody>
-          {targets.map((t) => <tr key={t.id}><td><button className="link" onClick={() => setSelected(t)} type="button">{t.value}</button></td><td>{t.type}</td><td>{t.in_scope ? <span className="badge ok">in scope</span> : <span className="badge bad">out</span>}</td><td>{t.active_allowed ? <span className="badge active">authorized</span> : <span className="badge">blocked</span>}</td><td><div className="launch-grid">{profiles.map((p) => {
+          {visibleTargets.map((t) => <tr key={t.id}><td><button className="link" onClick={() => setSelected(t)} type="button">{t.value}</button></td><td>{t.type}</td><td>{t.in_scope ? <span className="badge ok">in scope</span> : <span className="badge bad">out</span>}</td><td>{t.active_allowed ? <span className="badge active">authorized</span> : <span className="badge">blocked</span>}</td><td><div className="launch-grid">{profiles.map((p) => {
             const check = profileAvailability[p.id];
             const blocked = liveEnabled && check && !check.runnable;
             return <button key={p.id} className={blocked ? 'btn disabledish' : 'btn'} disabled={Boolean(blocked)} title={blocked ? `Missing: ${check?.missing_tools.join(', ')}` : 'Runnable'} onClick={() => launch(t, p.id)}>
@@ -318,6 +355,8 @@ function BulkImport({ workspaceId, defaultActiveAllowed, onImported }:
 function Runs() {
   const { consume } = useNav();
   const [runs, setRuns] = useState<Run[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [filterWsId, setFilterWsId] = useState<string>('');
   const [selected, setSelected] = useState<Run | null>(null);
   // Pending deeplink — held in a ref so the setInterval's closure always sees
   // the current value (useState would still be null in the first tick because
@@ -339,21 +378,52 @@ function Runs() {
   useEffect(() => {
     const params = consume();
     if (params.runId) pendingRunIdRef.current = params.runId;
+    if (params.workspaceId) setFilterWsId(params.workspaceId);
+    api.workspaces().then(setWorkspaces).catch(() => { /* sidebar list — silent */ });
     reload();
     const timer = window.setInterval(reload, 3000);
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const visibleRuns = filterWsId ? runs.filter((r) => r.workspace_id === filterWsId) : runs;
+
   return <div className="grid cols-2">
-    <div className="card"><h3>Runs</h3><RunTable runs={runs} onSelect={setSelected} /></div>
+    <div className="card">
+      <div className="row space">
+        <h3>Runs</h3>
+        <div className="row" style={{ gap: 8 }}>
+          <span className="muted small">{visibleRuns.length} of {runs.length}</span>
+          <select
+            className="input"
+            style={{ maxWidth: 200 }}
+            value={filterWsId}
+            onChange={(e) => setFilterWsId(e.target.value)}
+            title="Filter runs by workspace"
+          >
+            <option value="">All workspaces</option>
+            {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        </div>
+      </div>
+      <RunTable runs={visibleRuns} onSelect={setSelected} selectedId={selected?.id ?? null} />
+    </div>
     <div className="card"><h3>Live console</h3>{selected ? <RunConsole run={selected} onChanged={reload} /> : <p className="muted">Select a run to attach to its event stream.</p>}</div>
   </div>;
 }
 
-function RunTable({ runs, onSelect }: { runs: Run[]; onSelect?: (run: Run) => void }) {
+function RunTable({ runs, onSelect, selectedId }: { runs: Run[]; onSelect?: (run: Run) => void; selectedId?: string | null }) {
   return <table className="table"><thead><tr><th>ID</th><th>Profile</th><th>Status</th><th>Risk</th></tr></thead><tbody>
-    {runs.map((r) => <tr key={r.id} onClick={() => onSelect?.(r)}><td>{r.id}</td><td>{r.profile_id}</td><td><span className={`badge ${r.status === 'completed' ? 'ok' : r.status === 'failed' ? 'bad' : 'passive'}`}>{r.status}</span></td><td>{r.risk}</td></tr>)}
+    {runs.map((r) => (
+      <tr key={r.id} onClick={() => onSelect?.(r)}
+          className={selectedId === r.id ? 'row-selected' : undefined}
+          style={{ cursor: 'pointer' }}>
+        <td className="mono small">{r.id.slice(0, 16)}…</td>
+        <td>{r.profile_id}</td>
+        <td><span className={`badge ${r.status === 'completed' ? 'ok' : r.status === 'failed' || r.status === 'cancelled' ? 'bad' : r.status === 'running' ? 'active' : 'passive'}`}>{r.status}</span></td>
+        <td>{r.risk}</td>
+      </tr>
+    ))}
   </tbody></table>;
 }
 

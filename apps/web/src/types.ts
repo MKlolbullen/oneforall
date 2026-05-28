@@ -375,6 +375,30 @@ export type WhoAmI = {
   last_login_at: string | null;
 };
 
+export type UserPublic = {
+  id: string;
+  username: string;
+  role: 'viewer' | 'operator' | 'admin' | string;
+  is_active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+};
+
+export type APIKeyPublic = {
+  id: string;
+  name: string;
+  prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+};
+
+export type CreatedAPIKey = {
+  id: string;
+  token: string;  // shown once on creation; never re-fetchable
+  prefix: string;
+};
+
 export type AuditEvent = {
   sequence: number;
   actor_id: string | null;
