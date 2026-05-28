@@ -335,3 +335,80 @@ export type Advice = {
   summary: string;
   body: Record<string, unknown>;
 };
+
+export type LootItem = {
+  id: string;
+  workspace_id: string;
+  run_id: string | null;
+  finding_id: string | null;
+  artifact_id: string | null;
+  kind: 'secret' | 'credential' | 'takeover' | 'exposure' | 'vulnerability' | string;
+  label: string;
+  value_preview: string;
+  severity: string;
+  source_tool: string | null;
+  host: string | null;
+  meta: Record<string, unknown>;
+  created_at: string;
+};
+
+export type LootPage = {
+  total: number;
+  items: LootItem[];
+  facets: { kinds: string[]; severities: string[] };
+};
+
+export type LootSummary = {
+  total: number;
+  by_kind: Record<string, number>;
+  by_severity: Record<string, number>;
+  items: { id: string; kind: string; label: string; severity: string; source_tool: string | null; host: string | null }[];
+};
+
+export type RunBriefStep = { index: number; tool: string; status: string; error: string | null };
+export type RunBriefFinding = {
+  id: string;
+  title: string;
+  severity: string;
+  category: string;
+  tool_source: string | null;
+  status: string;
+  evidence_excerpt: string;
+};
+export type RunBriefArtifact = {
+  id: string;
+  name: string;
+  type: string;
+  size_bytes: number;
+  sha256: string | null;
+  content_url: string;
+};
+
+export type RunBrief = {
+  run: {
+    id: string;
+    workspace_id: string;
+    target_id: string;
+    profile_id: string;
+    status: string;
+    risk: string;
+    created_at: string | null;
+    started_at: string | null;
+    finished_at: string | null;
+  };
+  target: {
+    id: string;
+    value: string;
+    type: string;
+    in_scope: boolean;
+    passive_allowed: boolean;
+    active_allowed: boolean;
+  } | null;
+  counts: { steps: number; findings: number; assets: number; artifacts: number; loot: number };
+  findings_by_severity: Record<string, number>;
+  steps: RunBriefStep[];
+  findings: RunBriefFinding[];
+  assets_by_type: Record<string, string[]>;
+  artifacts: RunBriefArtifact[];
+  loot: LootSummary;
+};

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Activity, Boxes, Crosshair, FileSearch, LayoutDashboard, MessageSquare, Network, RefreshCw, Settings as SettingsIcon, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Activity, Boxes, Coins, Crosshair, FileSearch, FileText, LayoutDashboard, MessageSquare, Network, RefreshCw, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
 import { ReactFlow, Background, Controls, Handle, Position } from '@xyflow/react';
 import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
@@ -8,6 +8,9 @@ import { TargetDetail } from './lib/TargetDetail';
 import { AdvicePanel } from './lib/AdvicePanel';
 import { AdvisorChat } from './lib/AdvisorChat';
 import { AdvisorProvider, AdvisorScopeBinder } from './lib/advisorContext';
+import { Loot } from './lib/Loot';
+import { Templates } from './lib/Templates';
+import { useNav, type Page } from './lib/nav';
 import { NetworkTab } from './lib/NetworkTab';
 import { CopyButton } from './lib/CopyButton';
 import { EmptyState } from './lib/EmptyState';
@@ -18,15 +21,15 @@ import { PendingGHint, ShortcutsCheatsheet, useShortcuts } from './lib/Shortcuts
 import { useToast } from './lib/Toast';
 import { useConfirm } from './lib/Confirm';
 import { applyTheme, loadTheme, persistTheme, THEMES, type Theme } from './lib/theme';
-import type { Artifact, GrepPatternPack, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from './types';
-
-type Page = 'dashboard' | 'targets' | 'runs' | 'results' | 'network' | 'tools' | 'workflow' | 'settings';
+import type { Artifact, GrepPatternPack, LootItem, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from './types';
 
 const pages: { id: Page; label: string; icon: ReactNode }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
   { id: 'targets', label: 'Targets', icon: <Crosshair size={16} /> },
+  { id: 'templates', label: 'Templates', icon: <FileText size={16} /> },
   { id: 'runs', label: 'Runs', icon: <TerminalSquare size={16} /> },
   { id: 'results', label: 'Results', icon: <FileSearch size={16} /> },
+  { id: 'loot', label: 'Loot', icon: <Coins size={16} /> },
   { id: 'network', label: 'Network Graph', icon: <Share2 size={16} /> },
   { id: 'tools', label: 'Tool Catalog', icon: <Wrench size={16} /> },
   { id: 'workflow', label: 'Workflow Builder', icon: <Network size={16} /> },
@@ -46,15 +49,17 @@ function availabilityLabel(check?: ToolAvailability) {
 }
 
 export function App() {
-  const [page, setPage] = useState<Page>('dashboard');
+  const { page, navigate } = useNav();
   const [health, setHealth] = useState<Record<string, unknown>>({});
   const [theme, setTheme] = useState<Theme>(() => loadTheme());
   const [activeRuns, setActiveRuns] = useState(0);
 
-  const navigate = useCallback((target: string) => {
-    if (pages.some((p) => p.id === target)) setPage(target as Page);
-  }, []);
-  const { showCheat, setShowCheat, pendingG } = useShortcuts(navigate);
+  // Shortcuts expects (page: string) => void; cast through Page since our nav
+  // accepts NavParams too but the shortcuts only need page-by-name.
+  const navForShortcuts = useCallback((target: string) => {
+    if (pages.some((p) => p.id === target)) navigate(target as Page);
+  }, [navigate]);
+  const { showCheat, setShowCheat, pendingG } = useShortcuts(navForShortcuts);
 
   useEffect(() => {
     api.health().then(setHealth).catch(console.error);
@@ -88,7 +93,7 @@ export function App() {
         <div className="brand"><span className="brand-mark">RF</span><span>ReconForge</span></div>
         <nav className="nav">
           {pages.map((item) => (
-            <button key={item.id} className={page === item.id ? 'active' : ''} onClick={() => setPage(item.id)}>
+            <button key={item.id} className={page === item.id ? 'active' : ''} onClick={() => navigate(item.id)}>
               <span className="row">
                 {item.icon}
                 {item.label}
@@ -131,8 +136,10 @@ export function App() {
         <div className="content">
           {page === 'dashboard' && <Dashboard />}
           {page === 'targets' && <Targets />}
+          {page === 'templates' && <Templates />}
           {page === 'runs' && <Runs />}
           {page === 'results' && <Results />}
+          {page === 'loot' && <Loot />}
           {page === 'network' && <NetworkGraph />}
           {page === 'tools' && <Tools />}
           {page === 'workflow' && <Workflow />}
@@ -303,15 +310,34 @@ function BulkImport({ workspaceId, defaultActiveAllowed, onImported }:
 }
 
 function Runs() {
+  const { consume } = useNav();
   const [runs, setRuns] = useState<Run[]>([]);
   const [selected, setSelected] = useState<Run | null>(null);
+  // Pending deeplink — held in a ref so the setInterval's closure always sees
+  // the current value (useState would still be null in the first tick because
+  // setters are async).
+  const pendingRunIdRef = useRef<string | null>(null);
 
   const reload = () => api.runs().then((loaded) => {
     setRuns(loaded);
-    setSelected((current) => current ? loaded.find((run) => run.id === current.id) ?? current : current);
+    setSelected((current) => {
+      const pending = pendingRunIdRef.current;
+      if (pending) {
+        const match = loaded.find((r) => r.id === pending);
+        if (match) { pendingRunIdRef.current = null; return match; }
+      }
+      return current ? loaded.find((run) => run.id === current.id) ?? current : current;
+    });
   }).catch(console.error);
 
-  useEffect(() => { reload(); const timer = window.setInterval(reload, 3000); return () => window.clearInterval(timer); }, []);
+  useEffect(() => {
+    const params = consume();
+    if (params.runId) pendingRunIdRef.current = params.runId;
+    reload();
+    const timer = window.setInterval(reload, 3000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return <div className="grid cols-2">
     <div className="card"><h3>Runs</h3><RunTable runs={runs} onSelect={setSelected} /></div>
@@ -325,7 +351,7 @@ function RunTable({ runs, onSelect }: { runs: Run[]; onSelect?: (run: Run) => vo
   </tbody></table>;
 }
 
-type RunTab = 'console' | 'steps' | 'network' | 'artifacts' | 'advisor';
+type RunTab = 'console' | 'steps' | 'network' | 'artifacts' | 'loot' | 'advisor';
 
 function RunConsole({ run, onChanged }: { run: Run; onChanged?: () => void }) {
   return (
@@ -342,14 +368,31 @@ function RunConsole({ run, onChanged }: { run: Run; onChanged?: () => void }) {
 }
 
 function RunConsoleInner({ run, onChanged }: { run: Run; onChanged?: () => void }) {
+  const toast = useToast();
+  const confirm = useConfirm();
+  const { navigate } = useNav();
   const [events, setEvents] = useState<RunEvent[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [steps, setSteps] = useState<RunStep[]>([]);
+  const [loot, setLoot] = useState<LootItem[]>([]);
   const [selected, setSelected] = useState<Artifact | null>(null);
   const [tab, setTab] = useState<RunTab>('console');
 
   const reloadArtifacts = () => api.runArtifacts(run.id).then(setArtifacts).catch(console.error);
   const reloadSteps = () => api.runSteps(run.id).then(setSteps).catch(console.error);
+  const reloadLoot = () => api.loot({ run_id: run.id, limit: 500 })
+    .then((p) => setLoot(p.items))
+    .catch(console.error);
+
+  const reindexLoot = async () => {
+    try {
+      const r = await api.reindexRunLoot(run.id);
+      toast.success('Loot reindexed', `${r.indexed} item${r.indexed === 1 ? '' : 's'} for this run.`);
+      reloadLoot();
+    } catch (e) {
+      toast.fromError(e, 'Reindex failed');
+    }
+  };
 
   const cancel = async () => {
     const ok = await confirm({
@@ -383,8 +426,10 @@ function RunConsoleInner({ run, onChanged }: { run: Run; onChanged?: () => void 
   useEffect(() => {
     setEvents([]);
     setSelected(null);
+    setLoot([]);
     reloadArtifacts();
     reloadSteps();
+    reloadLoot();
     api.runEvents(run.id).then(setEvents).catch(console.error);
     const socket = new WebSocket(api.wsUrl(run.id));
     socket.onmessage = (message) => {
@@ -392,6 +437,7 @@ function RunConsoleInner({ run, onChanged }: { run: Run; onChanged?: () => void 
       setEvents((prev) => prev.some((item) => item.id === event.id) ? prev : [...prev, event]);
       if (event.type === 'run.step.artifact_created') reloadArtifacts();
       if (event.type.startsWith('run.step.') || event.type === 'run.cancel_requested') reloadSteps();
+      if (event.type === 'run.completed') reloadLoot();
       if (event.type === 'run.completed' || event.type === 'run.failed' || event.type === 'run.cancelled') onChanged?.();
     };
     return () => socket.close();
@@ -404,6 +450,7 @@ function RunConsoleInner({ run, onChanged }: { run: Run; onChanged?: () => void 
     { id: 'steps', label: 'Steps', badge: steps.length },
     { id: 'network', label: 'Network' },
     { id: 'artifacts', label: 'Artifacts', badge: artifacts.length },
+    { id: 'loot', label: 'Loot', badge: loot.length },
     { id: 'advisor', label: 'Advisor' },
   ];
 
@@ -471,6 +518,41 @@ function RunConsoleInner({ run, onChanged }: { run: Run; onChanged?: () => void 
           );
         })}</div>
         {selected && <ArtifactExplorer artifact={selected} onClose={() => setSelected(null)} />}
+      </div>
+    )}
+    {tab === 'loot' && (
+      <div className="grid">
+        <div className="row space">
+          <strong>Loot</strong>
+          <div className="row">
+            <button className="btn small" onClick={reindexLoot} title="Re-derive loot from this run's current findings"><RefreshCw size={14} /> Reindex</button>
+            <button className="btn small" onClick={() => navigate('loot', { runId: run.id, workspaceId: run.workspace_id })} title="Open the full Loot page filtered to this run">
+              Open in Loot page
+            </button>
+          </div>
+        </div>
+        {loot.length === 0 ? (
+          <EmptyState
+            icon={<Coins size={24} />}
+            title="No loot for this run"
+            body="Either no findings here qualified as loot, or loot indexing has not yet run. Click Reindex above to derive it from the current findings."
+          />
+        ) : (
+          <table className="table compact">
+            <thead><tr><th>Severity</th><th>Kind</th><th>Label</th><th>Host</th><th>Tool</th></tr></thead>
+            <tbody>
+              {loot.map((it) => (
+                <tr key={it.id}>
+                  <td><span className={`badge ${it.severity === 'critical' || it.severity === 'high' ? 'bad' : it.severity === 'medium' ? 'active' : 'passive'}`}>{it.severity}</span></td>
+                  <td>{it.kind}</td>
+                  <td>{it.label}</td>
+                  <td><span className="mono">{it.host ?? '—'}</span></td>
+                  <td>{it.source_tool ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     )}
     {tab === 'advisor' && (

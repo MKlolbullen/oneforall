@@ -13,6 +13,7 @@ from app.api.routes import (
     auth as auth_routes,
     config,
     dashboard,
+    graph as graph_routes,
     loot as loot_routes,
     network as network_routes,
     runs,
