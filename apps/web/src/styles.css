@@ -806,6 +806,12 @@ body.advisor-docked .content { max-width: 100%; }
 .wf-cloud-actions .btn { flex: 1; justify-content: center; }
 .btn.small.danger { color: #fca5a5; border-color: #7f1d1d; }
 
+/* Tool detail modal ==================================================== */
+.tool-modal { width: min(700px, calc(100vw - 36px)); max-height: calc(100vh - 60px); overflow: auto; display: grid; gap: 10px; }
+.tool-section { display: grid; gap: 4px; padding-top: 6px; border-top: 1px solid #1f2937; }
+.tool-section strong { font-size: 13px; }
+.tool-io-row { display: flex; flex-wrap: wrap; gap: 4px; }
+
 [data-theme="pd-cloud"] .wf-node.tool { border-color: var(--pd-border); }
 [data-theme="pd-cloud"] .wf-node.tool.selected { border-color: var(--pd-pink); }
 [data-theme="pd-cloud"] .wf-palette-tool:hover { border-color: var(--pd-pink); }

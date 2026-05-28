@@ -10,6 +10,7 @@ import { AdvisorProvider, AdvisorScopeBinder } from './lib/advisorContext';
 import { AuditLog } from './lib/AuditLog';
 import { Loot } from './lib/Loot';
 import { Templates } from './lib/Templates';
+import { ToolDetailModal } from './lib/ToolDetailModal';
 import { Users as UsersPage } from './lib/Users';
 import { WorkflowBuilder } from './lib/WorkflowBuilder';
 import { Workspaces as WorkspacesPage } from './lib/Workspaces';
@@ -663,6 +664,7 @@ function Tools() {
   const [category, setCategory] = useState('all');
   const [risk, setRisk] = useState('all');
   const [availabilityFilter, setAvailabilityFilter] = useState('all');
+  const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
 
   const reload = async (force = false) => {
     const [loadedTools, loadedProfiles, loadedAvailability] = await Promise.all([api.tools(), api.profiles(), api.toolAvailability(force)]);
@@ -722,7 +724,7 @@ function Tools() {
         </div>
         <table className="table"><thead><tr><th>Tool</th><th>Availability</th><th>Category</th><th>Risk</th><th>Auth</th><th>Tags</th></tr></thead><tbody>{filtered.map((t) => {
           const check = availabilityByTool[t.id];
-          return <tr key={t.id}>
+          return <tr key={t.id} onClick={() => setSelectedTool(t)} style={{ cursor: 'pointer' }} title="Click for detail + quick-launch">
             <td><strong>{t.name}</strong><br /><span className="muted mono">{t.id}{t.binary ? ` · ${t.binary}` : ''}</span></td>
             <td><span className={availabilityClass(check)} title={check?.message ?? ''}>{availabilityLabel(check)}</span><br /><span className="muted mono">{check?.path ?? check?.message ?? 'not checked'}</span></td>
             <td>{t.category}</td>
@@ -732,6 +734,7 @@ function Tools() {
           </tr>;
         })}</tbody></table>
       </div>
+      {selectedTool && <ToolDetailModal tool={selectedTool} onClose={() => setSelectedTool(null)} />}
       <div className="card"><h3>Profiles</h3>{profiles.map((p) => {
         const check = profileChecks[p.id];
         return <div key={p.id} className="card profile-card"><div className="row space"><strong>{p.name}</strong><span className={availabilityClass(check)}>{check ? `${check.available_tools}/${check.total_tools}` : 'unchecked'}</span></div><p className="muted">{p.description}</p>{check && !check.runnable && <p className="warning-text">Missing: {check.missing_tools.join(', ')}</p>}<code>{p.steps.map((s) => s.tool).join(' -> ')}</code></div>;

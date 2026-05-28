@@ -59,6 +59,7 @@ export type Tool = {
   retry_backoff_seconds?: number;
   continue_on_error?: boolean;
   command?: { argv?: string[]; [k: string]: unknown };
+  install?: Record<string, unknown>;
   tags?: string[];
 };
 
