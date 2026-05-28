@@ -43,6 +43,35 @@ class RunCreate(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
+class AdHocStep(BaseModel):
+    """One step inside an ad-hoc workflow.
+
+    Mirrors the YAML profile-step shape the registry already supports, but as
+    a typed Pydantic body so the Workflow Builder can POST a JSON DAG without
+    writing a temporary YAML file. argv_replace/argv_extra accept the same
+    `{{steps.<id>.stdout_path}}` / `{{upstream.<type>.merged_path}}` templates
+    the YAML profiles use.
+    """
+    tool: str = Field(min_length=1, max_length=64)
+    argv_replace: list[str] | None = None
+    argv_extra: list[str] | None = None
+    timeout_seconds: int | None = Field(default=None, ge=1, le=86400)
+    max_retries: int | None = Field(default=None, ge=0, le=10)
+    retry_backoff_seconds: float | None = Field(default=None, ge=0, le=300)
+    continue_on_error: bool | None = None
+
+
+class AdHocRunCreate(BaseModel):
+    """Body for POST /api/runs/adhoc. The Workflow Builder topologically sorts
+    its canvas, then submits the resulting linear step list here."""
+    workspace_id: str
+    target_id: str
+    name: str = Field(default="Ad-hoc workflow", min_length=1, max_length=120)
+    steps: list[AdHocStep] = Field(min_length=1, max_length=50)
+    requested_by: str = "local-dev"
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
 class ToolInput(BaseModel):
     name: str
     type: str

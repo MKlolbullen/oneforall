@@ -1,4 +1,4 @@
-import type { Advice, Artifact, Asset, AuditPage, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WhoAmI, WordlistInfo, Workspace } from '../types';
+import type { AdHocRunCreate, Advice, Artifact, Asset, AuditPage, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WhoAmI, WordlistInfo, Workspace } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000';
@@ -57,6 +57,9 @@ export const api = {
   runs: () => request<Run[]>('/api/runs'),
   createRun: (payload: { workspace_id: string; target_id: string; profile_id: string }) =>
     request<Run>('/api/runs', { method: 'POST', body: JSON.stringify(payload) }),
+  createAdhocRun: (payload: AdHocRunCreate) =>
+    request<Run>('/api/runs/adhoc', { method: 'POST', body: JSON.stringify(payload) }),
+  tool: (toolId: string) => request<Tool>(`/api/tools/${toolId}`),
   cancelRun: (runId: string) => request<Run>(`/api/runs/${runId}/cancel`, { method: 'POST' }),
   runEvents: (runId: string) => request<RunEvent[]>(`/api/runs/${runId}/events`),
   runSteps: (runId: string) => request<RunStep[]>(`/api/runs/${runId}/steps`),

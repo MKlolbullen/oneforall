@@ -38,6 +38,12 @@ export type RunEvent = {
   created_at: string;
 };
 
+export type ToolIO = {
+  name: string;
+  type: string;
+  required?: boolean;
+};
+
 export type Tool = {
   id: string;
   name: string;
@@ -46,7 +52,32 @@ export type Tool = {
   binary?: string | null;
   risk: string;
   requires_authorization: boolean;
+  inputs?: ToolIO[];
+  outputs?: ToolIO[];
+  default_timeout_seconds?: number;
+  max_retries?: number;
+  retry_backoff_seconds?: number;
+  continue_on_error?: boolean;
+  command?: { argv?: string[]; [k: string]: unknown };
   tags?: string[];
+};
+
+export type AdHocStep = {
+  tool: string;
+  argv_replace?: string[];
+  argv_extra?: string[];
+  timeout_seconds?: number;
+  max_retries?: number;
+  retry_backoff_seconds?: number;
+  continue_on_error?: boolean;
+};
+
+export type AdHocRunCreate = {
+  workspace_id: string;
+  target_id: string;
+  name: string;
+  steps: AdHocStep[];
+  params?: Record<string, unknown>;
 };
 
 export type Profile = {

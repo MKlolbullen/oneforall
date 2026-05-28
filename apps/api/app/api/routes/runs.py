@@ -1,4 +1,5 @@
 import asyncio
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
@@ -7,7 +8,7 @@ from sqlmodel import Session as SQLSession
 from app.core.config import get_settings
 from app.db import engine, get_session
 from app.models import Artifact, Asset, Finding, Role, Run, RunEvent, RunStatus, RunStep, Target, User, now_utc
-from app.schemas import RunCreate
+from app.schemas import AdHocRunCreate, RunCreate
 from app.services import audit
 from app.services.auth import current_user, require_role
 from app.services.events import event_bus
@@ -15,7 +16,7 @@ from app.services.queue import enqueue_run, request_run_cancel
 from app.services.runner import execute_run
 from app.services.scope import ScopeError, enforce_target_scope
 from app.services.platform_config import load_platform_config
-from app.services.tool_availability import unavailable_profile_tools
+from app.services.tool_availability import check_tool_availability, unavailable_profile_tools
 from app.services.tool_registry import get_registry
 
 router = APIRouter(prefix="/runs", tags=["runs"])
@@ -101,6 +102,120 @@ async def create_run(
         "run.queued",
         f"Run {run.id} queued",
         payload={"runner_mode": settings.runner_mode, "queue": settings.run_queue_name},
+    )
+
+    if settings.queued_runner_enabled:
+        await enqueue_run(run.id)
+    else:
+        asyncio.create_task(execute_run(run.id, registry, session_factory))
+
+    return run
+
+
+@router.post("/adhoc", response_model=Run, status_code=201)
+async def create_adhoc_run(
+    payload: AdHocRunCreate,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_role(Role.operator)),
+) -> Run:
+    """Queue a run built from an inline workflow (no on-disk profile).
+
+    The Workflow Builder posts a JSON DAG here. Each step references a tool by
+    id and may override argv / timeouts / retry policy just like a YAML profile
+    step. The same scope + live-mode availability gates apply as for named
+    profiles."""
+    target = session.get(Target, payload.target_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Target not found")
+    if target.workspace_id != payload.workspace_id:
+        raise HTTPException(status_code=400, detail="Target does not belong to workspace")
+
+    registry = get_registry()
+    profile_inline = {
+        "id": "adhoc",
+        "name": payload.name,
+        "description": "Ad-hoc workflow submitted via /api/runs/adhoc.",
+        "steps": [step.model_dump(exclude_none=True) for step in payload.steps],
+    }
+
+    # profile_risk walks the steps and looks up each tool — raises KeyError on
+    # an unknown tool id, which we map to 404 for the caller.
+    try:
+        risk = registry.profile_risk(profile_inline)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown tool in workflow: {exc}") from exc
+
+    manual_approval = bool(payload.params.get("manual_approval", False))
+    try:
+        enforce_target_scope(target, risk, manual_approval=manual_approval)
+    except ScopeError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    settings = get_settings()
+    if settings.live_execution_enabled and settings.block_live_runs_on_missing_tools:
+        missing: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for step in payload.steps:
+            if step.tool in seen:
+                continue
+            seen.add(step.tool)
+            try:
+                avail = check_tool_availability(registry.get_tool(step.tool))
+            except KeyError:
+                continue  # already validated above; profile_risk would have raised
+            if not avail.available:
+                missing.append(avail.model_dump())
+        if missing:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Live run blocked because required tool executables are missing or broken in the runner image.",
+                    "profile_id": "adhoc",
+                    "missing_tools": missing,
+                    "hint": "Install the missing tools in the API/worker image or switch back to dry_run mode.",
+                },
+            )
+
+    profile_inline["risk"] = risk.value
+
+    run = Run(
+        workspace_id=payload.workspace_id,
+        target_id=payload.target_id,
+        profile_id="adhoc",
+        requested_by=user.username,
+        risk=risk,
+        config_snapshot={
+            "platform_config": load_platform_config(),
+            "profile": profile_inline,
+            # `profile_inline` is the signal to the runner to use this dict
+            # instead of registry.get_profile(); the `profile` key is the
+            # historical snapshot field other code (advisor, brief) reads from.
+            "profile_inline": profile_inline,
+            "target_value": target.value,
+            "target_type": target.type,
+            "params": {"target": target.value, **payload.params},
+        },
+    )
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+
+    audit.record(
+        session, actor=user, action="run.created",
+        target_kind="run", target_id=run.id,
+        payload={
+            "profile_id": "adhoc", "name": payload.name,
+            "target_id": run.target_id, "risk": run.risk.value,
+            "step_count": len(payload.steps),
+        },
+    )
+    session.commit()
+
+    await event_bus.publish(
+        session, run.id, "run.queued",
+        f"Run {run.id} queued (ad-hoc: {payload.name})",
+        payload={"runner_mode": settings.runner_mode, "queue": settings.run_queue_name,
+                 "profile_id": "adhoc", "step_count": len(payload.steps)},
     )
 
     if settings.queued_runner_enabled:

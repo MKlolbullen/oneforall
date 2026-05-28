@@ -330,7 +330,12 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
         )
 
     try:
-        profile = registry.get_profile(profile_id)
+        # Ad-hoc workflows ship the profile inline through config_snapshot so
+        # the runner doesn't have to look it up on disk — the YAML registry has
+        # no entry for an ad-hoc id. Falls back to the registry for the named
+        # profiles operators usually launch.
+        profile_inline = config_snapshot.get("profile_inline")
+        profile = profile_inline if isinstance(profile_inline, dict) else registry.get_profile(profile_id)
         params = dict(config_snapshot.get("params") or {})
         params.setdefault("target", config_snapshot.get("target_value"))
 

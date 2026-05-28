@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Activity, Boxes, Coins, Crosshair, FileSearch, FileText, History, LayoutDashboard, MessageSquare, Network, RefreshCw, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
-import { ReactFlow, Background, Controls, Handle, Position } from '@xyflow/react';
 import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
 import { classifyArtifact } from './lib/artifactKind';
@@ -11,6 +10,7 @@ import { AdvisorProvider, AdvisorScopeBinder } from './lib/advisorContext';
 import { AuditLog } from './lib/AuditLog';
 import { Loot } from './lib/Loot';
 import { Templates } from './lib/Templates';
+import { WorkflowBuilder } from './lib/WorkflowBuilder';
 import { Workspaces as WorkspacesPage } from './lib/Workspaces';
 import { useNav, type Page } from './lib/nav';
 import { NetworkTab } from './lib/NetworkTab';
@@ -147,7 +147,7 @@ export function App() {
           {page === 'loot' && <Loot />}
           {page === 'network' && <NetworkGraph />}
           {page === 'tools' && <Tools />}
-          {page === 'workflow' && <Workflow />}
+          {page === 'workflow' && <WorkflowBuilder />}
           {page === 'audit' && <AuditLog />}
           {page === 'settings' && <SettingsPack />}
         </div>
@@ -813,27 +813,3 @@ function KeyValue({ label, value }: { label: string; value: unknown }) {
   return <div className="kv"><span className="muted">{label}</span><strong>{String(value ?? '—')}</strong></div>;
 }
 
-function Workflow() {
-  const nodeTypes = useMemo(() => ({ rfNode: RFNode }), []);
-  const nodes = useMemo(() => [
-    { id: 'target', type: 'rfNode', position: { x: 0, y: 160 }, data: { title: 'Target Domain', sub: 'example.com' } },
-    { id: 'subfinder', type: 'rfNode', position: { x: 240, y: 70 }, data: { title: 'subfinder', sub: 'passive subdomains' } },
-    { id: 'crtsh', type: 'rfNode', position: { x: 240, y: 250 }, data: { title: 'crt.sh', sub: 'certificate transparency' } },
-    { id: 'dnsx', type: 'rfNode', position: { x: 500, y: 160 }, data: { title: 'dnsx', sub: 'resolve/validate' } },
-    { id: 'httpx', type: 'rfNode', position: { x: 760, y: 160 }, data: { title: 'httpx', sub: 'probe + tech detect' } },
-    { id: 'nuclei', type: 'rfNode', position: { x: 1020, y: 160 }, data: { title: 'nuclei', sub: 'findings' } },
-  ], []);
-  const edges = useMemo(() => [
-    { id: 'e1', source: 'target', target: 'subfinder' },
-    { id: 'e2', source: 'target', target: 'crtsh' },
-    { id: 'e3', source: 'subfinder', target: 'dnsx' },
-    { id: 'e4', source: 'crtsh', target: 'dnsx' },
-    { id: 'e5', source: 'dnsx', target: 'httpx' },
-    { id: 'e6', source: 'httpx', target: 'nuclei' },
-  ], []);
-  return <div className="card"><div className="row space"><h3>Workflow Builder</h3><span className="muted">React Flow skeleton: typed sockets come next</span></div><div className="flow-pane"><ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView><Background /><Controls /></ReactFlow></div></div>;
-}
-
-function RFNode({ data }: { data: { title: string; sub: string } }) {
-  return <div className="node-card"><Handle type="target" position={Position.Left} /><div className="title">{data.title}</div><div className="sub">{data.sub}</div><Handle type="source" position={Position.Right} /></div>;
-}
