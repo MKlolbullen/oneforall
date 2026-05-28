@@ -456,3 +456,101 @@ body.advisor-docked .content { max-width: 100%; }
 [data-theme="pd-cloud"] .advisor-chat { border-color: var(--pd-border); background: var(--pd-surface); }
 [data-theme="pd-cloud"] .advisor-fab { border-color: var(--pd-pink); box-shadow: 0 8px 28px rgba(236,72,153,.2); }
 [data-theme="pd-cloud"] .advisor-bubble.user { background: var(--pd-pink-soft); border-color: var(--pd-pink); }
+
+/* Templates page — scan-profile launchpad ============================== */
+.templates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+.template-card {
+  border: 1px solid #1f2937;
+  background: rgba(13,17,23,.78);
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+  transition: border-color 140ms, transform 140ms;
+}
+.template-card:hover { border-color: #155e75; transform: translateY(-1px); }
+.template-card.blocked { opacity: .7; }
+.template-title { font-size: 14px; }
+.template-desc { margin: 0; font-size: 12.5px; line-height: 1.45; min-height: 36px; }
+.template-meta { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #94a3b8; }
+.template-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  font-size: 11px;
+  color: #cbd5e1;
+}
+.template-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  background: rgba(8,145,178,.10);
+  border: 1px solid #0e7490;
+  border-radius: 6px;
+  font-family: ui-monospace, monospace;
+}
+
+/* Launch picker modal (target chooser) ================================ */
+.launch-modal { width: min(560px, calc(100vw - 36px)); display: grid; gap: 10px; }
+.launch-target-list {
+  max-height: 260px;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  padding: 6px;
+  background: rgba(2,6,23,.45);
+}
+.launch-target {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #1f2937;
+  background: rgba(13,17,23,.6);
+  color: #e5e7eb;
+  text-align: left;
+}
+.launch-target:hover:not(:disabled) { border-color: #155e75; background: rgba(8,145,178,.08); }
+.launch-target.selected { border-color: #22d3ee; background: rgba(8,145,178,.18); }
+.launch-target:disabled { cursor: not-allowed; opacity: .55; }
+
+/* Loot page — curated high-signal layer ============================== */
+.loot-detail-row td { background: rgba(2,6,23,.55); border-bottom: 1px solid #1f2937; }
+.loot-preview {
+  margin: 0;
+  padding: 8px 10px;
+  background: #0b1220;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  font-size: 12px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+}
+.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #22d3ee;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline dotted;
+}
+.link:hover { color: #67e8f9; }
+.small { font-size: 11px; }
+
+[data-theme="pd-cloud"] .template-card { border-color: var(--pd-border); background: var(--pd-surface); }
+[data-theme="pd-cloud"] .template-card:hover { border-color: var(--pd-pink); }
+[data-theme="pd-cloud"] .template-step { border-color: var(--pd-pink); background: var(--pd-pink-soft); }
+[data-theme="pd-cloud"] .launch-target.selected { border-color: var(--pd-pink); background: var(--pd-pink-soft); }

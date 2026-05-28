@@ -5,12 +5,15 @@ import './styles.css';
 import { App } from './App';
 import { ToastProvider } from './lib/Toast';
 import { ConfirmProvider } from './lib/Confirm';
+import { NavProvider } from './lib/nav';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ToastProvider>
       <ConfirmProvider>
-        <App />
+        <NavProvider>
+          <App />
+        </NavProvider>
       </ConfirmProvider>
     </ToastProvider>
   </React.StrictMode>,

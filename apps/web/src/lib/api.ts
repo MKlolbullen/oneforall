@@ -1,4 +1,4 @@
-import type { Advice, Artifact, Asset, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
+import type { Advice, Artifact, Asset, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000';
@@ -157,4 +157,43 @@ export const api = {
   }>('/api/targets/bulk', { method: 'POST', body: JSON.stringify(payload) }),
 
   rerun: (runId: string) => request<Run>(`/api/runs/${runId}/rerun`, { method: 'POST' }),
+
+  // Loot — curated high-signal layer (secrets, takeovers, critical/high vulns).
+  // See AGENTS.md and apps/api/app/services/loot.py.
+  loot: (opts: {
+    workspace_id?: string;
+    run_id?: string;
+    kind?: string;
+    severity?: string;
+    host?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(opts)) {
+      if (v != null && v !== '') p.set(k, String(v));
+    }
+    const qs = p.toString();
+    return request<LootPage>(`/api/loot${qs ? `?${qs}` : ''}`);
+  },
+  lootExportUrl: (opts: {
+    workspace_id?: string;
+    run_id?: string;
+    kind?: string;
+    severity?: string;
+    host?: string;
+    format?: 'csv' | 'json' | 'md';
+  } = {}) => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(opts)) {
+      if (v != null && v !== '') p.set(k, String(v));
+    }
+    return `${API_BASE_URL}/api/loot/export${p.toString() ? `?${p}` : ''}`;
+  },
+  reindexRunLoot: (runId: string) =>
+    request<{ run_id: string; indexed: number }>(`/api/loot/runs/${runId}/reindex`, { method: 'POST' }),
+
+  // Agent — machine-facing structured run brief; cheaper than the advisor
+  // because no LLM is involved.
+  runBrief: (runId: string) => request<RunBrief>(`/api/agent/runs/${runId}/brief`),
 };
