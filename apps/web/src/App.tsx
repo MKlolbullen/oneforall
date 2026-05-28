@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Activity, Boxes, Coins, Crosshair, FileSearch, FileText, LayoutDashboard, MessageSquare, Network, RefreshCw, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
+import { Activity, Boxes, Coins, Crosshair, FileSearch, FileText, History, LayoutDashboard, MessageSquare, Network, RefreshCw, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
 import { ReactFlow, Background, Controls, Handle, Position } from '@xyflow/react';
 import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
@@ -8,8 +8,10 @@ import { TargetDetail } from './lib/TargetDetail';
 import { AdvicePanel } from './lib/AdvicePanel';
 import { AdvisorChat } from './lib/AdvisorChat';
 import { AdvisorProvider, AdvisorScopeBinder } from './lib/advisorContext';
+import { AuditLog } from './lib/AuditLog';
 import { Loot } from './lib/Loot';
 import { Templates } from './lib/Templates';
+import { Workspaces as WorkspacesPage } from './lib/Workspaces';
 import { useNav, type Page } from './lib/nav';
 import { NetworkTab } from './lib/NetworkTab';
 import { CopyButton } from './lib/CopyButton';
@@ -25,6 +27,7 @@ import type { Artifact, GrepPatternPack, LootItem, PlatformConfig, PluginToggle,
 
 const pages: { id: Page; label: string; icon: ReactNode }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
+  { id: 'workspaces', label: 'Workspaces', icon: <Boxes size={16} /> },
   { id: 'targets', label: 'Targets', icon: <Crosshair size={16} /> },
   { id: 'templates', label: 'Templates', icon: <FileText size={16} /> },
   { id: 'runs', label: 'Runs', icon: <TerminalSquare size={16} /> },
@@ -33,6 +36,7 @@ const pages: { id: Page; label: string; icon: ReactNode }[] = [
   { id: 'network', label: 'Network Graph', icon: <Share2 size={16} /> },
   { id: 'tools', label: 'Tool Catalog', icon: <Wrench size={16} /> },
   { id: 'workflow', label: 'Workflow Builder', icon: <Network size={16} /> },
+  { id: 'audit', label: 'Audit Log', icon: <History size={16} /> },
   { id: 'settings', label: 'Settings Pack', icon: <SettingsIcon size={16} /> },
 ];
 
@@ -135,6 +139,7 @@ export function App() {
         </div>
         <div className="content">
           {page === 'dashboard' && <Dashboard />}
+          {page === 'workspaces' && <WorkspacesPage />}
           {page === 'targets' && <Targets />}
           {page === 'templates' && <Templates />}
           {page === 'runs' && <Runs />}
@@ -143,6 +148,7 @@ export function App() {
           {page === 'network' && <NetworkGraph />}
           {page === 'tools' && <Tools />}
           {page === 'workflow' && <Workflow />}
+          {page === 'audit' && <AuditLog />}
           {page === 'settings' && <SettingsPack />}
         </div>
       </main>

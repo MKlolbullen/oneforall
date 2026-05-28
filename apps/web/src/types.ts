@@ -336,6 +336,35 @@ export type Advice = {
   body: Record<string, unknown>;
 };
 
+export type WhoAmI = {
+  id: string;
+  username: string;
+  role: 'viewer' | 'operator' | 'admin' | string;
+  is_active: boolean;
+  last_login_at: string | null;
+};
+
+export type AuditEvent = {
+  sequence: number;
+  actor_id: string | null;
+  actor_role: 'viewer' | 'operator' | 'admin' | string | null;
+  action: string;
+  target_kind: string | null;
+  target_id: string | null;
+  payload: Record<string, unknown>;
+  prev_signature: string | null;
+  signature: string;
+  created_at: string;
+};
+
+export type AuditBreak = { sequence: number; reason: string };
+
+export type AuditPage = {
+  ok: boolean;
+  breaks: AuditBreak[];
+  events: AuditEvent[];
+};
+
 export type LootItem = {
   id: string;
   workspace_id: string;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Activity, AlertTriangle, Boxes, Crosshair, FileText, History, RefreshCw, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
+import { Activity, AlertTriangle, Boxes, Crosshair, FileText, History, RefreshCw, ShieldAlert, Sparkles, TerminalSquare, Wrench } from 'lucide-react';
 import { api } from './api';
+import { RunBriefView } from './RunBriefView';
 import type { DashboardDetailed, DashboardFindingBrief, DashboardRunBrief } from '../types';
 
 const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'] as const;
@@ -32,6 +33,9 @@ export function Dashboard() {
   const [data, setData] = useState<DashboardDetailed | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set to a run id when the operator opens a brief from a recent-run row;
+  // unset clears the modal.
+  const [briefRunId, setBriefRunId] = useState<string | null>(null);
 
   const reload = async () => {
     setLoading(true); setError(null);
@@ -142,6 +146,16 @@ export function Dashboard() {
                 <td><span className="mono small">{r.profile_id}</span></td>
                 <td><span className={statusBadgeClass(r.status)}>{r.status}</span></td>
                 <td className="muted">{relativeTime(r.created_at)}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="btn small"
+                    onClick={() => setBriefRunId(r.id)}
+                    title="Open the structured run brief"
+                  >
+                    <Sparkles size={11} /> Brief
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody></table>
@@ -210,6 +224,7 @@ export function Dashboard() {
           )}
         </div>
       </div>
+      {briefRunId && <RunBriefView runId={briefRunId} onClose={() => setBriefRunId(null)} />}
     </div>
   );
 }

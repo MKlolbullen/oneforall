@@ -6,8 +6,8 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
  * to consume any pending params (then clear them so a re-render doesn't loop).
  */
 export type Page =
-  | 'dashboard' | 'targets' | 'runs' | 'results' | 'network'
-  | 'tools' | 'templates' | 'workflow' | 'loot' | 'settings';
+  | 'dashboard' | 'workspaces' | 'targets' | 'runs' | 'results' | 'network'
+  | 'tools' | 'templates' | 'workflow' | 'loot' | 'audit' | 'settings';
 
 export type NavParams = {
   runId?: string;

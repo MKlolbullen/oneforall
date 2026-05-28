@@ -1,4 +1,4 @@
-import type { Advice, Artifact, Asset, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
+import type { Advice, Artifact, Asset, AuditPage, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WhoAmI, WordlistInfo, Workspace } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000';
@@ -196,4 +196,8 @@ export const api = {
   // Agent — machine-facing structured run brief; cheaper than the advisor
   // because no LLM is involved.
   runBrief: (runId: string) => request<RunBrief>(`/api/agent/runs/${runId}/brief`),
+
+  // Identity + audit. /auth/audit is admin-only — non-admins get 403.
+  me: () => request<WhoAmI>('/api/auth/me'),
+  audit: (limit = 100) => request<AuditPage>(`/api/auth/audit?limit=${limit}`),
 };
