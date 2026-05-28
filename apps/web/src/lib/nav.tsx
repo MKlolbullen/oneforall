@@ -14,6 +14,7 @@ export type NavParams = {
   findingId?: string;
   targetId?: string;
   workspaceId?: string;
+  workflowId?: string;
   lootKind?: string;
   lootSeverity?: string;
 };

@@ -36,3 +36,7 @@ def rebind_engine_to_database_url() -> None:
     main_mod.engine = new_engine
     import app.api.routes.runs as runs_mod
     runs_mod.engine = new_engine
+    # Newer routes that bind the engine at import time (workflows launches
+    # spawn execute_run with their own session_factory). Same trick.
+    import app.api.routes.workflows as workflows_mod
+    workflows_mod.engine = new_engine

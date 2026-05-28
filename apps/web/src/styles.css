@@ -797,6 +797,14 @@ body.advisor-docked .content { max-width: 100%; }
 }
 .wf-saved-pick:hover { background: rgba(8,145,178,.08); }
 .wf-saved-pick small { font-size: 11px; }
+.wf-cloud-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid #1f2937;
+}
+.wf-cloud-actions .btn { flex: 1; justify-content: center; }
+.btn.small.danger { color: #fca5a5; border-color: #7f1d1d; }
 
 [data-theme="pd-cloud"] .wf-node.tool { border-color: var(--pd-border); }
 [data-theme="pd-cloud"] .wf-node.tool.selected { border-color: var(--pd-pink); }

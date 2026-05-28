@@ -19,6 +19,7 @@ from app.api.routes import (
     runs,
     targets,
     tools,
+    workflows,
     workspaces,
     ws,
 )
@@ -62,6 +63,7 @@ app.include_router(agent_routes.router, prefix="/api")
 app.include_router(loot_routes.router, prefix="/api")
 app.include_router(network_routes.router, prefix="/api")
 app.include_router(graph_routes.router, prefix="/api")
+app.include_router(workflows.router, prefix="/api")
 app.include_router(ws.router)
 
 

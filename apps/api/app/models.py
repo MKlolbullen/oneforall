@@ -242,6 +242,24 @@ class LootItem(SQLModel, table=True):
     created_at: datetime = Field(default_factory=now_utc)
 
 
+class Workflow(SQLModel, table=True):
+    """A saved Workflow Builder graph.
+
+    `body` holds the canonical execution shape (steps[]) plus the visual graph
+    (nodes/edges) so the canvas can rehydrate. The execution body matches the
+    AdHocRunCreate shape so launches go through the same /api/runs/adhoc code
+    path — workflows are just persistent ad-hoc workflows.
+    """
+    id: str = Field(default_factory=lambda: new_id("wf"), primary_key=True)
+    workspace_id: str = Field(index=True, foreign_key="workspace.id")
+    name: str = Field(index=True, min_length=1, max_length=120)
+    description: str | None = None
+    body: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    created_by: str | None = Field(default=None, index=True, foreign_key="user.id")
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
+
+
 class Advice(SQLModel, table=True):
     """A stored Claude advisor response.
 

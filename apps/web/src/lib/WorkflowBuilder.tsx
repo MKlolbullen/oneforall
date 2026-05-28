@@ -16,12 +16,13 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import { Boxes, Crosshair, FilePlus2, FolderOpen, Rocket, Save, Search, Settings2, Trash2, X } from 'lucide-react';
+import { Boxes, Cloud, CloudUpload, Crosshair, FilePlus2, FolderOpen, Rocket, Save, Search, Settings2, Trash2, X } from 'lucide-react';
 import { api } from './api';
 import { EmptyState } from './EmptyState';
+import { useConfirm } from './Confirm';
 import { useNav } from './nav';
 import { useToast } from './Toast';
-import type { AdHocStep, Target, Tool, Workspace } from '../types';
+import type { AdHocStep, SavedWorkflow, Target, Tool, Workspace } from '../types';
 
 /* ============================================================================
  * Types + helpers
@@ -112,7 +113,7 @@ function topoSort(nodes: WfNode[], edges: Edge[]): WfNode[] | null {
 
 const STORAGE_KEY = 'reconforge:workflow-builder:v1';
 
-type SavedWorkflow = {
+type LocalSavedWorkflow = {
   name: string;
   workspaceId: string | null;
   targetId: string | null;
@@ -121,16 +122,58 @@ type SavedWorkflow = {
   savedAt: string;
 };
 
-function loadSavedWorkflows(): Record<string, SavedWorkflow> {
+function loadSavedWorkflows(): Record<string, LocalSavedWorkflow> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, SavedWorkflow>) : {};
+    return raw ? (JSON.parse(raw) as Record<string, LocalSavedWorkflow>) : {};
   } catch { return {}; }
 }
 
-function persistSavedWorkflows(workflows: Record<string, SavedWorkflow>): void {
+function persistSavedWorkflows(workflows: Record<string, LocalSavedWorkflow>): void {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(workflows)); }
   catch { /* quota — best-effort */ }
+}
+
+/** Stripped-for-persistence node — drop the live Tool object so the saved
+ *  blob doesn't carry stale registry data. Toolbar re-hydrates on load. */
+function stripNodeForPersistence(n: WfNode): WfNode {
+  if (n.data.kind === 'tool') {
+    return {
+      ...n,
+      data: {
+        kind: 'tool',
+        toolId: n.data.toolId,
+        tool: { id: n.data.toolId, name: n.data.toolId, category: '', description: '', risk: 'passive', requires_authorization: false },
+        argv_replace: n.data.argv_replace,
+        argv_extra: n.data.argv_extra,
+        timeout_seconds: n.data.timeout_seconds,
+        max_retries: n.data.max_retries,
+        retry_backoff_seconds: n.data.retry_backoff_seconds,
+        continue_on_error: n.data.continue_on_error,
+      },
+    };
+  }
+  // Drop the live target id — that's a launch-time choice, not a property
+  // of the workflow shape.
+  return { ...n, data: { kind: 'target', label: 'Target', targetId: null } };
+}
+
+/** Build the steps[] in topo order from the live nodes/edges. */
+function buildSteps(nodes: WfNode[], edges: Edge[]): AdHocStep[] {
+  const sorted = topoSort(nodes, edges) ?? nodes;
+  return sorted
+    .filter((n): n is WfNode & { data: ToolNodeData } => n.data.kind === 'tool')
+    .map((n) => {
+      const d = n.data;
+      const step: AdHocStep = { tool: d.toolId };
+      if (d.argv_replace && d.argv_replace.length) step.argv_replace = d.argv_replace;
+      if (d.argv_extra && d.argv_extra.length) step.argv_extra = d.argv_extra;
+      if (d.timeout_seconds != null) step.timeout_seconds = d.timeout_seconds;
+      if (d.max_retries != null) step.max_retries = d.max_retries;
+      if (d.retry_backoff_seconds != null) step.retry_backoff_seconds = d.retry_backoff_seconds;
+      if (d.continue_on_error != null) step.continue_on_error = d.continue_on_error;
+      return step;
+    });
 }
 
 /* ============================================================================
@@ -148,7 +191,8 @@ export function WorkflowBuilder() {
 
 function WorkflowBuilderInner() {
   const toast = useToast();
-  const { navigate } = useNav();
+  const confirm = useConfirm();
+  const { navigate, consume } = useNav();
   const reactFlow = useReactFlow();
 
   const [tools, setTools] = useState<Tool[]>([]);
@@ -156,10 +200,15 @@ function WorkflowBuilderInner() {
   const [targets, setTargets] = useState<Target[]>([]);
 
   const [name, setName] = useState('My workflow');
+  const [description, setDescription] = useState('');
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [targetId, setTargetId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showLoadMenu, setShowLoadMenu] = useState(false);
+  // Cloud-side persistence — null until the user saves or loads from server.
+  const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(null);
+  const [cloudList, setCloudList] = useState<SavedWorkflow[]>([]);
+  const [showCloudMenu, setShowCloudMenu] = useState(false);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<WfNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -168,23 +217,29 @@ function WorkflowBuilderInner() {
 
   // ---- Initial load ---------------------------------------------------------
   useEffect(() => {
+    const params = consume();
     api.tools().then(setTools).catch((e) => toast.fromError(e, 'Failed to load tools'));
     api.workspaces().then((ws) => {
       setWorkspaces(ws);
-      if (ws[0]) setWorkspaceId(ws[0].id);
+      if (ws[0] && !params.workflowId) setWorkspaceId(ws[0].id);
     }).catch(() => { /* empty workspace list is OK */ });
     api.targets().then(setTargets).catch(() => { /* same */ });
 
-    // Seed canvas with a target node so the user has a connection anchor.
-    setNodes([
-      {
-        id: 'target-1',
-        type: 'targetNode',
-        position: { x: 40, y: 200 },
-        data: { kind: 'target', label: 'Target', targetId: null },
-        deletable: false,
-      },
-    ]);
+    if (params.workflowId) {
+      // Deeplinked from Templates / Workspaces: fetch + hydrate. Tools fetch
+      // races with this; the second useEffect (on toolsById) rebinds the
+      // tool objects to the freshly-loaded registry, so a slow tools fetch
+      // doesn't strand the node renderer.
+      api.workflow(params.workflowId)
+        .then(hydrateFromServer)
+        .catch((e) => toast.fromError(e, 'Failed to load workflow'));
+    } else {
+      // Seed canvas with a target node so the user has a connection anchor.
+      setNodes([{
+        id: 'target-1', type: 'targetNode', position: { x: 40, y: 200 },
+        data: { kind: 'target', label: 'Target', targetId: null }, deletable: false,
+      }]);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -209,6 +264,21 @@ function WorkflowBuilderInner() {
     () => Object.fromEntries(tools.map((t) => [t.id, t])),
     [tools],
   );
+
+  // Re-bind tool objects on the canvas when the registry finishes loading
+  // (deeplink path can race tools().then). Keeps node renderers showing the
+  // up-to-date input/output handles even if a workflow loaded before the
+  // tools list arrived.
+  useEffect(() => {
+    if (Object.keys(toolsById).length === 0) return;
+    setNodes((prev) => prev.map((n) => {
+      if (n.data.kind === 'tool' && (!n.data.tool || !n.data.tool.inputs)) {
+        const tool = toolsById[n.data.toolId];
+        if (tool) return { ...n, data: { ...n.data, tool } };
+      }
+      return n;
+    }));
+  }, [toolsById, setNodes]);
 
   // ---- Drag from palette ----------------------------------------------------
   const onDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
@@ -305,7 +375,7 @@ function WorkflowBuilderInner() {
     toast.success('Workflow saved', `Stored "${name}" in this browser.`);
   }, [name, workspaceId, targetId, nodes, edges, toast]);
 
-  const loadWorkflow = useCallback((wf: SavedWorkflow) => {
+  const loadWorkflow = useCallback((wf: LocalSavedWorkflow) => {
     // Rehydrate `tool` on each ToolNodeData from the live registry so the
     // node knows its current input/output types even if the saved copy is
     // stale relative to a registry change.
@@ -320,12 +390,40 @@ function WorkflowBuilderInner() {
     setNodes(hydrated);
     setEdges(wf.edges);
     setName(wf.name);
+    setCurrentWorkflowId(null);  // local copies aren't server-backed
     if (wf.workspaceId) setWorkspaceId(wf.workspaceId);
     if (wf.targetId) setTargetId(wf.targetId);
     setSelectedId(null);
     setShowLoadMenu(false);
-    toast.info('Workflow loaded', wf.name);
+    toast.info('Workflow loaded (local)', wf.name);
   }, [toolsById, setNodes, setEdges, toast]);
+
+  // Hydrate a server-backed workflow into the canvas. Toolbar Tool references
+  // are re-attached from the live registry so a tool whose IO definition
+  // changed since the workflow was saved renders the current shape.
+  const hydrateFromServer = useCallback((wf: SavedWorkflow) => {
+    const graph = (wf.body?.graph as { nodes?: WfNode[]; edges?: Edge[] } | undefined) ?? {};
+    const rawNodes: WfNode[] = graph.nodes ?? [];
+    const rawEdges: Edge[] = graph.edges ?? [];
+    const hydrated: WfNode[] = rawNodes.length > 0 ? rawNodes.map((n) => {
+      if (n.data?.kind === 'tool') {
+        const tool = toolsById[n.data.toolId];
+        return tool ? { ...n, data: { ...n.data, tool } } : n;
+      }
+      return n;
+    }) : [{
+      id: 'target-1', type: 'targetNode', position: { x: 40, y: 200 },
+      data: { kind: 'target', label: 'Target', targetId: null }, deletable: false,
+    }];
+    setNodes(hydrated);
+    setEdges(rawEdges);
+    setName(wf.name);
+    setDescription(wf.description ?? '');
+    setWorkspaceId(wf.workspace_id);
+    setCurrentWorkflowId(wf.id);
+    setSelectedId(null);
+    setShowCloudMenu(false);
+  }, [toolsById, setNodes, setEdges]);
 
   const newWorkflow = useCallback(() => {
     setNodes([{
@@ -335,8 +433,86 @@ function WorkflowBuilderInner() {
     }]);
     setEdges([]);
     setName('New workflow');
+    setDescription('');
+    setCurrentWorkflowId(null);
     setSelectedId(null);
   }, [setNodes, setEdges, targetId]);
+
+  // ---- Server-side save / load / delete ------------------------------------
+  const refreshCloudList = useCallback(() => {
+    if (!workspaceId) return;
+    api.workflows(workspaceId).then(setCloudList).catch(() => { /* dropdown ok empty */ });
+  }, [workspaceId]);
+
+  useEffect(() => { refreshCloudList(); }, [refreshCloudList]);
+
+  const cloudSave = useCallback(async (asNew = false) => {
+    if (!workspaceId) {
+      toast.warn('Pick a workspace', 'Save needs a workspace context.');
+      return;
+    }
+    if (!name.trim()) {
+      toast.warn('Name required', 'Give your workflow a name before saving.');
+      return;
+    }
+    if (nodes.filter((n) => n.data.kind === 'tool').length === 0) {
+      toast.warn('Empty workflow', 'Drag at least one tool onto the canvas first.');
+      return;
+    }
+    if (!topoSort(nodes, edges)) {
+      toast.warn('Cycle detected', 'A workflow must be acyclic.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const body = {
+        steps: buildSteps(nodes, edges),
+        graph: {
+          nodes: nodes.map(stripNodeForPersistence),
+          edges: edges,
+        },
+      };
+      let saved: SavedWorkflow;
+      if (currentWorkflowId && !asNew) {
+        saved = await api.updateWorkflow(currentWorkflowId, {
+          name, description: description || null, body,
+        });
+        toast.success('Workflow saved', `Updated "${saved.name}".`);
+      } else {
+        saved = await api.createWorkflow({
+          workspace_id: workspaceId,
+          name, description: description || null, body,
+        });
+        setCurrentWorkflowId(saved.id);
+        toast.success('Workflow saved', `Created "${saved.name}".`);
+      }
+      refreshCloudList();
+    } catch (e) {
+      toast.fromError(e, 'Save failed');
+    } finally {
+      setBusy(false);
+    }
+  }, [workspaceId, name, description, nodes, edges, currentWorkflowId, refreshCloudList, toast]);
+
+  const cloudDelete = useCallback(async () => {
+    if (!currentWorkflowId) return;
+    const ok = await confirm({
+      title: `Delete "${name}"?`,
+      body: 'This removes the saved workflow from the workspace for every operator. Local browser copies remain.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Keep',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await api.deleteWorkflow(currentWorkflowId);
+      toast.success('Workflow deleted');
+      setCurrentWorkflowId(null);
+      refreshCloudList();
+    } catch (e) {
+      toast.fromError(e, 'Delete failed');
+    }
+  }, [currentWorkflowId, name, confirm, refreshCloudList, toast]);
 
   // ---- Launch ---------------------------------------------------------------
   const launch = useCallback(async () => {
@@ -344,45 +520,37 @@ function WorkflowBuilderInner() {
       toast.warn('Pick a target', 'A workspace and target are required to launch.');
       return;
     }
-    const toolNodes = nodes.filter((n): n is WfNode & { data: ToolNodeData } => n.data.kind === 'tool');
+    const toolNodes = nodes.filter((n) => n.data.kind === 'tool');
     if (toolNodes.length === 0) {
       toast.warn('Empty workflow', 'Drag at least one tool onto the canvas.');
       return;
     }
-    const sorted = topoSort(nodes, edges);
-    if (!sorted) {
+    if (!topoSort(nodes, edges)) {
       toast.warn('Cycle detected', 'A workflow must be acyclic. Remove the loop and try again.');
       return;
     }
-    const steps: AdHocStep[] = sorted
-      .filter((n): n is WfNode & { data: ToolNodeData } => n.data.kind === 'tool')
-      .map((n) => {
-        const d = n.data;
-        const step: AdHocStep = { tool: d.toolId };
-        if (d.argv_replace && d.argv_replace.length) step.argv_replace = d.argv_replace;
-        if (d.argv_extra && d.argv_extra.length) step.argv_extra = d.argv_extra;
-        if (d.timeout_seconds != null) step.timeout_seconds = d.timeout_seconds;
-        if (d.max_retries != null) step.max_retries = d.max_retries;
-        if (d.retry_backoff_seconds != null) step.retry_backoff_seconds = d.retry_backoff_seconds;
-        if (d.continue_on_error != null) step.continue_on_error = d.continue_on_error;
-        return step;
-      });
+    const steps = buildSteps(nodes, edges);
     setBusy(true);
     try {
-      const run = await api.createAdhocRun({
-        workspace_id: workspaceId,
-        target_id: targetId,
-        name,
-        steps,
-      });
-      toast.success('Ad-hoc run queued', `${steps.length} step${steps.length === 1 ? '' : 's'} — opening Runs.`);
+      // If editing a server-backed workflow with no pending changes, use
+      // the dedicated launch route so the run records workflow_id; otherwise
+      // post as ad-hoc (the canvas may diverge from the saved blob).
+      const run = currentWorkflowId
+        ? await api.launchWorkflow(currentWorkflowId, { target_id: targetId })
+        : await api.createAdhocRun({
+            workspace_id: workspaceId,
+            target_id: targetId,
+            name,
+            steps,
+          });
+      toast.success('Run queued', `${steps.length} step${steps.length === 1 ? '' : 's'} — opening Runs.`);
       navigate('runs', { runId: run.id });
     } catch (e) {
       toast.fromError(e, 'Launch failed');
     } finally {
       setBusy(false);
     }
-  }, [workspaceId, targetId, nodes, edges, name, navigate, toast]);
+  }, [workspaceId, targetId, nodes, edges, name, currentWorkflowId, navigate, toast]);
 
   // ---- Render ---------------------------------------------------------------
   const nodeTypes = useMemo(() => ({
@@ -404,9 +572,16 @@ function WorkflowBuilderInner() {
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
+          <input
+            className="input"
+            style={{ maxWidth: 260 }}
+            placeholder="Description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
           <select
             className="input"
-            style={{ maxWidth: 200 }}
+            style={{ maxWidth: 180 }}
             value={workspaceId ?? ''}
             onChange={(e) => { setWorkspaceId(e.target.value || null); setTargetId(null); }}
           >
@@ -415,7 +590,7 @@ function WorkflowBuilderInner() {
           </select>
           <select
             className="input"
-            style={{ maxWidth: 240 }}
+            style={{ maxWidth: 220 }}
             value={targetId ?? ''}
             onChange={(e) => setTargetId(e.target.value || null)}
           >
@@ -427,12 +602,17 @@ function WorkflowBuilderInner() {
           {target && !target.active_allowed && (
             <span className="badge passive" title="Active scans require target authorization on the Targets page.">passive-only target</span>
           )}
+          {currentWorkflowId && (
+            <span className="badge ok" title={`Loaded server workflow ${currentWorkflowId}`}>
+              <Cloud size={11} style={{ verticalAlign: 'middle', marginRight: 2 }} /> server-backed
+            </span>
+          )}
           <span className="muted small">{toolNodeCount} tool node{toolNodeCount === 1 ? '' : 's'} · {edges.length} edge{edges.length === 1 ? '' : 's'}</span>
         </div>
         <div className="row" style={{ gap: 6 }}>
           <button className="btn small" type="button" onClick={newWorkflow} title="New empty workflow"><FilePlus2 size={13} /> New</button>
           <div style={{ position: 'relative' }}>
-            <button className="btn small" type="button" onClick={() => setShowLoadMenu((v) => !v)} title="Load a saved workflow"><FolderOpen size={13} /> Load</button>
+            <button className="btn small" type="button" onClick={() => setShowLoadMenu((v) => !v)} title="Load a workflow from this browser"><FolderOpen size={13} /> Local</button>
             {showLoadMenu && (
               <SavedWorkflowMenu
                 onClose={() => setShowLoadMenu(false)}
@@ -440,7 +620,33 @@ function WorkflowBuilderInner() {
               />
             )}
           </div>
-          <button className="btn small" type="button" onClick={saveCurrent} title="Save to this browser"><Save size={13} /> Save</button>
+          <button className="btn small" type="button" onClick={saveCurrent} title="Save to this browser (localStorage)"><Save size={13} /> Save local</button>
+          <div style={{ position: 'relative' }}>
+            <button
+              className="btn small"
+              type="button"
+              onClick={() => setShowCloudMenu((v) => !v)}
+              title="Save / load / delete to the server"
+            >
+              <Cloud size={13} /> Cloud
+            </button>
+            {showCloudMenu && (
+              <CloudWorkflowMenu
+                workflows={cloudList}
+                currentWorkflowId={currentWorkflowId}
+                onClose={() => setShowCloudMenu(false)}
+                onLoad={async (wf) => {
+                  try {
+                    const full = await api.workflow(wf.id);
+                    hydrateFromServer(full);
+                  } catch (e) { toast.fromError(e, 'Load failed'); }
+                }}
+                onSave={() => { setShowCloudMenu(false); cloudSave(false); }}
+                onSaveAsNew={() => { setShowCloudMenu(false); cloudSave(true); }}
+                onDelete={() => { setShowCloudMenu(false); cloudDelete(); }}
+              />
+            )}
+          </div>
           <button className="btn" type="button" onClick={launch} disabled={busy || !targetId || toolNodeCount === 0}>
             <Rocket size={13} /> {busy ? 'Launching…' : 'Launch'}
           </button>
@@ -487,11 +693,66 @@ function WorkflowBuilderInner() {
  * Saved workflow menu
  * ========================================================================== */
 
+function CloudWorkflowMenu({
+  workflows, currentWorkflowId, onClose, onLoad, onSave, onSaveAsNew, onDelete,
+}: {
+  workflows: SavedWorkflow[];
+  currentWorkflowId: string | null;
+  onClose: () => void;
+  onLoad: (wf: SavedWorkflow) => void;
+  onSave: () => void;
+  onSaveAsNew: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="wf-saved-menu" onClick={(e) => e.stopPropagation()}>
+      <div className="row space" style={{ padding: '6px 10px', borderBottom: '1px solid #1f2937' }}>
+        <strong><Cloud size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Workspace workflows</strong>
+        <button className="icon-btn" onClick={onClose} type="button" aria-label="Close"><X size={12} /></button>
+      </div>
+      {workflows.length === 0 ? (
+        <p className="muted" style={{ padding: 10, margin: 0 }}>None yet — save your first one below.</p>
+      ) : (
+        workflows.map((wf) => (
+          <button
+            key={wf.id}
+            type="button"
+            className="wf-saved-pick"
+            onClick={() => onLoad(wf)}
+            title={wf.description ?? ''}
+          >
+            <strong>
+              {wf.name}
+              {wf.id === currentWorkflowId && <span className="badge passive" style={{ marginLeft: 6 }}>open</span>}
+            </strong>
+            <small className="muted">
+              {(wf.body?.steps?.length ?? 0)} step{(wf.body?.steps?.length ?? 0) === 1 ? '' : 's'} · updated {new Date(wf.updated_at).toLocaleString()}
+            </small>
+          </button>
+        ))
+      )}
+      <div className="wf-cloud-actions">
+        <button type="button" className="btn small" onClick={onSave}>
+          <CloudUpload size={12} /> {currentWorkflowId ? 'Save changes' : 'Save to workspace'}
+        </button>
+        <button type="button" className="btn small" onClick={onSaveAsNew}>
+          Save as new
+        </button>
+        {currentWorkflowId && (
+          <button type="button" className="btn small danger" onClick={onDelete}>
+            <Trash2 size={12} /> Delete
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SavedWorkflowMenu({ onClose, onPick }: {
   onClose: () => void;
-  onPick: (wf: SavedWorkflow) => void;
+  onPick: (wf: LocalSavedWorkflow) => void;
 }) {
-  const [items, setItems] = useState<SavedWorkflow[]>([]);
+  const [items, setItems] = useState<LocalSavedWorkflow[]>([]);
 
   useEffect(() => {
     setItems(Object.values(loadSavedWorkflows()).sort(

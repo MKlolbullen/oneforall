@@ -80,6 +80,35 @@ export type AdHocRunCreate = {
   params?: Record<string, unknown>;
 };
 
+export type WorkflowBody = {
+  steps: AdHocStep[];
+  graph?: { nodes: unknown[]; edges: unknown[] } | null;
+};
+
+export type SavedWorkflow = {
+  id: string;
+  workspace_id: string;
+  name: string;
+  description: string | null;
+  body: WorkflowBody;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WorkflowCreate = {
+  workspace_id: string;
+  name: string;
+  description?: string | null;
+  body: WorkflowBody;
+};
+
+export type WorkflowUpdate = {
+  name?: string;
+  description?: string | null;
+  body?: WorkflowBody;
+};
+
 export type Profile = {
   id: string;
   name: string;

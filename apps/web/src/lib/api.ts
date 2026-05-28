@@ -1,4 +1,4 @@
-import type { AdHocRunCreate, Advice, APIKeyPublic, Artifact, Asset, AuditPage, CreatedAPIKey, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, UserPublic, WhoAmI, WordlistInfo, Workspace } from '../types';
+import type { AdHocRunCreate, Advice, APIKeyPublic, Artifact, Asset, AuditPage, CreatedAPIKey, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, SavedWorkflow, Target, TargetSummary, TargetTech, Tool, ToolAvailability, UserPublic, WhoAmI, WordlistInfo, WorkflowCreate, WorkflowUpdate, Workspace } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL ?? 'ws://localhost:8000';
@@ -236,4 +236,23 @@ export const api = {
     }),
   revokeApiKey: (apiKeyId: string) =>
     requestVoid(`/api/auth/api-keys/${apiKeyId}`, { method: 'DELETE' }),
+
+  // Saved Workflow Builder graphs (DB-backed). Body holds the steps[] used
+  // at launch + a "graph" with the React Flow nodes/edges for the canvas.
+  workflows: (workspaceId?: string) =>
+    request<SavedWorkflow[]>(`/api/workflows${workspaceId ? `?workspace_id=${workspaceId}` : ''}`),
+  workflow: (workflowId: string) =>
+    request<SavedWorkflow>(`/api/workflows/${workflowId}`),
+  createWorkflow: (payload: WorkflowCreate) =>
+    request<SavedWorkflow>('/api/workflows', { method: 'POST', body: JSON.stringify(payload) }),
+  updateWorkflow: (workflowId: string, payload: WorkflowUpdate) =>
+    request<SavedWorkflow>(`/api/workflows/${workflowId}`, {
+      method: 'PUT', body: JSON.stringify(payload),
+    }),
+  deleteWorkflow: (workflowId: string) =>
+    requestVoid(`/api/workflows/${workflowId}`, { method: 'DELETE' }),
+  launchWorkflow: (workflowId: string, payload: { target_id: string; params?: Record<string, unknown> }) =>
+    request<Run>(`/api/workflows/${workflowId}/launch`, {
+      method: 'POST', body: JSON.stringify(payload),
+    }),
 };
