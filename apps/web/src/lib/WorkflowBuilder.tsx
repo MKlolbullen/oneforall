@@ -22,7 +22,7 @@ import { EmptyState } from './EmptyState';
 import { useConfirm } from './Confirm';
 import { useNav } from './nav';
 import { useToast } from './Toast';
-import type { AdHocStep, SavedWorkflow, Target, Tool, Workspace } from '../types';
+import type { AdHocStep, Profile, SavedWorkflow, Target, Tool, Workspace } from '../types';
 
 /* ============================================================================
  * Types + helpers
@@ -215,10 +215,56 @@ function WorkflowBuilderInner() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const canvasWrapperRef = useRef<HTMLDivElement | null>(null);
 
+  // Seed the canvas from a YAML profile — used by Templates' "Customize"
+  // CTA. Layout is a horizontal chain: target → step 1 → step 2 → … →
+  // step N, so the operator can branch / override / reorder without
+  // staring at a blank canvas.
+  const seedFromProfile = useCallback((profile: Profile, registryById: Record<string, Tool>) => {
+    const seeded: WfNode[] = [{
+      id: 'target-1', type: 'targetNode', position: { x: 40, y: 200 },
+      data: { kind: 'target', label: 'Target', targetId: null }, deletable: false,
+    }];
+    const seededEdges: Edge[] = [];
+    let prevId: string = 'target-1';
+    profile.steps.forEach((step, i) => {
+      const tool = registryById[step.tool];
+      if (!tool) return; // skip unknown tools rather than poisoning the canvas
+      const id = newNodeId(step.tool);
+      seeded.push({
+        id, type: 'toolNode',
+        position: { x: 40 + 260 * (i + 1), y: 200 },
+        data: { kind: 'tool', toolId: step.tool, tool },
+      });
+      // Connect prev → this node on best-effort matching handles. Use
+      // first output of source and first input of target; if the canvas
+      // user later wants different sockets they can drag a new edge.
+      const prevNode = seeded.find((n) => n.id === prevId);
+      const sourceHandle = prevNode?.data.kind === 'tool'
+        ? `out:${prevNode.data.tool.outputs?.[0]?.name ?? 'out'}`
+        : 'out:target';
+      const targetHandle = `in:${tool.inputs?.[0]?.name ?? 'target'}`;
+      seededEdges.push({
+        id: `e_${prevId}_${id}`,
+        source: prevId, sourceHandle,
+        target: id, targetHandle,
+      });
+      prevId = id;
+    });
+    setNodes(seeded);
+    setEdges(seededEdges);
+    setName(`${profile.name} (custom)`);
+    setDescription(profile.description ?? '');
+    setCurrentWorkflowId(null);  // forked copy is fresh, not server-backed
+    setSelectedId(null);
+  }, [setNodes, setEdges]);
+
   // ---- Initial load ---------------------------------------------------------
   useEffect(() => {
     const params = consume();
-    api.tools().then(setTools).catch((e) => toast.fromError(e, 'Failed to load tools'));
+    // Tools needed both for the palette AND for seeding from a profile, so
+    // wait on the fetch in the fromProfile path.
+    const toolsPromise = api.tools();
+    toolsPromise.then(setTools).catch((e) => toast.fromError(e, 'Failed to load tools'));
     api.workspaces().then((ws) => {
       setWorkspaces(ws);
       if (ws[0] && !params.workflowId) setWorkspaceId(ws[0].id);
@@ -233,6 +279,20 @@ function WorkflowBuilderInner() {
       api.workflow(params.workflowId)
         .then(hydrateFromServer)
         .catch((e) => toast.fromError(e, 'Failed to load workflow'));
+    } else if (params.fromProfile) {
+      // "Customize" path: fetch the profile + tools in parallel; seed the
+      // canvas once both arrive.
+      Promise.all([api.profiles(), toolsPromise])
+        .then(([allProfiles, allTools]) => {
+          const profile = allProfiles.find((p) => p.id === params.fromProfile);
+          if (!profile) {
+            toast.warn('Profile not found', `Could not seed canvas from ${params.fromProfile}.`);
+            return;
+          }
+          const byId = Object.fromEntries(allTools.map((t) => [t.id, t]));
+          seedFromProfile(profile, byId);
+        })
+        .catch((e) => toast.fromError(e, 'Failed to seed from profile'));
     } else {
       // Seed canvas with a target node so the user has a connection anchor.
       setNodes([{

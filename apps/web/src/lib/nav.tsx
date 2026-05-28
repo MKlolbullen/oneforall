@@ -15,6 +15,10 @@ export type NavParams = {
   targetId?: string;
   workspaceId?: string;
   workflowId?: string;
+  // fromProfile is consumed by the WorkflowBuilder to seed the canvas from
+  // a YAML profile — lets operators fork "passive_recon" etc. into editable
+  // workflows without retyping the step list.
+  fromProfile?: string;
   lootKind?: string;
   lootSeverity?: string;
 };

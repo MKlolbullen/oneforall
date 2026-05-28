@@ -53,6 +53,7 @@ export const api = {
     request<Finding>(`/api/findings/${findingId}`, {
       method: 'PATCH', body: JSON.stringify({ status }),
     }),
+  finding: (findingId: string) => request<Finding>(`/api/findings/${findingId}`),
   workspaces: () => request<Workspace[]>('/api/workspaces'),
   createWorkspace: (payload: { name: string; description?: string }) =>
     request<Workspace>('/api/workspaces', { method: 'POST', body: JSON.stringify(payload) }),

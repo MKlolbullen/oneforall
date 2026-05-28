@@ -159,6 +159,7 @@ function TemplateCard({
   liveEnabled: boolean;
   onLaunch: () => void;
 }) {
+  const { navigate } = useNav();
   const blocked = liveEnabled && check && !check.runnable;
   const stepNames = profile.steps.map((s) => s.tool);
   const visibleSteps = stepNames.slice(0, 8);
@@ -195,9 +196,19 @@ function TemplateCard({
       )}
       <div className="row space" style={{ marginTop: 8 }}>
         <span className="muted mono small">{profile.id}</span>
-        <button className="btn" disabled={Boolean(blocked)} onClick={onLaunch}>
-          <Rocket size={14} /> Launch
-        </button>
+        <div className="row" style={{ gap: 6 }}>
+          <button
+            className="btn small"
+            type="button"
+            title="Open this profile's steps in the Workflow Builder for editing"
+            onClick={() => navigate('workflow', { fromProfile: profile.id })}
+          >
+            <Edit3 size={12} /> Customize
+          </button>
+          <button className="btn" disabled={Boolean(blocked)} onClick={onLaunch}>
+            <Rocket size={14} /> Launch
+          </button>
+        </div>
       </div>
     </div>
   );

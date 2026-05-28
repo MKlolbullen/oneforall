@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Coins, Download, RefreshCw, ShieldAlert } from 'lucide-react';
+import { AdvicePanel } from './AdvicePanel';
 import { api } from './api';
 import { CopyButton } from './CopyButton';
 import { EmptyState } from './EmptyState';
 import { useNav } from './nav';
 import { useToast } from './Toast';
-import type { LootItem, LootPage, Run, Workspace } from '../types';
+import type { Finding, LootItem, LootPage, Run, Workspace } from '../types';
 
 type ExportFormat = 'csv' | 'json' | 'md';
 
@@ -272,6 +273,22 @@ function LootRow({
   onToggle: () => void;
   onOpenRun: () => void;
 }) {
+  // Lazy-load the linked finding so closed rows don't issue requests. The
+  // fetch happens once per (item, expanded) transition; subsequent toggles
+  // are free because state persists.
+  const [finding, setFinding] = useState<Finding | null>(null);
+  const [findingError, setFindingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!expanded || !item.finding_id) return;
+    if (finding && finding.id === item.finding_id) return;
+    let cancelled = false;
+    api.finding(item.finding_id)
+      .then((f) => { if (!cancelled) { setFinding(f); setFindingError(null); } })
+      .catch((e) => { if (!cancelled) setFindingError(e instanceof Error ? e.message : String(e)); });
+    return () => { cancelled = true; };
+  }, [expanded, item.finding_id, finding]);
+
   return (
     <>
       <tr onClick={onToggle} style={{ cursor: 'pointer' }}>
@@ -301,12 +318,33 @@ function LootRow({
               <div>
                 <div className="row space"><span className="muted">Value preview</span><CopyButton value={item.value_preview} title="Copy preview" /></div>
                 <pre className="mono loot-preview">{item.value_preview || '(empty)'}</pre>
+                {finding && finding.evidence && finding.evidence !== item.value_preview && (
+                  <>
+                    <div className="row space" style={{ marginTop: 8 }}>
+                      <span className="muted">Full finding evidence</span>
+                      <CopyButton value={finding.evidence} title="Copy evidence" />
+                    </div>
+                    <pre className="mono loot-preview">{finding.evidence}</pre>
+                  </>
+                )}
               </div>
               <div>
-                <KV label="ID" value={<span className="mono">{item.id}</span>} />
+                <KV label="Loot ID" value={<span className="mono">{item.id}</span>} />
                 <KV label="Finding" value={item.finding_id ? <span className="mono">{item.finding_id}</span> : '—'} />
                 <KV label="Artifact" value={item.artifact_id ? <span className="mono">{item.artifact_id}</span> : '—'} />
                 <KV label="Created" value={item.created_at} />
+                {finding && (
+                  <>
+                    <KV label="Status" value={<span className="badge passive">{finding.status}</span>} />
+                    <KV label="Category" value={finding.category} />
+                    <KV label="Confidence" value={finding.confidence} />
+                  </>
+                )}
+                {findingError && (
+                  <p className="advice-error" style={{ margin: 0, fontSize: 12 }}>
+                    Could not load finding: {findingError}
+                  </p>
+                )}
                 {Object.keys(item.meta ?? {}).length > 0 && (
                   <details>
                     <summary className="muted">meta</summary>
@@ -315,6 +353,16 @@ function LootRow({
                 )}
               </div>
             </div>
+            {finding && (
+              <div style={{ marginTop: 10 }}>
+                <AdvicePanel
+                  label="Explain this finding with Claude"
+                  refKey={finding.id}
+                  fetchCached={() => api.getFindingExplain(finding.id)}
+                  invoke={() => api.explainFinding(finding.id)}
+                />
+              </div>
+            )}
           </td>
         </tr>
       )}
