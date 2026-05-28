@@ -72,13 +72,13 @@ def panel(ax, x, y, w, h, *, fc=PANEL, ec=BORDER, lw=1.2, radius=0.6):
     return box
 
 
-def chip(ax, x, y, text, *, fc=PANEL_DEEP, ec=BORDER, color=MUTED, fs=8, pad=0.8):
+def chip(ax, x, y, text, *, fc=PANEL_DEEP, ec=BORDER, color=MUTED, fs=8):
     t = ax.text(
         x, y, text,
         fontsize=fs, color=color, ha="left", va="center",
         family="monospace",
         bbox=dict(
-            boxstyle=f"round,pad=0.35",
+            boxstyle="round,pad=0.35",
             facecolor=fc, edgecolor=ec, linewidth=0.8,
         ),
     )
@@ -429,7 +429,7 @@ def render_ui_run_console():
     chip(ax, 85, H - 120, "running", fc=PANEL_DEEP, ec=CYAN, color=CYAN, fs=10)
     chip(ax, 165, H - 120, "step 4 / 7", fc=PANEL_DEEP, ec=PURPLE, color=PURPLE, fs=10)
     chip(ax, 260, H - 120, "elapsed 0:42", fc=PANEL_DEEP, ec=MUTED, color=MUTED, fs=10)
-    chip(ax, 365, H - 120, "live · ws://", fc=PANEL_DEEP, ec=PINK, color=PINK, fs=10)
+    chip(ax, 365, H - 120, "live · wss://", fc=PANEL_DEEP, ec=PINK, color=PINK, fs=10)
 
     # left: step DAG
     panel(ax, 85, 90, 420, 640, fc=PANEL, ec=BORDER, radius=1.0)
@@ -558,6 +558,7 @@ def render_ui_tool_catalog():
         x += len(name) * 11 + 32
 
     # tool grid
+    # tool grid — list sized exactly to cols × rows below so nothing is dropped
     tools = [
         ("subfinder",   "recon",         "passive subdomain enum",       "ok",      GREEN),
         ("amass",       "recon",         "deep ASM enumeration",          "ok",      GREEN),
@@ -579,19 +580,17 @@ def render_ui_tool_catalog():
         ("gitleaks",    "secrets",       "git secrets scan",              "ok",      GREEN),
         ("subzy",       "takeover",      "subdomain takeover check",      "warn",    YELLOW),
         ("cloud_enum",  "cloud",         "multi-cloud asset enum",        "ok",      GREEN),
-        ("naabu",       "port-scanning", "fast port scanner",             "ok",      GREEN),
-        ("interactsh",  "oob-testing",   "out-of-band server",            "ok",      GREEN),
     ]
 
-    # 4 columns × 5 rows fit in main area
     cols = 4
     rows = 5
+    assert len(tools) == cols * rows, "tools list must match grid size"
     card_w = 360
     card_h = 110
     gap = 20
     start_x = 85
     start_y = H - 290
-    for i, (name, cat, desc, status, color) in enumerate(tools[: cols * rows]):
+    for i, (name, cat, desc, status, color) in enumerate(tools):
         cx = start_x + (i % cols) * (card_w + gap)
         cy = start_y - (i // cols) * (card_h + gap)
         panel(ax, cx, cy - card_h, card_w, card_h, fc=PANEL, ec=BORDER, radius=0.8)

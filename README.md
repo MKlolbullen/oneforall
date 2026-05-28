@@ -64,7 +64,7 @@ The API does **not** execute tools directly when `RUNNER_MODE=queue`. It validat
 
 ## UI overview
 
-The three main panels — dashboard, live run console, and tool catalog — are rendered below from the same color palette as the live frontend. Re-generate after touching the palette with `python scripts/render-readme-images.py`.
+The three main panels — dashboard, live run console, and tool catalog — are rendered below from the same color palette as the live frontend. Regenerate after touching the palette with `python scripts/render-readme-images.py`.
 
 ### Dashboard
 
