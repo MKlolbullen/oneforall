@@ -1,3 +1,5 @@
+![ReconForge — multi-panel web GUI for recon, ASM, and bug-bounty workflows](docs/screenshots/banner.png)
+
 # ReconForge - Multi panel Web GUI with recon/ASM/bug bounty workflows.
 
 
@@ -56,6 +58,26 @@ flowchart LR
 
 The API does **not** execute tools directly when `RUNNER_MODE=queue`. It validates scope, creates a run, persists a `run.queued` event, and pushes a job into Redis. The worker consumes that job, executes each profile step, persists events/assets/findings/artifacts, and publishes live events through Redis Pub/Sub.
 
+## Engagement flow
+
+![Passive recon → active scan → internal pivot, with scope gating, DAG artifacts, live events, and audit chain](docs/screenshots/workflow.png)
+
+## UI overview
+
+The three main panels — dashboard, live run console, and tool catalog — are rendered below from the same color palette as the live frontend. Regenerate after touching the palette with `python scripts/render-readme-images.py`.
+
+### Dashboard
+
+![Workspace dashboard — KPI cards, findings-by-target stacked bars, recent runs](docs/screenshots/ui-dashboard.png)
+
+### Live run console
+
+![Live run console — step DAG, WebSocket event stream, findings, typed artifacts](docs/screenshots/ui-run-console.png)
+
+### Tool catalog
+
+![Tool catalog — 137 tools across recon/ASM categories, per-tool availability badges](docs/screenshots/ui-tool-catalog.png)
+
 ## AI agents & automation
 
 See **[AGENTS.md](./AGENTS.md)** for how external agents should communicate with the control plane: Claude advisor endpoints, structured run briefs (`GET /api/agent/runs/{id}/brief`), WebSocket events, artifact fetch patterns, and the **loot** layer (curated secrets/critical findings vs raw scanner noise).
@@ -75,7 +97,9 @@ infra/
   minio/     MinIO notes
 scripts/     helper scripts
 docs/
-  screenshots/      generated UI screenshots (see `scripts/render-graph-screenshots.py`)
+  screenshots/      generated imagery (see `scripts/render-readme-images.py`
+                    for banner/workflow/UI mockups and
+                    `scripts/render-graph-screenshots.py` for the network graph)
 ```
 
 ## Network graph
