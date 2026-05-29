@@ -69,19 +69,24 @@ app.include_router(ws.router)
 
 @app.get("/health")
 def health():
+    # Resolve settings at request time so tests, local reloads, and container
+    # env overrides do not see a stale module-import snapshot. The FastAPI title
+    # can stay static; operational flags must be current.
+    current = get_settings()
     return {
         "status": "ok",
-        "app": settings.app_name,
-        "environment": settings.environment,
-        "execution_mode": settings.execution_mode,
-        "live_execution_enabled": settings.live_execution_enabled,
-        "runner_mode": settings.runner_mode,
-        "artifact_backend": settings.artifact_backend,
-        "run_queue_name": settings.run_queue_name,
-        "block_live_runs_on_missing_tools": settings.block_live_runs_on_missing_tools,
-        "tool_availability_cache_seconds": settings.tool_availability_cache_seconds,
-        "platform_config_path": str(settings.platform_config_path),
-        "grep_patterns_path": str(settings.grep_patterns_path),
+        "app": current.app_name,
+        "environment": current.environment,
+        "execution_mode": current.execution_mode,
+        "live_execution_enabled": current.live_execution_enabled,
+        "runner_mode": current.runner_mode,
+        "artifact_backend": current.artifact_backend,
+        "run_queue_name": current.run_queue_name,
+        "block_live_runs_on_missing_tools": current.block_live_runs_on_missing_tools,
+        "tool_availability_cache_seconds": current.tool_availability_cache_seconds,
+        "dry_run_line_delay_seconds": current.dry_run_line_delay_seconds,
+        "platform_config_path": str(current.platform_config_path),
+        "grep_patterns_path": str(current.grep_patterns_path),
     }
 
 

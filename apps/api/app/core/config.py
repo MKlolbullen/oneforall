@@ -24,12 +24,15 @@ class Settings(BaseSettings):
     tool_availability_probe_timeout_seconds: float = 1.5
     block_live_runs_on_missing_tools: bool = True
 
-    # Lab-mode default for this branch — live execution is on. Production
-    # deployments outside an authorized lab MUST flip both back to dry_run
-    # / false in the .env. live_execution_enabled requires both flags so
-    # a single env-var typo can't accidentally fire real tools.
-    execution_mode: str = "live"
-    allow_live_execution: bool = True
+    # Safe-by-default execution. Live mode requires both EXECUTION_MODE=live
+    # and ALLOW_LIVE_EXECUTION=true so one typo cannot accidentally fire real
+    # tools. Keep this default unless you are inside an explicitly authorized lab.
+    execution_mode: str = "dry_run"
+    allow_live_execution: bool = False
+
+    # Dry-run simulator pacing. Keep non-zero for readable demos; set to 0 in
+    # CI when you want fast deterministic tests.
+    dry_run_line_delay_seconds: float = 0.05
 
     # queue = external worker via Redis. in_process remains useful for local debugging.
     runner_mode: str = "queue"

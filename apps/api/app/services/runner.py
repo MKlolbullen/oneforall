@@ -678,12 +678,16 @@ async def _run_dry_tool(
 ) -> list[str]:
     stdout_lines: list[str] = []
     started = time.monotonic()
+    # Configurable pacing — non-zero keeps demos readable; CI runs with 0 so
+    # the dry-run e2e tests don't take 0.25s per simulated tool line.
+    delay = max(0.0, float(get_settings().dry_run_line_delay_seconds))
     for line in lines:
         if await _cancel_requested(session_factory, run_id):
             raise RunCancelled("operator requested cancellation")
         if time.monotonic() - started > timeout_seconds:
             raise StepTimedOut(f"{tool_id} exceeded timeout of {timeout_seconds}s")
-        await asyncio.sleep(0.25)
+        if delay:
+            await asyncio.sleep(delay)
         stdout_lines.append(line)
         with session_factory() as session:
             await event_bus.publish(

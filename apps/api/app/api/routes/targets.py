@@ -8,6 +8,7 @@ from app.models import Asset, Finding, Role, Run, Target, User, Workspace
 from app.schemas import BulkTargetCreate, BulkTargetResult, TargetCreate
 from app.services import audit
 from app.services.auth import current_user, require_role
+from app.services.target_validation import normalize_target
 
 router = APIRouter(prefix="/targets", tags=["targets"])
 
@@ -37,7 +38,15 @@ def create_target(
     workspace = session.get(Workspace, payload.workspace_id)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    target = Target(**payload.model_dump())
+    try:
+        normalized = normalize_target(payload.value, payload.type)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    target_data = payload.model_dump()
+    target_data["value"] = normalized.value
+    target_data["type"] = normalized.type
+    target = Target(**target_data)
     session.add(target)
     session.commit()
     session.refresh(target)
@@ -63,10 +72,17 @@ def create_targets_bulk(
     # Normalise: strip, drop blanks + lines starting with `#`, dedupe in-batch.
     seen: set[str] = set()
     candidates: list[str] = []
+    invalid: list[dict[str, str]] = []
     for raw in payload.values:
         v = raw.strip()
         if not v or v.startswith("#"):
             continue
+        try:
+            normalized = normalize_target(v, payload.type)
+        except ValueError as exc:
+            invalid.append({"value": v, "reason": str(exc)})
+            continue
+        v = normalized.value
         if v in seen:
             continue
         seen.add(v)
@@ -80,7 +96,7 @@ def create_targets_bulk(
     }
 
     created: list[Target] = []
-    skipped: list[dict[str, str]] = []
+    skipped: list[dict[str, str]] = list(invalid)
     for v in candidates:
         if v in existing:
             skipped.append({"value": v, "reason": "duplicate"})
@@ -88,7 +104,7 @@ def create_targets_bulk(
         target = Target(
             workspace_id=payload.workspace_id,
             value=v,
-            type=payload.type,
+            type=normalize_target(v, payload.type).type,
             in_scope=payload.in_scope,
             passive_allowed=payload.passive_allowed,
             active_allowed=payload.active_allowed,
