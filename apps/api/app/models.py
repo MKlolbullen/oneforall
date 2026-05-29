@@ -242,6 +242,30 @@ class LootItem(SQLModel, table=True):
     created_at: datetime = Field(default_factory=now_utc)
 
 
+class Webhook(SQLModel, table=True):
+    """An outbound HTTP webhook fired on run lifecycle events.
+
+    Workspace-scoped so different engagements can route to different Slack
+    channels / Discord servers / generic Bash receivers. `events` is the JSON
+    list of event types the webhook subscribes to — currently a subset of
+    {run.completed, run.failed, run.cancelled}. Delivery stats (last_used_at,
+    last_status, last_error) update after every attempt so the UI can show
+    "this webhook hasn't worked since Tuesday" without scraping logs.
+    """
+    id: str = Field(default_factory=lambda: new_id("wh"), primary_key=True)
+    workspace_id: str = Field(index=True, foreign_key="workspace.id")
+    name: str = Field(index=True, min_length=1, max_length=120)
+    url: str = Field(max_length=2048)
+    events: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    is_active: bool = Field(default=True, index=True)
+    created_by: str | None = Field(default=None, index=True, foreign_key="user.id")
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
+    last_used_at: datetime | None = None
+    last_status: int | None = None
+    last_error: str | None = Field(default=None, max_length=512)
+
+
 class Workflow(SQLModel, table=True):
     """A saved Workflow Builder graph.
 

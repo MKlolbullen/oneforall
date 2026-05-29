@@ -1,4 +1,4 @@
-import type { AdHocRunCreate, Advice, APIKeyPublic, Artifact, Asset, AuditPage, CreatedAPIKey, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, SavedWorkflow, Target, TargetSummary, TargetTech, Tool, ToolAvailability, UserPublic, WhoAmI, WordlistInfo, WorkflowCreate, WorkflowUpdate, Workspace } from '../types';
+import type { AdHocRunCreate, Advice, APIKeyPublic, Artifact, Asset, AuditPage, CreatedAPIKey, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, SavedWorkflow, Target, TargetSummary, TargetTech, Tool, ToolAvailability, UserPublic, Webhook, WebhookCreate, WebhookTestResult, WebhookUpdate, WhoAmI, WordlistInfo, WorkflowCreate, WorkflowUpdate, Workspace } from '../types';
 
 import { getApiBaseUrl, getWsBaseUrl } from './runtimeConfig';
 
@@ -267,4 +267,20 @@ export const api = {
     request<Run>(`/api/workflows/${workflowId}/launch`, {
       method: 'POST', body: JSON.stringify(payload),
     }),
+
+  // Outbound webhooks (Slack / Discord / generic JSON). DB-backed and
+  // workspace-scoped — different engagements can route to different channels.
+  webhooks: (workspaceId?: string) =>
+    request<Webhook[]>(`/api/webhooks${workspaceId ? `?workspace_id=${workspaceId}` : ''}`),
+  webhook: (webhookId: string) => request<Webhook>(`/api/webhooks/${webhookId}`),
+  createWebhook: (payload: WebhookCreate) =>
+    request<Webhook>('/api/webhooks', { method: 'POST', body: JSON.stringify(payload) }),
+  updateWebhook: (webhookId: string, payload: WebhookUpdate) =>
+    request<Webhook>(`/api/webhooks/${webhookId}`, {
+      method: 'PUT', body: JSON.stringify(payload),
+    }),
+  deleteWebhook: (webhookId: string) =>
+    requestVoid(`/api/webhooks/${webhookId}`, { method: 'DELETE' }),
+  testWebhook: (webhookId: string) =>
+    request<WebhookTestResult>(`/api/webhooks/${webhookId}/test`, { method: 'POST' }),
 };

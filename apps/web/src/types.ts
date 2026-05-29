@@ -429,6 +429,42 @@ export type CreatedAPIKey = {
   prefix: string;
 };
 
+export type Webhook = {
+  id: string;
+  workspace_id: string;
+  name: string;
+  url: string;
+  events: string[];
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  last_used_at: string | null;
+  last_status: number | null;
+  last_error: string | null;
+};
+
+export type WebhookCreate = {
+  workspace_id: string;
+  name: string;
+  url: string;
+  events: string[];
+  is_active?: boolean;
+};
+
+export type WebhookUpdate = {
+  name?: string;
+  url?: string;
+  events?: string[];
+  is_active?: boolean;
+};
+
+export type WebhookTestResult = {
+  delivered: boolean;
+  status: number | null;
+  error: string | null;
+};
+
 export type AuditEvent = {
   sequence: number;
   actor_id: string | null;

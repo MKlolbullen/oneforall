@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Activity, Boxes, Coins, Crosshair, FileSearch, FileText, History, LayoutDashboard, MessageSquare, Network, RefreshCw, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Users as UsersIcon, Wrench } from 'lucide-react';
+import { Activity, Bell, Boxes, Coins, Crosshair, FileSearch, FileText, History, LayoutDashboard, MessageSquare, Network, RefreshCw, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Users as UsersIcon, Wrench } from 'lucide-react';
 import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
 import { classifyArtifact } from './lib/artifactKind';
@@ -12,6 +12,7 @@ import { Loot } from './lib/Loot';
 import { Templates } from './lib/Templates';
 import { ToolDetailModal } from './lib/ToolDetailModal';
 import { Users as UsersPage } from './lib/Users';
+import { Webhooks as WebhooksPage } from './lib/Webhooks';
 import { WorkflowBuilder } from './lib/WorkflowBuilder';
 import { Workspaces as WorkspacesPage } from './lib/Workspaces';
 import { useNav, type Page } from './lib/nav';
@@ -39,6 +40,7 @@ const pages: { id: Page; label: string; icon: ReactNode }[] = [
   { id: 'tools', label: 'Tool Catalog', icon: <Wrench size={16} /> },
   { id: 'workflow', label: 'Workflow Builder', icon: <Network size={16} /> },
   { id: 'users', label: 'Users', icon: <UsersIcon size={16} /> },
+  { id: 'webhooks', label: 'Webhooks', icon: <Bell size={16} /> },
   { id: 'audit', label: 'Audit Log', icon: <History size={16} /> },
   { id: 'settings', label: 'Settings Pack', icon: <SettingsIcon size={16} /> },
 ];
@@ -152,6 +154,7 @@ export function App() {
           {page === 'tools' && <Tools />}
           {page === 'workflow' && <WorkflowBuilder />}
           {page === 'users' && <UsersPage />}
+          {page === 'webhooks' && <WebhooksPage />}
           {page === 'audit' && <AuditLog />}
           {page === 'settings' && <SettingsPack />}
         </div>

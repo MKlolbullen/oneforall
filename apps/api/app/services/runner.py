@@ -413,6 +413,7 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
             "profile_id": profile_id,
             "target_value": config_snapshot.get("target_value"),
             "runner_mode": settings.runner_mode,
+            "workspace_id": workspace_id,
         })
         if ctx is not None and ctx.capture is not None:
             with session_factory() as session:
@@ -444,6 +445,7 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
             "profile_id": profile_id,
             "target_value": config_snapshot.get("target_value"),
             "error": str(exc),
+            "workspace_id": workspace_id,
         })
         if ctx is not None and ctx.capture is not None:
             await http_capture.stop(ctx.capture)
@@ -467,6 +469,7 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
             "profile_id": profile_id,
             "target_value": config_snapshot.get("target_value"),
             "error": repr(exc),
+            "workspace_id": workspace_id,
         })
         if ctx is not None and ctx.capture is not None:
             await http_capture.stop(ctx.capture)

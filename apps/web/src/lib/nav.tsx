@@ -7,7 +7,8 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
  */
 export type Page =
   | 'dashboard' | 'workspaces' | 'targets' | 'runs' | 'results' | 'network'
-  | 'tools' | 'templates' | 'workflow' | 'loot' | 'users' | 'audit' | 'settings';
+  | 'tools' | 'templates' | 'workflow' | 'loot' | 'users' | 'webhooks'
+  | 'audit' | 'settings';
 
 export type NavParams = {
   runId?: string;
