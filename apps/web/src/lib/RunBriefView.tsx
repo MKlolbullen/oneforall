@@ -58,6 +58,9 @@ export function RunBriefView({
                 {brief.target && <span className="mono small">{brief.target.value}</span>}
               </div>
               <div className="row">
+                <a className="btn small" href={api.runReportUrl(runId, 'html')} target="_blank" rel="noreferrer" title="Open the shareable HTML report in a new tab">
+                  <Download size={12} /> Report
+                </a>
                 <button className="btn small" type="button" onClick={() => { onClose(); navigate('runs', { runId }); }}>
                   <ExternalLink size={12} /> Open in Runs
                 </button>

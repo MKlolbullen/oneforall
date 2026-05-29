@@ -219,6 +219,12 @@ export const api = {
   // because no LLM is involved.
   runBrief: (runId: string) => request<RunBrief>(`/api/agent/runs/${runId}/brief`),
 
+  // Run report — html/json/md document with full findings + loot + assets.
+  // Returns the absolute URL so the operator can click a real <a download>
+  // and the browser handles the file dialog; the same URL works in a new tab.
+  runReportUrl: (runId: string, format: 'html' | 'json' | 'md' = 'html') =>
+    `${API_BASE_URL}/api/runs/${runId}/report?format=${format}`,
+
   // Identity + audit. /auth/audit is admin-only — non-admins get 403.
   me: () => request<WhoAmI>('/api/auth/me'),
   audit: (limit = 100) => request<AuditPage>(`/api/auth/audit?limit=${limit}`),

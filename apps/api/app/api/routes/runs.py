@@ -1,7 +1,7 @@
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlmodel import Session, select
 from sqlmodel import Session as SQLSession
 
@@ -16,6 +16,7 @@ from app.services.queue import enqueue_run, request_run_cancel
 from app.services.runner import execute_run
 from app.services.scope import ScopeError, enforce_target_scope
 from app.services.platform_config import load_platform_config
+from app.services import reports
 from app.services.tool_availability import check_tool_availability, unavailable_profile_tools
 from app.services.tool_registry import get_registry
 
@@ -392,3 +393,36 @@ def get_run_artifacts(
     _user: User = Depends(current_user),
 ) -> list[Artifact]:
     return list(session.exec(select(Artifact).where(Artifact.run_id == run_id).order_by(Artifact.created_at.desc())).all())
+
+
+_REPORT_FORMATS = {"html", "json", "md", "markdown"}
+
+
+@router.get("/{run_id}/report")
+def get_run_report(
+    run_id: str,
+    fmt: str = Query("html", alias="format", description="html | json | md"),
+    session: Session = Depends(get_session),
+    _user: User = Depends(current_user),
+) -> Response:
+    """Render a run's findings + loot + assets + artifacts as a shareable
+    document. HTML is self-contained (inline CSS, no scripts) so it survives
+    being emailed; JSON is a superset of the agent brief; Markdown drops
+    cleanly into a ticket / wiki / PR description."""
+    if fmt.lower() not in _REPORT_FORMATS:
+        raise HTTPException(400, f"invalid format {fmt!r}; one of {sorted(_REPORT_FORMATS)}")
+    run = session.get(Run, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    body, media_type = reports.render(session, run, fmt)
+    ext = "html" if fmt == "html" else ("md" if fmt in {"md", "markdown"} else "json")
+    return Response(
+        content=body,
+        media_type=media_type,
+        headers={
+            # `inline` so HTML opens in the browser tab; the operator can save
+            # via the browser if they want. JSON / md default to inline too —
+            # the .ext on the filename hints the right viewer.
+            "Content-Disposition": f'inline; filename="reconforge-run-{run_id}.{ext}"',
+        },
+    )

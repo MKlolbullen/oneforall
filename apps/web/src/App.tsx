@@ -541,6 +541,20 @@ function RunConsoleInner({ run, onChanged }: { run: Run; onChanged?: () => void 
         </span>
       </div>
       <div className="row">
+        {/* Report links open in a new tab — HTML is self-contained, JSON/md
+            are useful for tickets / agents. No JS-side state needed because
+            the backend renders on demand. */}
+        <a
+          className="btn small"
+          href={api.runReportUrl(run.id, 'html')}
+          target="_blank"
+          rel="noreferrer"
+          title="Open the HTML report in a new tab"
+        >
+          Report
+        </a>
+        <a className="btn small" href={api.runReportUrl(run.id, 'json')} target="_blank" rel="noreferrer" title="JSON report" download>JSON</a>
+        <a className="btn small" href={api.runReportUrl(run.id, 'md')} target="_blank" rel="noreferrer" title="Markdown report" download>MD</a>
         <button className="btn small" onClick={rerun} title="Queue a new run with the same target + profile + params">
           Re-run
         </button>
