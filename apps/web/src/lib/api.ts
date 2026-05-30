@@ -1,4 +1,4 @@
-import type { AdHocRunCreate, Advice, APIKeyPublic, Artifact, Asset, AuditPage, CreatedAPIKey, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, SavedWorkflow, Target, TargetSummary, TargetTech, Tool, ToolAvailability, UserPublic, Webhook, WebhookCreate, WebhookTestResult, WebhookUpdate, WhoAmI, WordlistInfo, WorkflowCreate, WorkflowUpdate, Workspace } from '../types';
+import type { AdHocRunCreate, Advice, APIKeyPublic, Artifact, Asset, AuditPage, CreatedAPIKey, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, SavedWorkflow, SearchResults, Target, TargetSummary, TargetTech, Tool, ToolAvailability, UserPublic, Webhook, WebhookCreate, WebhookTestResult, WebhookUpdate, WhoAmI, WordlistInfo, WorkflowCreate, WorkflowUpdate, Workspace } from '../types';
 
 import { getApiBaseUrl, getWsBaseUrl } from './runtimeConfig';
 
@@ -283,4 +283,13 @@ export const api = {
     requestVoid(`/api/webhooks/${webhookId}`, { method: 'DELETE' }),
   testWebhook: (webhookId: string) =>
     request<WebhookTestResult>(`/api/webhooks/${webhookId}/test`, { method: 'POST' }),
+
+  // Cross-entity palette search. workspaceId is optional; when set, DB
+  // results narrow to that scope (registry tools/profiles stay global).
+  search: (q: string, opts: { workspaceId?: string; limit?: number } = {}) => {
+    const p = new URLSearchParams({ q });
+    if (opts.workspaceId) p.set('workspace_id', opts.workspaceId);
+    if (opts.limit) p.set('limit', String(opts.limit));
+    return request<SearchResults>(`/api/search?${p.toString()}`);
+  },
 };

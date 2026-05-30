@@ -23,7 +23,8 @@ const NAV_KEYS: Record<string, string> = {
 };
 
 const SHORTCUTS = [
-  { keys: ['/'],     label: 'Focus search' },
+  { keys: ['/'],     label: 'Page search (Results) or global search palette' },
+  { keys: ['⌘ K'],   label: 'Open global search palette (also Ctrl+K)' },
   { keys: ['?'],     label: 'Show this cheatsheet' },
   { keys: ['Esc'],   label: 'Close dialog / unfocus' },
   { keys: ['g d'],   label: 'Go to Dashboard' },

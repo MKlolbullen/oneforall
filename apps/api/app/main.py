@@ -17,6 +17,7 @@ from app.api.routes import (
     loot as loot_routes,
     network as network_routes,
     runs,
+    search,
     targets,
     tools,
     webhooks,
@@ -66,6 +67,7 @@ app.include_router(network_routes.router, prefix="/api")
 app.include_router(graph_routes.router, prefix="/api")
 app.include_router(workflows.router, prefix="/api")
 app.include_router(webhooks.router, prefix="/api")
+app.include_router(search.router, prefix="/api")
 app.include_router(ws.router)
 
 

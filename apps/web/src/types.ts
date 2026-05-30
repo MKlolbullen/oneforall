@@ -429,6 +429,29 @@ export type CreatedAPIKey = {
   prefix: string;
 };
 
+export type SearchTargetHit = { id: string; value: string; type: string; workspace_id: string; active_allowed: boolean; in_scope: boolean };
+export type SearchRunHit = { id: string; profile_id: string; workspace_id: string; target_id: string; status: string; risk: string; created_at: string | null };
+export type SearchFindingHit = { id: string; title: string; severity: string; category: string; status: string; run_id: string | null; workspace_id: string; tool_source: string | null };
+export type SearchLootHit = { id: string; label: string; kind: string; severity: string; run_id: string | null; workspace_id: string; host: string | null };
+export type SearchWorkflowHit = { id: string; name: string; workspace_id: string; step_count: number; updated_at: string | null };
+export type SearchWorkspaceHit = { id: string; name: string; description: string | null };
+export type SearchWebhookHit = { id: string; name: string; workspace_id: string; is_active: boolean };
+export type SearchToolHit = { id: string; name: string; category: string; risk: string; description: string };
+export type SearchProfileHit = { id: string; name: string; risk: string; description: string; step_count: number };
+
+export type SearchResults = {
+  q: string;
+  workspaces: SearchWorkspaceHit[];
+  targets: SearchTargetHit[];
+  runs: SearchRunHit[];
+  findings: SearchFindingHit[];
+  loot: SearchLootHit[];
+  workflows: SearchWorkflowHit[];
+  webhooks: SearchWebhookHit[];
+  tools: SearchToolHit[];
+  profiles: SearchProfileHit[];
+};
+
 export type Webhook = {
   id: string;
   workspace_id: string;

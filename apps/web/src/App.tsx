@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Activity, Bell, Boxes, Coins, Crosshair, FileSearch, FileText, History, LayoutDashboard, MessageSquare, Network, RefreshCw, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Users as UsersIcon, Wrench } from 'lucide-react';
+import { Activity, Bell, Boxes, Coins, Crosshair, FileSearch, FileText, History, LayoutDashboard, MessageSquare, Network, RefreshCw, Search, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Users as UsersIcon, Wrench } from 'lucide-react';
 import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
 import { classifyArtifact } from './lib/artifactKind';
@@ -22,6 +22,7 @@ import { EmptyState } from './lib/EmptyState';
 import { Dashboard } from './lib/Dashboard';
 import { NetworkGraph } from './lib/NetworkGraph';
 import { Results } from './lib/Results';
+import { SearchPalette } from './lib/SearchPalette';
 import { PendingGHint, ShortcutsCheatsheet, useShortcuts } from './lib/Shortcuts';
 import { useToast } from './lib/Toast';
 import { useConfirm } from './lib/Confirm';
@@ -128,6 +129,14 @@ export function App() {
             {health.live_execution_enabled === true ? <span className="badge active">live execution</span> : <span className="badge passive">dry-run safe</span>}
             <button
               type="button"
+              className="btn small"
+              title="Search (⌘K or /)"
+              onClick={() => window.dispatchEvent(new CustomEvent('reconforge:search-open'))}
+            >
+              <Search size={14} /> Search<kbd className="search-kbd">⌘K</kbd>
+            </button>
+            <button
+              type="button"
               className="btn small advisor-topbar-btn"
               title="Open AI advisor chat"
               onClick={() => window.dispatchEvent(new CustomEvent('reconforge:advisor-open'))}
@@ -163,6 +172,7 @@ export function App() {
       <PendingGHint visible={pendingG} />
     </div>
       <AdvisorChat />
+      <SearchPalette />
     </AdvisorProvider>
   );
 }
