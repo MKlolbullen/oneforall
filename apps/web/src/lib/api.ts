@@ -224,6 +224,8 @@ export const api = {
   // and the browser handles the file dialog; the same URL works in a new tab.
   runReportUrl: (runId: string, format: 'html' | 'json' | 'md' = 'html') =>
     `${API_BASE_URL}/api/runs/${runId}/report?format=${format}`,
+  targetReportUrl: (targetId: string, format: 'html' | 'json' | 'md' = 'html') =>
+    `${API_BASE_URL}/api/targets/${targetId}/report?format=${format}`,
 
   // Identity + audit. /auth/audit is admin-only — non-admins get 403.
   me: () => request<WhoAmI>('/api/auth/me'),

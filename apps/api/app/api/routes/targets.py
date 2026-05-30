@@ -1,12 +1,12 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import Asset, Finding, Role, Run, Target, User, Workspace
 from app.schemas import BulkTargetCreate, BulkTargetResult, TargetCreate
-from app.services import audit
+from app.services import audit, reports
 from app.services.auth import current_user, require_role
 from app.services.target_validation import normalize_target
 
@@ -199,6 +199,34 @@ def get_target_findings(
     ).all())
     rows.sort(key=lambda f: (SEVERITY_RANK.get(f.severity, 5), f.created_at.timestamp() * -1))
     return rows
+
+
+_TARGET_REPORT_FORMATS = {"html", "json", "md", "markdown"}
+
+
+@router.get("/{target_id}/report")
+def get_target_report(
+    target_id: str,
+    fmt: str = Query("html", alias="format", description="html | json | md"),
+    session: Session = Depends(get_session),
+    _user: User = Depends(current_user),
+) -> Response:
+    """Engagement-level report — every run against this target rolled up into
+    one shareable document. Same html / json / md surface as the per-run
+    report; findings + loot + assets are deduplicated across runs."""
+    if fmt.lower() not in _TARGET_REPORT_FORMATS:
+        raise HTTPException(400, f"invalid format {fmt!r}; one of {sorted(_TARGET_REPORT_FORMATS)}")
+    target = _target_or_404(session, target_id)
+    body, media_type = reports.render_target(session, target, fmt)
+    ext = "html" if fmt == "html" else ("md" if fmt in {"md", "markdown"} else "json")
+    safe = "".join(c if c.isalnum() or c in "-." else "-" for c in (target.value or target.id))
+    return Response(
+        content=body,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'inline; filename="reconforge-target-{safe}.{ext}"',
+        },
+    )
 
 
 @router.get("/{target_id}/summary")

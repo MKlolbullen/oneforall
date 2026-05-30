@@ -153,3 +153,103 @@ def test_report_markdown_is_drop_in_friendly(stack):
     assert "[CRITICAL]" in body
     # Markdown table separator present
     assert "|---|" in body
+
+
+# ----- Target (engagement-level) reports ---------------------------------
+
+def test_target_report_anonymous_blocked(stack):
+    client, _ = stack
+    assert client.get("/api/targets/whatever/report").status_code == 401
+
+
+def test_target_report_404_unknown(stack):
+    client, headers = stack
+    r = client.get("/api/targets/tgt_nope/report", headers=headers)
+    assert r.status_code == 404
+
+
+def test_target_report_invalid_format(stack):
+    client, headers = stack
+    _, target_id, _ = _seed_run_with_findings(client, headers)
+    r = client.get(f"/api/targets/{target_id}/report?format=pdf", headers=headers)
+    assert r.status_code == 400
+
+
+def test_target_report_aggregates_runs(stack):
+    """Two runs against one target — the engagement report should union both
+    runs' findings and report 2 runs in the header counts."""
+    client, headers = stack
+    ws_id, target_id, run1 = _seed_run_with_findings(client, headers)
+    # Second run + finding under the SAME target
+    from app.db import engine
+    from app.models import Finding, Run, RunStatus
+    from sqlmodel import Session
+    with Session(engine) as session:
+        run2 = Run(workspace_id=ws_id, target_id=target_id, profile_id="web_quick",
+                   status=RunStatus.completed)
+        session.add(run2)
+        session.commit()
+        session.refresh(run2)
+        session.add(Finding(workspace_id=ws_id, run_id=run2.id,
+                            title="Open redirect in /next", severity="medium",
+                            category="redirect", evidence="?next=evil",
+                            tool_source="dalfox"))
+        session.commit()
+
+    body = client.get(f"/api/targets/{target_id}/report?format=json", headers=headers).json()
+    assert body["schema"] == "reconforge.target.report/v1"
+    assert body["counts"]["runs"] == 2
+    # Originally seeded 2 + 1 we just added = 3
+    assert body["counts"]["findings"] == 3
+    # Findings severity-ranked across all runs: critical first, then medium, then info
+    sevs = [f["severity"] for f in body["findings"]]
+    assert sevs.index("critical") < sevs.index("medium") < sevs.index("info")
+
+
+def test_target_report_html_self_contained(stack):
+    client, headers = stack
+    _, target_id, _ = _seed_run_with_findings(client, headers)
+    r = client.get(f"/api/targets/{target_id}/report?format=html", headers=headers)
+    assert r.status_code == 200
+    body = r.text
+    assert "<!doctype html>" in body
+    assert "Engagement report" in body
+    assert "report.example.com" in body
+    # No scripts — safe to forward
+    assert "<script" not in body.lower()
+
+
+def test_target_report_md_has_engagement_header(stack):
+    client, headers = stack
+    _, target_id, _ = _seed_run_with_findings(client, headers)
+    r = client.get(f"/api/targets/{target_id}/report?format=md", headers=headers)
+    assert r.status_code == 200
+    assert r.text.startswith("# Engagement report")
+    assert "## Run history" in r.text
+
+
+def test_target_report_dedupes_assets_across_runs(stack):
+    """Same asset (type, value) seen in two runs surfaces once in the unique
+    assets bucket. The engagement report is "what did we discover", not
+    "every time we saw it"."""
+    client, headers = stack
+    ws_id, target_id, run1 = _seed_run_with_findings(client, headers)
+    from app.db import engine
+    from app.models import Asset, Run, RunStatus
+    from sqlmodel import Session
+    with Session(engine) as session:
+        # Add the same domain asset to two runs
+        session.add(Asset(workspace_id=ws_id, run_id=run1, type="domain",
+                          value="api.report.example.com", source="subfinder"))
+        run2 = Run(workspace_id=ws_id, target_id=target_id, profile_id="web_quick",
+                   status=RunStatus.completed)
+        session.add(run2)
+        session.commit()
+        session.refresh(run2)
+        session.add(Asset(workspace_id=ws_id, run_id=run2.id, type="domain",
+                          value="api.report.example.com", source="dnsx"))
+        session.commit()
+
+    body = client.get(f"/api/targets/{target_id}/report?format=json", headers=headers).json()
+    domain_values = body["assets_by_type"].get("domain", [])
+    assert domain_values.count("api.report.example.com") == 1, domain_values
