@@ -269,6 +269,12 @@ export const api = {
     request<Run>(`/api/workflows/${workflowId}/launch`, {
       method: 'POST', body: JSON.stringify(payload),
     }),
+  workflowExportUrl: (workflowId: string, format: 'yaml' | 'json' = 'yaml') =>
+    `${API_BASE_URL}/api/workflows/${workflowId}/export?format=${format}`,
+  importWorkflow: (payload: { workspace_id: string; yaml: string; name?: string; description?: string }) =>
+    request<SavedWorkflow>('/api/workflows/import', {
+      method: 'POST', body: JSON.stringify(payload),
+    }),
 
   // Outbound webhooks (Slack / Discord / generic JSON). DB-backed and
   // workspace-scoped — different engagements can route to different channels.

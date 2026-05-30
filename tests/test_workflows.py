@@ -220,3 +220,116 @@ def test_workflows_anonymous_blocked(stack):
     assert client.get("/api/workflows").status_code == 401
     assert client.post("/api/workflows", json={"workspace_id": "x", "name": "y",
                                                 "body": {"steps": [{"tool": "subfinder"}]}}).status_code == 401
+
+
+# ----- Export / import round-trip ----------------------------------------
+
+def test_export_workflow_yaml_roundtrips(stack):
+    """A workflow saved to one instance can be exported, then imported into
+    the same (or another) instance via /workflows/import. Step count, name,
+    description, and the canvas graph all survive."""
+    import yaml as _yaml
+    client, headers = stack
+    ws_id, _ = _seed_target(client, headers)
+
+    orig = client.post("/api/workflows", headers=headers, json={
+        "workspace_id": ws_id, "name": "Quick passive",
+        "description": "subfinder + dnsx + httpx",
+        "body": {
+            "steps": [
+                {"tool": "subfinder"},
+                {"tool": "dnsx", "argv_extra": ["-l", "{{upstream.domain_list.merged_path}}"]},
+                {"tool": "httpx", "timeout_seconds": 600},
+            ],
+            "graph": {"nodes": [{"id": "n1"}], "edges": []},
+        },
+    }).json()
+
+    # Export YAML
+    r = client.get(f"/api/workflows/{orig['id']}/export", headers=headers)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/yaml")
+    doc = _yaml.safe_load(r.text)
+    assert doc["schema"] == "reconforge.workflow/v1"
+    assert doc["name"] == "Quick passive"
+    assert len(doc["steps"]) == 3
+    assert doc["steps"][1]["argv_extra"] == ["-l", "{{upstream.domain_list.merged_path}}"]
+    assert "graph" in doc
+
+    # Import it back as a NEW workflow (server creates a new id; the doc's
+    # name + description are honoured when no override is supplied).
+    imported = client.post("/api/workflows/import", headers=headers, json={
+        "workspace_id": ws_id, "yaml": r.text,
+    }).json()
+    assert imported["id"] != orig["id"]
+    assert imported["name"] == "Quick passive"
+    assert len(imported["body"]["steps"]) == 3
+    # Audit row written
+    audit = client.get("/api/auth/audit", headers=headers).json()
+    assert any(e["action"] == "workflow.imported" for e in audit["events"])
+
+
+def test_import_rejects_malformed_yaml(stack):
+    client, headers = stack
+    ws_id, _ = _seed_target(client, headers)
+    # Unclosed quote → YAML parse error → 422.
+    r = client.post("/api/workflows/import", headers=headers, json={
+        "workspace_id": ws_id, "yaml": "name: oops\nsteps: [{",
+    })
+    assert r.status_code == 422
+
+
+def test_import_rejects_missing_steps(stack):
+    client, headers = stack
+    ws_id, _ = _seed_target(client, headers)
+    r = client.post("/api/workflows/import", headers=headers, json={
+        "workspace_id": ws_id, "yaml": "name: just a name\n",
+    })
+    assert r.status_code == 422
+
+
+def test_import_rejects_unknown_tool(stack):
+    client, headers = stack
+    ws_id, _ = _seed_target(client, headers)
+    bad_yaml = "name: weird\nsteps:\n  - tool: definitely-not-a-real-tool\n"
+    r = client.post("/api/workflows/import", headers=headers, json={
+        "workspace_id": ws_id, "yaml": bad_yaml,
+    })
+    assert r.status_code == 404
+
+
+def test_import_name_override(stack):
+    """A caller can override the doc's name without editing the YAML — useful
+    when forking a shared template into multiple per-engagement variants."""
+    client, headers = stack
+    ws_id, _ = _seed_target(client, headers)
+    doc = "name: original\nsteps:\n  - tool: subfinder\n"
+    r = client.post("/api/workflows/import", headers=headers, json={
+        "workspace_id": ws_id, "yaml": doc, "name": "renamed-on-import",
+    })
+    assert r.status_code == 201
+    assert r.json()["name"] == "renamed-on-import"
+
+
+def test_export_404_unknown(stack):
+    client, headers = stack
+    assert client.get("/api/workflows/wf_nope/export", headers=headers).status_code == 404
+
+
+def test_export_bad_format(stack):
+    client, headers = stack
+    ws_id, _ = _seed_target(client, headers)
+    wf = client.post("/api/workflows", headers=headers, json={
+        "workspace_id": ws_id, "name": "x",
+        "body": {"steps": [{"tool": "subfinder"}]},
+    }).json()
+    r = client.get(f"/api/workflows/{wf['id']}/export?format=toml", headers=headers)
+    assert r.status_code == 400
+
+
+def test_import_anonymous_blocked(stack):
+    client, _ = stack
+    r = client.post("/api/workflows/import", json={
+        "workspace_id": "x", "yaml": "name: a\nsteps:\n  - tool: subfinder\n",
+    })
+    assert r.status_code == 401

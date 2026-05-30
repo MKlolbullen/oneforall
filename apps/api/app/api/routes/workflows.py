@@ -11,7 +11,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+import yaml
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
@@ -226,6 +227,130 @@ def delete_workflow(
                  payload={"name": wf.name})
     session.delete(wf)
     session.commit()
+
+
+class WorkflowImportPayload(BaseModel):
+    """JSON-shaped import body for shipping workflows between instances
+    (and round-tripping the export endpoint). `yaml` carries the raw YAML
+    text; the server parses + validates against the same step schema as
+    create."""
+    workspace_id: str
+    yaml: str = Field(min_length=1, max_length=200_000)
+    # Override the in-document name + description if the operator wants to.
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    description: str | None = Field(default=None, max_length=2000)
+
+
+@router.get("/{workflow_id}/export")
+def export_workflow(
+    workflow_id: str,
+    fmt: str = Query("yaml", alias="format", description="yaml | json"),
+    session: Session = Depends(get_session),
+    _user: User = Depends(current_user),
+) -> Response:
+    """Export a workflow as YAML (or JSON). The output is portable: paste it
+    into another instance via POST /api/workflows/import to recreate the
+    same canvas. Keys match the YAML profile shape operators already know."""
+    fmt = (fmt or "yaml").lower()
+    if fmt not in {"yaml", "json"}:
+        raise HTTPException(400, "format must be 'yaml' or 'json'")
+    wf = session.get(Workflow, workflow_id)
+    if not wf:
+        raise HTTPException(404, "Workflow not found")
+    body = wf.body or {}
+    doc: dict[str, Any] = {
+        "schema": "reconforge.workflow/v1",
+        "name": wf.name,
+        "description": wf.description or "",
+        "steps": body.get("steps") or [],
+    }
+    # Include the visual graph so a round-trip preserves canvas layout. The
+    # consumer can ignore it if they only care about the runnable steps[].
+    graph = body.get("graph")
+    if graph:
+        doc["graph"] = graph
+
+    if fmt == "json":
+        import json as _json
+        text = _json.dumps(doc, indent=2, default=str)
+        media = "application/json"
+        ext = "json"
+    else:
+        text = yaml.safe_dump(doc, sort_keys=False, default_flow_style=False)
+        media = "application/yaml"
+        ext = "yaml"
+    safe = "".join(c if c.isalnum() or c in "-." else "-" for c in wf.name)
+    return Response(
+        content=text.encode("utf-8"),
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="reconforge-workflow-{safe}.{ext}"'},
+    )
+
+
+@router.post("/import", response_model=WorkflowRead, status_code=201)
+def import_workflow(
+    payload: WorkflowImportPayload,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_role(Role.operator)),
+) -> WorkflowRead:
+    """Create a workflow from a YAML / JSON-as-YAML document. yaml.safe_load
+    is used so a malicious file can't pull arbitrary Python types into the
+    process — only standard YAML scalars and containers."""
+    workspace = session.get(Workspace, payload.workspace_id)
+    if not workspace:
+        raise HTTPException(404, "Workspace not found")
+
+    try:
+        doc = yaml.safe_load(payload.yaml)
+    except yaml.YAMLError as exc:
+        raise HTTPException(422, f"invalid YAML: {exc}") from exc
+    if not isinstance(doc, dict):
+        raise HTTPException(422, "workflow document must be a YAML mapping")
+
+    steps_raw = doc.get("steps")
+    if not isinstance(steps_raw, list) or not steps_raw:
+        raise HTTPException(422, "workflow document must contain a non-empty `steps` list")
+
+    # Validate each step against the same Pydantic model used at create
+    # time, so the rules match (tool id required, optional timeout / retry
+    # / argv overrides). Pulls a clean ValueError on any malformed step.
+    try:
+        validated = [AdHocStep.model_validate(s) for s in steps_raw]
+    except Exception as exc:  # noqa: BLE001 - bubble Pydantic's message verbatim
+        raise HTTPException(422, f"invalid step in workflow: {exc}") from exc
+
+    # Every step's tool must exist in the registry. Same gate as create.
+    registry = get_registry()
+    for step in validated:
+        try:
+            registry.get_tool(step.tool)
+        except KeyError as exc:
+            raise HTTPException(404, f"Unknown tool in workflow: {exc}") from exc
+
+    name = payload.name or doc.get("name") or "Imported workflow"
+    description = payload.description if payload.description is not None else doc.get("description")
+    graph = doc.get("graph") if isinstance(doc.get("graph"), dict) else None
+
+    wf = Workflow(
+        workspace_id=payload.workspace_id,
+        name=str(name)[:120],
+        description=(str(description) if description is not None else None),
+        body={
+            "steps": [s.model_dump(exclude_none=True) for s in validated],
+            "graph": graph,
+        },
+        created_by=user.id,
+    )
+    session.add(wf)
+    session.commit()
+    session.refresh(wf)
+    audit.record(
+        session, actor=user, action="workflow.imported",
+        target_kind="workflow", target_id=wf.id,
+        payload={"name": wf.name, "workspace_id": wf.workspace_id, "step_count": len(validated)},
+    )
+    session.commit()
+    return _to_read(wf)
 
 
 @router.post("/{workflow_id}/launch", response_model=Run, status_code=201)

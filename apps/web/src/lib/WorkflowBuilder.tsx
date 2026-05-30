@@ -16,7 +16,7 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import { Boxes, Cloud, CloudUpload, Crosshair, FilePlus2, FolderOpen, Rocket, Save, Search, Settings2, Trash2, X } from 'lucide-react';
+import { Boxes, Cloud, CloudUpload, Crosshair, Download, FilePlus2, FolderOpen, Rocket, Save, Search, Settings2, Trash2, Upload, X } from 'lucide-react';
 import { api } from './api';
 import { EmptyState } from './EmptyState';
 import { useConfirm } from './Confirm';
@@ -209,6 +209,7 @@ function WorkflowBuilderInner() {
   const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(null);
   const [cloudList, setCloudList] = useState<SavedWorkflow[]>([]);
   const [showCloudMenu, setShowCloudMenu] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<WfNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -704,6 +705,15 @@ function WorkflowBuilderInner() {
                 onSave={() => { setShowCloudMenu(false); cloudSave(false); }}
                 onSaveAsNew={() => { setShowCloudMenu(false); cloudSave(true); }}
                 onDelete={() => { setShowCloudMenu(false); cloudDelete(); }}
+                onExport={() => {
+                  if (!currentWorkflowId) return;
+                  setShowCloudMenu(false);
+                  // The endpoint returns a `Content-Disposition: attachment`
+                  // YAML; a plain anchor + click triggers the file save without
+                  // a fetch/blob dance. Same pattern reports use.
+                  window.open(api.workflowExportUrl(currentWorkflowId, 'yaml'), '_blank');
+                }}
+                onImport={() => { setShowCloudMenu(false); setShowImport(true); }}
               />
             )}
           </div>
@@ -745,6 +755,20 @@ function WorkflowBuilderInner() {
           nodes={nodes}
         />
       </div>
+      {showImport && (
+        <ImportYamlModal
+          workspaceId={workspaceId}
+          onClose={() => setShowImport(false)}
+          onImported={async (wf) => {
+            setShowImport(false);
+            try {
+              const full = await api.workflow(wf.id);
+              hydrateFromServer(full);
+            } catch (e) { toast.fromError(e, 'Load after import failed'); }
+            refreshCloudList();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -755,6 +779,7 @@ function WorkflowBuilderInner() {
 
 function CloudWorkflowMenu({
   workflows, currentWorkflowId, onClose, onLoad, onSave, onSaveAsNew, onDelete,
+  onExport, onImport,
 }: {
   workflows: SavedWorkflow[];
   currentWorkflowId: string | null;
@@ -763,6 +788,8 @@ function CloudWorkflowMenu({
   onSave: () => void;
   onSaveAsNew: () => void;
   onDelete: () => void;
+  onExport: () => void;
+  onImport: () => void;
 }) {
   return (
     <div className="wf-saved-menu" onClick={(e) => e.stopPropagation()}>
@@ -803,6 +830,21 @@ function CloudWorkflowMenu({
             <Trash2 size={12} /> Delete
           </button>
         )}
+      </div>
+      <div className="wf-cloud-actions" style={{ borderTop: 0, paddingTop: 0 }}>
+        <button
+          type="button"
+          className="btn small"
+          onClick={onExport}
+          disabled={!currentWorkflowId}
+          title={currentWorkflowId ? 'Download this workflow as YAML' : 'Save first, then export'}
+        >
+          <Download size={12} /> Export YAML
+        </button>
+        <button type="button" className="btn small" onClick={onImport}
+                title="Paste a workflow YAML to import">
+          <Upload size={12} /> Import YAML
+        </button>
       </div>
     </div>
   );
@@ -1142,5 +1184,99 @@ function Inspector({
         )}
       </div>
     </aside>
+  );
+}
+
+/* ============================================================================
+ * Import YAML modal
+ * ========================================================================== */
+
+function ImportYamlModal({
+  workspaceId, onClose, onImported,
+}: {
+  workspaceId: string | null;
+  onClose: () => void;
+  onImported: (wf: SavedWorkflow) => void;
+}) {
+  const toast = useToast();
+  const [text, setText] = useState('');
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const importNow = async () => {
+    if (!workspaceId) {
+      toast.warn('Pick a workspace', 'Select a workspace in the toolbar first.');
+      return;
+    }
+    const yamlText = text.trim();
+    if (!yamlText) return;
+    setBusy(true);
+    try {
+      const wf = await api.importWorkflow({
+        workspace_id: workspaceId, yaml: yamlText,
+        name: name.trim() || undefined,
+      });
+      toast.success('Workflow imported', wf.name);
+      onImported(wf);
+    } catch (e) {
+      toast.fromError(e, 'Import failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onFileChosen = async (file: File) => {
+    try {
+      const buf = await file.text();
+      setText(buf);
+      if (!name) setName(file.name.replace(/\.ya?ml$|\.json$/i, ''));
+    } catch (e) {
+      toast.fromError(e, 'Could not read file');
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ width: 'min(640px, calc(100vw - 36px))', display: 'grid', gap: 10 }}
+           onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="modal-header">
+          <span className="row"><Upload size={14} color="#22d3ee" /> <strong>Import workflow YAML</strong></span>
+          <button className="icon-btn" onClick={onClose} type="button" aria-label="Close"><X size={14} /></button>
+        </div>
+        <p className="muted small">
+          Paste a YAML document exported from <code>/api/workflows/&#123;id&#125;/export</code>,
+          or upload a <code>.yaml</code> file. The server validates each step's tool against the
+          registry before saving.
+        </p>
+        <input
+          className="input"
+          placeholder="Override name (optional)"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={120}
+        />
+        <input
+          type="file"
+          accept=".yaml,.yml,.json,.txt"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) onFileChosen(file);
+          }}
+        />
+        <textarea
+          className="input wf-argv-input"
+          rows={14}
+          placeholder={"name: My passive sweep\nsteps:\n  - tool: subfinder\n  - tool: dnsx\n    argv_extra:\n      - -l\n      - \"{{upstream.domain_list.merged_path}}\"\n"}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <div className="modal-actions">
+          <button className="btn small" type="button" onClick={onClose}>Cancel</button>
+          <button className="btn" type="button" onClick={importNow} disabled={!text.trim() || busy}>
+            <Upload size={14} /> {busy ? 'Importing…' : 'Import'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
