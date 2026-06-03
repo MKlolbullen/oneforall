@@ -8,7 +8,7 @@ from sqlmodel import Session as SQLSession
 from app.core.config import get_settings
 from app.db import engine, get_session
 from app.models import Artifact, Asset, Finding, Role, Run, RunEvent, RunStatus, RunStep, Target, User, now_utc
-from app.schemas import AdHocRunCreate, RunCreate
+from app.schemas import AdHocRunCreate, RunCreate, RunRerunPayload
 from app.services import audit
 from app.services.auth import current_user, require_role
 from app.services.events import event_bus
@@ -270,13 +270,24 @@ async def cancel_run(
 @router.post("/{run_id}/rerun", response_model=Run, status_code=201)
 async def rerun_run(
     run_id: str,
+    payload: RunRerunPayload | None = None,
     session: Session = Depends(get_session),
     user: User = Depends(require_role(Role.operator)),
 ) -> Run:
-    """Clone an existing run and queue a new one with the same target/profile/
-    params. Useful for "do that again now" loops while iterating. The
-    workspace + target + scope checks all rerun, so a target that lost its
-    `active_allowed` since the original run will refuse here too."""
+    """Clone an existing run and queue a fresh one against the same target.
+
+    V7 fix: `manual_approval` is NEVER inherited from the source run's
+    config_snapshot. High-risk reruns require the requester to re-supply
+    consent in the optional body `{"params": {"manual_approval": true}}`.
+    Low / medium risk reruns work without a body. Other params (scan
+    options, etc.) are still inherited and may be overridden through the
+    same body.
+
+    V8 fix: ad-hoc reruns (source.profile_id == "adhoc") replay the source
+    run's `config_snapshot.profile_inline` instead of looking up a YAML
+    file that doesn't exist. Workflow-Builder runs and Tool-Catalog
+    quick-tests rerun cleanly now.
+    """
     source = session.get(Run, run_id)
     if not source:
         raise HTTPException(status_code=404, detail="Run not found")
@@ -286,29 +297,85 @@ async def rerun_run(
         raise HTTPException(status_code=410, detail="Original target was deleted; cannot rerun")
 
     registry = get_registry()
+    source_snapshot = source.config_snapshot or {}
+    profile_inline = source_snapshot.get("profile_inline")
+    is_adhoc = source.profile_id == "adhoc" and isinstance(profile_inline, dict)
+
     try:
-        profile = registry.get_profile(source.profile_id)
+        # V8: replay the inline body for ad-hoc reruns; fall through to
+        # the YAML registry for named-profile reruns.
+        profile = profile_inline if is_adhoc else registry.get_profile(source.profile_id)
         risk = registry.profile_risk(profile)
-        params = (source.config_snapshot or {}).get("params", {}) or {}
-        manual_approval = bool(params.get("manual_approval", False))
-        enforce_target_scope(target, risk, manual_approval=manual_approval)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    # V7: build the effective params for the rerun. Inherit non-consent
+    # fields from the source, then overlay the rerun body. Importantly,
+    # `manual_approval` is dropped from the inherited set so the source
+    # run's consent cannot resurrect itself; it must be re-supplied here.
+    inherited = {
+        k: v for k, v in (source_snapshot.get("params") or {}).items()
+        if k != "manual_approval"
+    }
+    rerun_params = (payload.params if payload else {}) or {}
+    effective_params = {**inherited, **rerun_params}
+    manual_approval = bool(effective_params.get("manual_approval", False))
+
+    try:
+        enforce_target_scope(target, risk, manual_approval=manual_approval)
     except ScopeError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     settings = get_settings()
     if settings.live_execution_enabled and settings.block_live_runs_on_missing_tools:
-        missing = unavailable_profile_tools(registry, source.profile_id)
-        if missing:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "message": "Live rerun blocked because required tool executables are missing or broken in the runner image.",
-                    "profile_id": source.profile_id,
-                    "missing_tools": [item.model_dump() for item in missing],
-                },
-            )
+        if is_adhoc:
+            # Same availability sweep create_adhoc_run runs — iterate the
+            # inline step list because there's no profile_id to lookup.
+            missing: list[dict[str, Any]] = []
+            seen: set[str] = set()
+            for step in (profile.get("steps") or []):
+                tool_id = step.get("tool")
+                if not tool_id or tool_id in seen:
+                    continue
+                seen.add(tool_id)
+                try:
+                    avail = check_tool_availability(registry.get_tool(tool_id))
+                except KeyError:
+                    continue
+                if not avail.available:
+                    missing.append(avail.model_dump())
+            if missing:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "message": "Live rerun blocked because required tool executables are missing or broken in the runner image.",
+                        "profile_id": "adhoc", "missing_tools": missing,
+                    },
+                )
+        else:
+            named_missing = unavailable_profile_tools(registry, source.profile_id)
+            if named_missing:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "message": "Live rerun blocked because required tool executables are missing or broken in the runner image.",
+                        "profile_id": source.profile_id,
+                        "missing_tools": [item.model_dump() for item in named_missing],
+                    },
+                )
+
+    config_snapshot = {
+        "platform_config": load_platform_config(),
+        "profile": profile,
+        "target_value": target.value,
+        "target_type": target.type,
+        "params": {"target": target.value, **effective_params},
+        "rerun_of": source.id,
+    }
+    if is_adhoc:
+        # Signal to the runner that it should use the inline profile rather
+        # than re-reading the YAML registry (mirrors create_adhoc_run).
+        config_snapshot["profile_inline"] = profile
 
     run = Run(
         workspace_id=source.workspace_id,
@@ -316,14 +383,7 @@ async def rerun_run(
         profile_id=source.profile_id,
         requested_by=user.username,
         risk=risk,
-        config_snapshot={
-            "platform_config": load_platform_config(),
-            "profile": profile,
-            "target_value": target.value,
-            "target_type": target.type,
-            "params": {"target": target.value, **params},
-            "rerun_of": source.id,
-        },
+        config_snapshot=config_snapshot,
     )
     session.add(run)
     session.commit()
@@ -332,7 +392,10 @@ async def rerun_run(
     audit.record(
         session, actor=user, action="run.rerun",
         target_kind="run", target_id=run.id,
-        payload={"source_run_id": source.id, "profile_id": run.profile_id},
+        payload={
+            "source_run_id": source.id, "profile_id": run.profile_id,
+            "manual_approval": manual_approval, "is_adhoc": is_adhoc,
+        },
     )
     session.commit()
 

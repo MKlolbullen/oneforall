@@ -43,6 +43,17 @@ class RunCreate(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
+class RunRerunPayload(BaseModel):
+    """Optional body for POST /api/runs/{id}/rerun.
+
+    `params` overrides the inherited params from the source run. Per the V7
+    fix, `manual_approval` is NEVER inherited from `source.config_snapshot`
+    — the requester must re-supply it here for high-risk reruns. Sending no
+    body at all is fine for low / medium risk reruns.
+    """
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
 class AdHocStep(BaseModel):
     """One step inside an ad-hoc workflow.
 

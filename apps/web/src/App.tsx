@@ -509,6 +509,29 @@ function RunConsoleInner({ run, onChanged }: { run: Run; onChanged?: () => void 
       onChanged?.();
       toast.success('Re-run queued', fresh.id);
     } catch (error) {
+      // Backend V7 fix: high-risk reruns now require fresh manual_approval
+      // instead of inheriting it from the source run's config_snapshot. A
+      // 403 with "manual_approval" in the body is the documented signal.
+      // Catch it and prompt the operator before resubmitting with consent.
+      const message = error instanceof Error ? error.message : String(error);
+      if (/\b403\b/.test(message) && /manual_approval/i.test(message)) {
+        const ok = await confirm({
+          title: 'High-risk re-run needs fresh consent',
+          body: 'The original run was approved manually. The platform no longer inherits that approval. Approve this re-run now?',
+          confirmLabel: 'Approve & re-run',
+          cancelLabel: 'Cancel',
+          destructive: true,
+        });
+        if (!ok) return;
+        try {
+          const fresh = await api.rerun(run.id, { manual_approval: true });
+          onChanged?.();
+          toast.success('Re-run queued', fresh.id);
+        } catch (retryErr) {
+          toast.fromError(retryErr, 'Re-run failed');
+        }
+        return;
+      }
       toast.fromError(error, 'Re-run failed');
     }
   };

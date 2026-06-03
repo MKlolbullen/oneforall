@@ -1,19 +1,18 @@
-"""Proof-of-concept reproductions for ROE / scope-enforcement vulnerabilities.
+"""Regression tests for ROE / scope-enforcement vulnerabilities.
 
-Each test in this file documents one confirmed gap in the current scope
-enforcement (apps/api/app/services/scope.py + how it's called in
-apps/api/app/api/routes/runs.py). The test BODY itself is the PoC:
+These started as proofs-of-concept asserting the unsafe behaviour (PoC
+mode); the same file has been re-tightened so each test now asserts the
+SAFE behaviour after the V1 / V2 / V3 / V7 / V8 fixes shipped.
 
-  1. It demonstrates the unsafe behaviour against the live code.
-  2. It shows what the proposed ROE engine in apps/api/app/services/
-     scope_engine.py would have decided instead.
+  - V1, V2, V3 fixes live in `apps/api/app/services/scope.py`.
+  - V7, V8 fixes live in `apps/api/app/api/routes/runs.py:rerun_run`.
 
-Every PoC here passes today; after wiring `enforce_scope_before_run` from
-`run_scope_guard.py` into runs.py, the "current behaviour" half of each test
-should flip to denied / 403 — i.e. these PoCs become regression tests that
-prove the fix.
+V4, V5, V6, V9 remain as documented gaps the ROE engine closes; their
+tests still pass because they exercise the engine directly and don't
+depend on the platform wiring it in.
 
-See `docs/SECURITY_ADVISORY_ROE_SCOPE.md` for the written advisory.
+See `docs/SECURITY_ADVISORY_ROE_SCOPE.md` for the written advisory and
+fix references.
 """
 from __future__ import annotations
 
@@ -90,18 +89,19 @@ def test_poc_v1_block_private_ranges_is_a_silent_no_op(_common_env, monkeypatch)
     target = Target(workspace_id="ws", value="10.10.50.5", type="ip",
                     in_scope=True, passive_allowed=True, active_allowed=True)
 
-    # CURRENT BEHAVIOUR — scope allows the action. This is the vulnerability.
-    # No ScopeError is raised even though the operator expressed intent to
-    # block private ranges in the policy.
-    scope_mod.enforce_target_scope(target, RiskLevel.low_active)
-    # (no exception == permissive == vuln)
+    # FIXED BEHAVIOUR — enforce_target_scope now reads
+    # `block_private_ranges_by_default` and refuses RFC1918 / loopback /
+    # link-local / ULA targets when it's enabled. Without the fix the test
+    # was: `scope_mod.enforce_target_scope(target, RiskLevel.low_active)`
+    # returning silently.
+    with pytest.raises(scope_mod.ScopeError) as excinfo:
+        scope_mod.enforce_target_scope(target, RiskLevel.low_active)
+    assert "private" in str(excinfo.value).lower()
 
-    # WHAT THE ROE ENGINE WOULD HAVE DONE — deny via denied.cidrs.
-    # An operator opting into "block private ranges" should land in a
-    # policy like this one. The engine correctly denies.
+    # The ROE engine reaches the same conclusion via denied.cidrs.
     from app.services.scope_engine import ScopeAction, ScopeEngine
     engine = ScopeEngine({
-        "allowed": {"cidrs": ["0.0.0.0/0"]},  # everything external
+        "allowed": {"cidrs": ["0.0.0.0/0"]},
         "denied": {"cidrs": ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]},
     })
     decision = engine.evaluate_action(ScopeAction(target="10.10.50.5", risk="low_active"))
@@ -143,14 +143,18 @@ def test_poc_v2_cidr_pattern_in_out_of_scope_is_silently_ignored(_common_env, mo
     target = Target(workspace_id="ws", value="10.10.50.5", type="ip",
                     in_scope=True, passive_allowed=True, active_allowed=True)
 
-    # CURRENT BEHAVIOUR — vulnerable: scope permits the action.
-    scope_mod.enforce_target_scope(target, RiskLevel.low_active)
+    # FIXED BEHAVIOUR — `_matches_any` now recognises CIDR-shaped patterns
+    # and uses `ipaddress.ip_network` for matching. The IP target lands
+    # inside the configured /24 deny block and scope refuses it.
+    with pytest.raises(scope_mod.ScopeError) as excinfo:
+        scope_mod.enforce_target_scope(target, RiskLevel.low_active)
+    assert "10.10.50.0/24" in str(excinfo.value)
 
-    # WHAT THE ROE ENGINE WOULD HAVE DONE — explicit CIDR deny.
+    # The ROE engine reaches the same decision via denied.cidrs.
     from app.services.scope_engine import ScopeAction, ScopeEngine
     engine = ScopeEngine({
-        "allowed": {"cidrs": ["10.0.0.0/8"]},  # lab range
-        "denied": {"cidrs": ["10.10.50.0/24"]},  # production subnet
+        "allowed": {"cidrs": ["10.0.0.0/8"]},
+        "denied": {"cidrs": ["10.10.50.0/24"]},
     })
     decision = engine.evaluate_action(ScopeAction(target="10.10.50.5", risk="low_active"))
     assert decision.decision == "deny"
@@ -194,22 +198,25 @@ def test_poc_v3_wildcard_only_matches_subdomain_not_apex(_common_env, monkeypatc
     target = Target(workspace_id="ws", value="corp.example.com", type="domain",
                     in_scope=True, passive_allowed=True, active_allowed=True)
 
-    # CURRENT BEHAVIOUR — apex slips past the wildcard, vulnerable.
-    scope_mod.enforce_target_scope(target, RiskLevel.low_active)
+    # FIXED BEHAVIOUR — the platform's `_matches_any` now treats a `*.x.y`
+    # pattern as covering the apex `x.y`. Operators get the deny they
+    # intuitively expected without having to list both forms.
+    with pytest.raises(scope_mod.ScopeError) as excinfo:
+        scope_mod.enforce_target_scope(target, RiskLevel.low_active)
+    assert "*.corp.example.com" in str(excinfo.value)
 
-    # Verifying the gap exists in the ROE engine too — useful so the fix
-    # for both reaches the same matcher rules at the same time.
+    # The ROE engine's matcher still has the older behaviour; folding the
+    # same apex rule into the engine is filed as a separate item in the
+    # advisory but is non-blocking because the platform layer now denies.
     from app.services.scope_engine import ScopeAction, ScopeEngine
     engine = ScopeEngine({
         "allowed": {"domains": ["example.com", "*.example.com"]},
         "denied": {"domains": ["*.corp.example.com"]},
     })
     decision = engine.evaluate_action(ScopeAction(target="corp.example.com"))
-    # The ROE engine also lets the apex through (per its current matcher).
-    # The proposed fix needs to recognise *.x.y as covering x.y.
-    assert decision.decision != "deny", (
-        "PoC stops being valid once the matcher is fixed in BOTH layers."
-    )
+    # Documentation of the remaining gap in the engine — when the engine
+    # learns the same apex rule, this assertion should flip too.
+    assert decision.decision != "deny"
 
 
 def test_poc_v4_no_port_allowlist_at_scope_layer(_common_env, monkeypatch):
@@ -409,23 +416,23 @@ def test_poc_v7_rerun_inherits_stale_manual_approval(stack):
     _wait_completed(client, headers, original_id)
 
     # Step 2: rerun WITHOUT providing manual_approval. The rerun endpoint
-    # does not accept a body at all, so an operator has no way to
-    # express fresh consent. The platform allows it anyway — silently
-    # inheriting the source run's manual_approval=True from
-    # config_snapshot.params.
-    rerun = client.post(f"/api/runs/{original_id}/rerun", headers=headers)
-
-    # CURRENT BEHAVIOUR — vulnerable: a 201 is returned, the rerun is
-    # queued. This is the bug.
-    assert rerun.status_code == 201, (
-        f"PoC stops reproducing once the platform starts requiring fresh "
-        f"manual_approval on rerun. Got: {rerun.status_code} {rerun.text}"
+    # now refuses high-risk reruns that don't re-supply consent. The
+    # source run's manual_approval is no longer inherited.
+    rerun_no_consent = client.post(f"/api/runs/{original_id}/rerun", headers=headers)
+    assert rerun_no_consent.status_code == 403, (
+        f"V7 regression — high-risk rerun without fresh manual_approval must 403. "
+        f"Got: {rerun_no_consent.status_code} {rerun_no_consent.text}"
     )
-    # The rerun row carries the inherited consent into its
-    # config_snapshot.params, persisting the stale approval in the audit
-    # trail (the auditor sees a high-risk run with no contemporaneous
-    # approval action, because there isn't one).
-    rerun_id = rerun.json()["id"]
+    assert "manual_approval" in rerun_no_consent.text.lower()
+
+    # Step 3: same rerun WITH fresh consent in the body succeeds.
+    rerun_with_consent = client.post(
+        f"/api/runs/{original_id}/rerun",
+        headers=headers,
+        json={"params": {"manual_approval": True}},
+    )
+    assert rerun_with_consent.status_code == 201, rerun_with_consent.text
+    rerun_id = rerun_with_consent.json()["id"]
     _wait_completed(client, headers, rerun_id)
     final = client.get(f"/api/runs/{rerun_id}", headers=headers).json()
     assert final["status"] == "completed"
@@ -473,15 +480,19 @@ def test_poc_v8_rerun_breaks_for_adhoc_and_workflow_runs(stack):
     original_id = original.json()["id"]
     _wait_completed(client, headers, original_id)
 
-    # CURRENT BEHAVIOUR — vulnerable: rerun crashes with 404 because the
-    # "adhoc" profile_id isn't an on-disk YAML.
+    # FIXED BEHAVIOUR — rerun_run honours `config_snapshot.profile_inline`
+    # for ad-hoc replays. The Re-run button now works for Workflow Builder
+    # runs, Tool Catalog quick-tests, and saved-workflow launches.
     rerun = client.post(f"/api/runs/{original_id}/rerun", headers=headers)
-    assert rerun.status_code == 404, (
-        f"PoC stops reproducing once rerun_run learns to honour "
-        f"config_snapshot.profile_inline for ad-hoc replays. "
+    assert rerun.status_code == 201, (
+        f"V8 regression — ad-hoc rerun must succeed. "
         f"Got: {rerun.status_code} {rerun.text}"
     )
-    assert "Unknown profile" in rerun.json()["detail"]
+    fresh = rerun.json()
+    assert fresh["profile_id"] == "adhoc"
+    _wait_completed(client, headers, fresh["id"])
+    final = client.get(f"/api/runs/{fresh['id']}", headers=headers).json()
+    assert final["status"] == "completed"
 
 
 def test_poc_v9_engine_decision_for_high_risk_without_approval_is_require_approval(_common_env):

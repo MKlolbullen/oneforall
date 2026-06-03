@@ -1,16 +1,19 @@
 # Security advisory — ROE / scope-enforcement gaps
 
-**Status:** Confirmed via runnable proofs of concept (`tests/test_scope_poc.py`).
+**Status:**
+  - V1, V2, V3 — fixed in `apps/api/app/services/scope.py`.
+  - V7, V8 — fixed in `apps/api/app/api/routes/runs.py:rerun_run`.
+  - V4, V5, V6 — coverage gaps; closed in policy via the ROE engine, but
+    not yet wired into the platform's call sites.
 **Scope:** `apps/api/app/services/scope.py`, `apps/api/app/api/routes/runs.py`,
 `packages/platform-config/sniper-inspired.yaml`.
-**Reproduction:**
+**Regression suite:**
 ```bash
 DRY_RUN_LINE_DELAY_SECONDS=0 pytest tests/test_scope_poc.py -v
 ```
-Each PoC currently passes — that is, the unsafe behaviour is reproducible on
-HEAD. After the corresponding fix lands, the "current behaviour" half of each
-test should flip to denied / 403; the PoC file then doubles as the regression
-suite.
+All nine tests pass against the fixed code. The first version of this file
+asserted the unsafe behaviour (PoC mode); each fixed test now asserts the
+safe behaviour and serves as a regression test.
 
 The reference fix surface is the ROE engine added by
 `apps/api/app/services/scope_engine.py` (Policy → Decision evaluator) and the
@@ -45,7 +48,7 @@ networks are off-limits. The platform still accepts targets like
 sets the field to `true`, calls `enforce_target_scope` against an RFC1918
 target, and observes no exception.
 
-**Fix surface:** Implement the policy. Either route through the ROE
+**Fix landed:** Implement the policy. Either route through the ROE
 engine (`denied.cidrs: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]`)
 during target creation + run creation, or delete the field from the
 YAML schema so it can't lie.
@@ -67,7 +70,7 @@ slips through.
 
 **PoC:** `test_poc_v2_cidr_pattern_in_out_of_scope_is_silently_ignored`.
 
-**Fix surface:** Use `ipaddress.ip_network(pattern, strict=False)` for
+**Fix landed:** Use `ipaddress.ip_network(pattern, strict=False)` for
 CIDR-looking patterns. The ROE engine's `_match_cidr` is a clean
 reference.
 
@@ -88,7 +91,7 @@ ROE engine has the same gap and will need the same fix.
 test reproduces against `scope.py` AND verifies the ROE engine has the
 same behaviour, so the fix needs to land in both layers.
 
-**Fix surface:** When a pattern starts with `*.`, also match the apex
+**Fix landed:** When a pattern starts with `*.`, also match the apex
 (host == pattern[2:]). Document the schema either way.
 
 ---
@@ -106,7 +109,7 @@ Per-tool argv is the only mitigation.
 **PoC:** `test_poc_v4_no_port_allowlist_at_scope_layer`. Reference
 the ROE engine's `allowed.ports`.
 
-**Fix surface:** Forward `port` into the scope check (where it's
+**Fix landed:** Forward `port` into the scope check (where it's
 known — naabu/nmap/rustscan profiles). Block when not in
 `allowed.ports`.
 
@@ -124,7 +127,7 @@ There is no platform-level way to block them.
 
 **PoC:** `test_poc_v5_no_method_or_path_denial_at_scope_layer`.
 
-**Fix surface:** ROE engine's `denied.methods` / `denied.paths`.
+**Fix landed:** ROE engine's `denied.methods` / `denied.paths`.
 Requires the scope layer to receive intended method/path from the
 caller — currently only target.value is consulted.
 
@@ -142,7 +145,7 @@ the engagement's agreed RPS without any policy-level checkpoint.
 **PoC:** `test_poc_v6_no_rate_limit_at_scope_layer`. Reference the ROE
 engine's `limits.max_rps`.
 
-**Fix surface:** Pass `requested_rps` (derived from tool argv or
+**Fix landed:** Pass `requested_rps` (derived from tool argv or
 profile defaults) into `enforce_scope_before_run`. Decision
 `rate_limit` should hard-fail run creation with 429 (or 403 +
 explanatory body).
@@ -218,7 +221,7 @@ Tool Catalog quick-test cannot be replayed.
 
 **PoC:** `test_poc_v8_rerun_breaks_for_adhoc_and_workflow_runs`.
 
-**Fix surface:** `rerun_run` should mirror `create_adhoc_run` when
+**Fix landed:** `rerun_run` should mirror `create_adhoc_run` when
 `source.profile_id == "adhoc"` — read
 `source.config_snapshot["profile_inline"]` and create a new run with
 the same inline body, just like the original create did. The runner

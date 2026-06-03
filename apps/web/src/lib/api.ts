@@ -178,7 +178,15 @@ export const api = {
     workspace_id: string;
   }>('/api/targets/bulk', { method: 'POST', body: JSON.stringify(payload) }),
 
-  rerun: (runId: string) => request<Run>(`/api/runs/${runId}/rerun`, { method: 'POST' }),
+  rerun: (runId: string, params?: Record<string, unknown>) =>
+    request<Run>(`/api/runs/${runId}/rerun`, {
+      method: 'POST',
+      // Body is optional; when supplied, the backend uses `params` (plus
+      // inherited non-consent params from the source run). Pass
+      // `{ manual_approval: true }` to provide fresh consent on a
+      // high-risk rerun.
+      body: params ? JSON.stringify({ params }) : undefined,
+    }),
 
   // Loot — curated high-signal layer (secrets, takeovers, critical/high vulns).
   // See AGENTS.md and apps/api/app/services/loot.py.
