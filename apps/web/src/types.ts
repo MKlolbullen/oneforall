@@ -439,6 +439,30 @@ export type SearchWebhookHit = { id: string; name: string; workspace_id: string;
 export type SearchToolHit = { id: string; name: string; category: string; risk: string; description: string };
 export type SearchProfileHit = { id: string; name: string; risk: string; description: string; step_count: number };
 
+export type ScopeEvaluateRequest = {
+  target: string;
+  tool_id?: string;
+  risk?: string;
+  method?: string;
+  port?: number;
+  path?: string;
+  requested_rps?: number;
+  manual_approval?: boolean;
+};
+
+export type ScopeDecision =
+  | 'allow' | 'deny' | 'require_approval' | 'rate_limit' | 'no-engine' | string;
+
+export type ScopeEvaluateResponse = {
+  decision: ScopeDecision;
+  reason?: string | null;
+  matched_rule?: string | null;
+  normalized_target?: string | null;
+  risk?: string | null;
+  trace?: string[];
+  effective_limits?: Record<string, unknown>;
+};
+
 export type SearchResults = {
   q: string;
   workspaces: SearchWorkspaceHit[];

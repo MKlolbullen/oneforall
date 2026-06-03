@@ -21,6 +21,7 @@ import { api } from './api';
 import { EmptyState } from './EmptyState';
 import { useConfirm } from './Confirm';
 import { useNav } from './nav';
+import { ScopePreflight, useScopePreflight } from './ScopePreflight';
 import { useToast } from './Toast';
 import type { AdHocStep, Profile, SavedWorkflow, Target, Tool, Workspace } from '../types';
 
@@ -621,6 +622,16 @@ function WorkflowBuilderInner() {
 
   const toolNodeCount = nodes.filter((n) => n.data.kind === 'tool').length;
   const target = targets.find((t) => t.id === targetId) ?? null;
+  // Preflight against the ROE engine. Use the FIRST tool node as the
+  // representative tool_id — that's enough for the engine to flag per-tool
+  // approval requirements; the run-creation path then iterates every step.
+  const firstToolNode = nodes.find((n) => n.data.kind === 'tool');
+  const firstToolId = firstToolNode?.data.kind === 'tool' ? firstToolNode.data.toolId : undefined;
+  const preflight = useScopePreflight(target && toolNodeCount > 0 ? {
+    target: target.value,
+    risk: target.active_allowed ? 'low_active' : 'passive',
+    tool_id: firstToolId,
+  } : null);
 
   return (
     <div className="grid wf-grid">
@@ -662,6 +673,13 @@ function WorkflowBuilderInner() {
           </select>
           {target && !target.active_allowed && (
             <span className="badge passive" title="Active scans require target authorization on the Targets page.">passive-only target</span>
+          )}
+          {target && toolNodeCount > 0 && (
+            <ScopePreflight action={{
+              target: target.value,
+              risk: target.active_allowed ? 'low_active' : 'passive',
+              tool_id: firstToolId,
+            }} />
           )}
           {currentWorkflowId && (
             <span className="badge ok" title={`Loaded server workflow ${currentWorkflowId}`}>
@@ -717,8 +735,14 @@ function WorkflowBuilderInner() {
               />
             )}
           </div>
-          <button className="btn" type="button" onClick={launch} disabled={busy || !targetId || toolNodeCount === 0}>
-            <Rocket size={13} /> {busy ? 'Launching…' : 'Launch'}
+          <button
+            className="btn"
+            type="button"
+            onClick={launch}
+            disabled={busy || !targetId || toolNodeCount === 0 || preflight.blocked}
+            title={preflight.blocked ? `Blocked by ROE policy: ${preflight.state?.reason ?? ''}` : ''}
+          >
+            <Rocket size={13} /> {busy ? 'Launching…' : preflight.blocked ? 'Blocked by ROE' : 'Launch'}
           </button>
         </div>
       </div>

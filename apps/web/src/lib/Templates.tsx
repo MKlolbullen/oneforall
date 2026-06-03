@@ -3,6 +3,7 @@ import { CheckCircle2, ChevronRight, Crosshair, Edit3, FileText, Network, Rocket
 import { api } from './api';
 import { EmptyState } from './EmptyState';
 import { useNav } from './nav';
+import { ScopePreflight, useScopePreflight } from './ScopePreflight';
 import { useToast } from './Toast';
 import type { Profile, ProfileAvailability, SavedWorkflow, Target, Workspace } from '../types';
 
@@ -255,7 +256,15 @@ function LaunchPicker({
   const selected = targets.find((t) => t.id === targetId) ?? null;
   const targetReady = selected != null && (!needsActive || selected.active_allowed);
 
-  const launch = async () => {
+  // Use a stable param string for the preflight call so flipping
+  // unrelated state doesn't refire the debounced fetch.
+  const preflight = useScopePreflight(selected ? {
+    target: selected.value,
+    risk: profile.risk,
+    tool_id: profile.id,
+  } : null);
+
+  const launch = async (extraParams: Record<string, unknown> = {}) => {
     if (!selected || !targetReady) return;
     setBusy(true);
     try {
@@ -332,11 +341,32 @@ function LaunchPicker({
               <ShieldAlert size={12} /> Live mode: missing {check.missing_tools.slice(0, 3).join(', ')}{check.missing_tools.length > 3 ? '…' : ''}
             </p>
           )}
+          {selected && preflight.state && preflight.state.decision !== 'no-engine' && (
+            <div className="row" style={{ gap: 6, alignItems: 'center', marginTop: 4 }}>
+              <span className="muted small">ROE preflight:</span>
+              <ScopePreflight action={selected ? {
+                target: selected.value, risk: profile.risk, tool_id: profile.id,
+              } : null} />
+              {preflight.state.decision === 'deny' && preflight.state.reason && (
+                <small className="warning-text">— {preflight.state.reason}</small>
+              )}
+            </div>
+          )}
         </div>
         <div className="modal-actions">
           <button className="btn small" onClick={onClose} type="button">Cancel</button>
-          <button className="btn" onClick={launch} type="button" disabled={!targetReady || busy}>
-            {busy ? 'Queueing…' : <><Rocket size={14} /> Launch run</>}
+          <button
+            className="btn"
+            onClick={() => launch()}
+            type="button"
+            disabled={!targetReady || busy || preflight.blocked}
+            title={preflight.blocked ? `Blocked by ROE policy: ${preflight.state?.reason ?? ''}` : ''}
+          >
+            {busy ? 'Queueing…' : preflight.blocked ? (
+              <><Rocket size={14} /> Blocked by ROE</>
+            ) : (
+              <><Rocket size={14} /> Launch run</>
+            )}
           </button>
         </div>
       </div>
@@ -414,6 +444,14 @@ function WorkflowLaunchPicker({ workflow, onClose }: { workflow: SavedWorkflow; 
     [targets, filter],
   );
   const selected = targets.find((t) => t.id === targetId) ?? null;
+  // Use the first tool from the workflow's saved body as the preflight tool
+  // id — surfaces per-tool approval gates if any step's tool is listed.
+  const firstTool = (workflow.body?.steps ?? [])[0]?.tool;
+  const preflight = useScopePreflight(selected ? {
+    target: selected.value,
+    risk: 'low_active',  // workflows don't carry an explicit risk; use a midpoint
+    tool_id: firstTool,
+  } : null);
 
   const launch = async () => {
     if (!selected) return;
@@ -472,11 +510,32 @@ function WorkflowLaunchPicker({ workflow, onClose }: { workflow: SavedWorkflow; 
               </button>
             ))}
           </div>
+          {selected && preflight.state && preflight.state.decision !== 'no-engine' && (
+            <div className="row" style={{ gap: 6, alignItems: 'center', marginTop: 4 }}>
+              <span className="muted small">ROE preflight:</span>
+              <ScopePreflight action={{
+                target: selected.value, risk: 'low_active', tool_id: firstTool,
+              }} />
+              {preflight.state.decision === 'deny' && preflight.state.reason && (
+                <small className="warning-text">— {preflight.state.reason}</small>
+              )}
+            </div>
+          )}
         </div>
         <div className="modal-actions">
           <button className="btn small" onClick={onClose} type="button">Cancel</button>
-          <button className="btn" onClick={launch} type="button" disabled={!selected || busy}>
-            {busy ? 'Queueing…' : <><Rocket size={14} /> Launch run</>}
+          <button
+            className="btn"
+            onClick={launch}
+            type="button"
+            disabled={!selected || busy || preflight.blocked}
+            title={preflight.blocked ? `Blocked by ROE policy: ${preflight.state?.reason ?? ''}` : ''}
+          >
+            {busy ? 'Queueing…' : preflight.blocked ? (
+              <><Rocket size={14} /> Blocked by ROE</>
+            ) : (
+              <><Rocket size={14} /> Launch run</>
+            )}
           </button>
         </div>
       </div>

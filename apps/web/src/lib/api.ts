@@ -1,4 +1,4 @@
-import type { AdHocRunCreate, Advice, APIKeyPublic, Artifact, Asset, AuditPage, CreatedAPIKey, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, SavedWorkflow, SearchResults, Target, TargetSummary, TargetTech, Tool, ToolAvailability, UserPublic, Webhook, WebhookCreate, WebhookTestResult, WebhookUpdate, WhoAmI, WordlistInfo, WorkflowCreate, WorkflowUpdate, Workspace } from '../types';
+import type { AdHocRunCreate, Advice, APIKeyPublic, Artifact, Asset, AuditPage, CreatedAPIKey, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, SavedWorkflow, ScopeEvaluateRequest, ScopeEvaluateResponse, SearchResults, Target, TargetSummary, TargetTech, Tool, ToolAvailability, UserPublic, Webhook, WebhookCreate, WebhookTestResult, WebhookUpdate, WhoAmI, WordlistInfo, WorkflowCreate, WorkflowUpdate, Workspace } from '../types';
 
 import { getApiBaseUrl, getWsBaseUrl } from './runtimeConfig';
 
@@ -308,4 +308,13 @@ export const api = {
     if (opts.limit) p.set('limit', String(opts.limit));
     return request<SearchResults>(`/api/search?${p.toString()}`);
   },
+
+  // ROE engine preflight. Frontend launch UIs call this before posting an
+  // actual run so operators see the policy decision in-line. Returns
+  // `{decision: "no-engine"}` when no roe.yaml is configured — the UI
+  // hides the badge in that case.
+  scopeEvaluate: (payload: ScopeEvaluateRequest) =>
+    request<ScopeEvaluateResponse>('/api/scope/evaluate', {
+      method: 'POST', body: JSON.stringify(payload),
+    }),
 };
