@@ -3,8 +3,14 @@
 **Status:**
   - V1, V2, V3 — fixed in `apps/api/app/services/scope.py`.
   - V7, V8 — fixed in `apps/api/app/api/routes/runs.py:rerun_run`.
-  - V4, V5, V6 — coverage gaps; closed in policy via the ROE engine, but
-    not yet wired into the platform's call sites.
+  - V4, V5, V6 — ROE engine wired into every run-creation path via
+    `apps/api/app/services/roe_guard.py:enforce_profile_run`. The
+    engine-layer gates (per-tool approval, time window, allowed-domain /
+    -CIDR, denied domains/CIDRs) are effective when the operator drops
+    `packages/platform-config/roe.yaml` in (opt-in). Per-port / per-
+    method / per-path / per-RPS gates remain wired in the engine — they
+    fire wherever the caller passes those values to it (HTTP-capture
+    middleware or per-tool argv parser are the natural future points).
 **Scope:** `apps/api/app/services/scope.py`, `apps/api/app/api/routes/runs.py`,
 `packages/platform-config/sniper-inspired.yaml`.
 **Regression suite:**

@@ -17,6 +17,7 @@ from app.services.runner import execute_run
 from app.services.scope import ScopeError, enforce_target_scope
 from app.services.platform_config import load_platform_config
 from app.services import reports
+from app.services.roe_guard import enforce_profile_run
 from app.services.tool_availability import check_tool_availability, unavailable_profile_tools
 from app.services.tool_registry import get_registry
 
@@ -57,6 +58,15 @@ async def create_run(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ScopeError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    # ROE engine — opt-in via packages/platform-config/roe.yaml. No-ops
+    # silently when the policy file is absent.
+    enforce_profile_run(
+        target=target.value,
+        risk=risk.value if hasattr(risk, "value") else str(risk),
+        tools=[s.get("tool") for s in (profile.get("steps") or []) if isinstance(s, dict)],
+        manual_approval=manual_approval,
+    )
 
     settings = get_settings()
     if settings.live_execution_enabled and settings.block_live_runs_on_missing_tools:
@@ -151,6 +161,15 @@ async def create_adhoc_run(
         enforce_target_scope(target, risk, manual_approval=manual_approval)
     except ScopeError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    # ROE engine — same per-step iteration as create_run; covers per-tool
+    # approval requirements even for ad-hoc workflows.
+    enforce_profile_run(
+        target=target.value,
+        risk=risk.value if hasattr(risk, "value") else str(risk),
+        tools=[step.tool for step in payload.steps],
+        manual_approval=manual_approval,
+    )
 
     settings = get_settings()
     if settings.live_execution_enabled and settings.block_live_runs_on_missing_tools:
@@ -325,6 +344,17 @@ async def rerun_run(
         enforce_target_scope(target, risk, manual_approval=manual_approval)
     except ScopeError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    # ROE engine — re-evaluates the policy on every rerun, so a policy
+    # tightened since the original run (new per-tool approval entry, a
+    # CIDR moved to denied, etc.) catches the rerun even if the source
+    # was originally allowed.
+    enforce_profile_run(
+        target=target.value,
+        risk=risk.value if hasattr(risk, "value") else str(risk),
+        tools=[s.get("tool") for s in (profile.get("steps") or []) if isinstance(s, dict)],
+        manual_approval=manual_approval,
+    )
 
     settings = get_settings()
     if settings.live_execution_enabled and settings.block_live_runs_on_missing_tools:

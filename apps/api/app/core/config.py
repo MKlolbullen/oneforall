@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     platform_config_path: Path = Field(default=Path("../../packages/platform-config/sniper-inspired.yaml"))
     grep_patterns_path: Path = Field(default=Path("../../packages/patterns/sniper-grep-patterns.yaml"))
     wordlists_dir: Path = Field(default=Path("../../packages/wordlists"))
+    # ROE engine policy. If the file doesn't exist the engine guard
+    # no-ops, leaving the legacy target-level scope check as the only
+    # gate. Operators opt in by creating the file.
+    roe_policy_path: Path = Field(default=Path("../../packages/platform-config/roe.yaml"))
 
     tool_availability_cache_seconds: float = 15.0
     tool_availability_probe_timeout_seconds: float = 1.5

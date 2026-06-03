@@ -26,6 +26,7 @@ from app.services.events import event_bus
 from app.services.platform_config import load_platform_config
 from app.services.queue import enqueue_run
 from app.services.runner import execute_run
+from app.services.roe_guard import enforce_profile_run
 from app.services.scope import ScopeError, enforce_target_scope
 from app.services.tool_availability import check_tool_availability
 from app.services.tool_registry import get_registry
@@ -393,6 +394,15 @@ async def launch_workflow(
         enforce_target_scope(target, risk, manual_approval=manual_approval)
     except ScopeError as exc:
         raise HTTPException(403, str(exc)) from exc
+
+    # ROE engine — same per-tool / domain / risk evaluation as the other
+    # run-creation paths. Workflow steps already validated above.
+    enforce_profile_run(
+        target=target.value,
+        risk=risk.value if hasattr(risk, "value") else str(risk),
+        tools=[s.get("tool") for s in raw_steps if isinstance(s, dict)],
+        manual_approval=manual_approval,
+    )
 
     settings = get_settings()
     if settings.live_execution_enabled and settings.block_live_runs_on_missing_tools:
