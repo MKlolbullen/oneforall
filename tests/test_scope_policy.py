@@ -206,3 +206,139 @@ def test_put_then_get_roundtrip(stack):
     client.put("/api/scope/policy", headers=headers, json={"yaml": custom})
     r = client.get("/api/scope/policy", headers=headers).json()
     assert r["yaml"] == custom
+
+
+# ----- Structured form + render --------------------------------------------
+
+def test_render_endpoint_serialises_form_payload(stack):
+    """POST /api/scope/policy/render is the Form→YAML preview the editor
+    calls when the operator switches view modes. Pure transform, no
+    side effects, open to any authenticated user."""
+    client, headers, _ = stack
+    r = client.post("/api/scope/policy/render", headers=headers, json={
+        "allowed": {"domains": ["example.com", "*.example.com"], "ports": [80, 443]},
+        "denied": {"methods": ["delete", "trace"]},  # lower-case in -> upper-case out
+        "approval": {"require_for_risk": ["high_active"]},
+    })
+    assert r.status_code == 200
+    rendered = r.json()["yaml"]
+    # Methods are upper-cased to match how the engine reads policy
+    assert "- DELETE" in rendered
+    assert "- TRACE" in rendered
+    assert "allowed:" in rendered
+    # Empty subsections are dropped so the file stays minimal
+    assert "limits:" not in rendered
+
+
+def test_render_endpoint_drops_empty_sections(stack):
+    """A fully-empty form payload renders to an empty string — the editor
+    treats that as "delete the file" → engine disables."""
+    client, headers, _ = stack
+    r = client.post("/api/scope/policy/render", headers=headers, json={})
+    assert r.status_code == 200
+    assert r.json()["yaml"] == ""
+
+
+def test_put_structured_writes_file_and_engages_engine(stack):
+    """Saving via the structured PUT lands the same on-disk file the YAML
+    PUT would, busts the engine cache, and the next /scope/evaluate sees
+    the new rules."""
+    client, headers, _ = stack
+    r = client.put("/api/scope/policy/structured", headers=headers, json={
+        "allowed": {"domains": ["*.example.com", "example.com"]},
+        "denied": {"domains": ["admin.example.com"]},
+    })
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["enabled"] is True
+    assert body["parsed"]["denied"]["domains"] == ["admin.example.com"]
+
+    # The engine sees it.
+    post = client.post("/api/scope/evaluate", headers=headers, json={
+        "target": "admin.example.com", "risk": "passive",
+    }).json()
+    assert post["decision"] == "deny"
+    assert post["matched_rule"] == "denied.domains"
+
+    # Audit row carries `via: structured` so an auditor can tell which
+    # endpoint the change came through.
+    audit_body = client.get("/api/auth/audit", headers=headers).json()
+    update_row = next(e for e in audit_body["events"] if e["action"] == "scope.policy.updated")
+    assert update_row["payload"]["via"] == "structured"
+
+
+def test_put_structured_empty_disables_engine(stack):
+    """Empty form payload → empty render → file deleted → engine off.
+    Symmetric with the YAML PUT's empty-body semantics."""
+    client, headers, _ = stack
+    # First land a valid policy.
+    client.put("/api/scope/policy/structured", headers=headers, json={
+        "allowed": {"domains": ["example.com"]},
+    })
+    assert client.post("/api/scope/evaluate", headers=headers, json={
+        "target": "example.com", "risk": "passive",
+    }).json()["decision"] == "allow"
+    # Empty form payload → delete.
+    r = client.put("/api/scope/policy/structured", headers=headers, json={})
+    assert r.status_code == 200
+    assert r.json()["enabled"] is False
+    # Engine off now.
+    assert client.post("/api/scope/evaluate", headers=headers, json={
+        "target": "example.com", "risk": "passive",
+    }).json()["decision"] == "no-engine"
+
+
+def test_put_structured_requires_admin(stack):
+    """Form save is admin-only just like the YAML PUT."""
+    client, _, _ = stack
+    admin_token = client.post("/api/auth/login", json={
+        "username": "admin", "password": "admin-passw0rd",
+    }).json()["token"]
+    client.post("/api/auth/users",
+                headers={"Authorization": f"Bearer {admin_token}"},
+                json={"username": "op", "password": "op-secret-1", "role": "operator"})
+    op_token = client.post("/api/auth/login", json={
+        "username": "op", "password": "op-secret-1",
+    }).json()["token"]
+    r = client.put("/api/scope/policy/structured",
+                   headers={"Authorization": f"Bearer {op_token}"},
+                   json={"allowed": {"domains": ["x.com"]}})
+    assert r.status_code == 403
+    # But operators CAN preview via render.
+    r = client.post("/api/scope/policy/render",
+                    headers={"Authorization": f"Bearer {op_token}"},
+                    json={"allowed": {"domains": ["x.com"]}})
+    assert r.status_code == 200
+
+
+def test_structured_render_with_active_window(stack):
+    """The active scan window (start/end/timezone) lands as a nested mapping
+    in the rendered YAML so the engine's time-window check can read it."""
+    client, headers, _ = stack
+    r = client.post("/api/scope/policy/render", headers=headers, json={
+        "allowed": {"domains": ["x.com"]},
+        "limits": {
+            "max_rps": 5,
+            "active_scan_window": {"start": "22:00", "end": "05:00", "timezone": "UTC"},
+        },
+    })
+    rendered = r.json()["yaml"]
+    assert "active_scan_window:" in rendered
+    assert "start: '22:00'" in rendered or "start: \"22:00\"" in rendered
+    assert "max_rps: 5" in rendered
+
+
+def test_form_yaml_get_roundtrip(stack):
+    """Save via structured PUT → GET /policy returns parsed dict matching
+    what the form sent. Confirms the form-mode→disk→form-mode cycle is
+    lossless for the fields we model."""
+    client, headers, _ = stack
+    payload = {
+        "allowed": {"domains": ["example.com"], "ports": [80, 443]},
+        "approval": {"require_for_tools": ["subfinder"]},
+    }
+    client.put("/api/scope/policy/structured", headers=headers, json=payload)
+    parsed = client.get("/api/scope/policy", headers=headers).json()["parsed"]
+    assert parsed["allowed"]["domains"] == ["example.com"]
+    assert parsed["allowed"]["ports"] == [80, 443]
+    assert parsed["approval"]["require_for_tools"] == ["subfinder"]

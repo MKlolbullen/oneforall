@@ -470,6 +470,23 @@ export type ScopePolicyResponse = {
   parsed: Record<string, unknown>;
 };
 
+export type ScopeActiveWindow = {
+  start: string;
+  end: string;
+  timezone: string;
+};
+
+export type ScopePolicyStructured = {
+  allowed?: { domains?: string[]; cidrs?: string[]; ports?: number[] };
+  denied?: { domains?: string[]; cidrs?: string[]; methods?: string[]; paths?: string[] };
+  limits?: {
+    max_rps?: number | null;
+    max_hosts?: number | null;
+    active_scan_window?: ScopeActiveWindow | null;
+  } | null;
+  approval?: { require_for_risk?: string[]; require_for_tools?: string[] };
+};
+
 export type SearchResults = {
   q: string;
   workspaces: SearchWorkspaceHit[];

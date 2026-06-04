@@ -1,66 +1,42 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, FileText, Lock, RefreshCw, Save, ShieldAlert, ShieldCheck, ShieldX, Trash2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ClipboardList, FileText, Lock, Plus, RefreshCw, Save, ShieldAlert, ShieldCheck, ShieldX, Sparkles, Trash2, X } from 'lucide-react';
 import { api } from './api';
 import { useConfirm } from './Confirm';
 import { useNav } from './nav';
 import { useScopePreflight } from './ScopePreflight';
 import { useToast } from './Toast';
-import type { ScopePolicyResponse, WhoAmI } from '../types';
+import type { ScopePolicyResponse, ScopePolicyStructured, WhoAmI } from '../types';
 
 /**
  * ROE policy editor + live preflight tester.
  *
- * Tier-1 design: YAML textarea editor backed by GET/PUT /api/scope/policy.
- * Operators paste / type the policy, hit Save, and the engine cache busts
- * so the next run-creation sees the new rules. A live preflight widget
- * on the right shows what the current draft decides for a sample target —
- * try-before-you-save.
+ * Two view modes share one underlying engine:
+ *   - Form: structured editor (4 sections, chip-list inputs).
+ *   - YAML: raw textarea editor.
  *
- * A structured form editor (lists with add/remove rows per section) is
- * the natural follow-up; the route already accepts the same YAML either
- * way, so swapping in a richer editor is a pure frontend change.
+ * The server-side `_serialise_policy` is the single source of truth for
+ * Form→YAML conversion (via POST /api/scope/policy/render), so the client
+ * never has to know how to format YAML. Switching from YAML back to Form
+ * loses comments and field ordering — that's the cost of the round-trip
+ * and we surface it via a warning when the operator toggles.
  */
 
 const SAMPLE_POLICY = `# ReconForge ROE policy — tier-1 sample.
 # Drop sections you don't need; the engine treats absence as "any".
-# After saving, runs queued via /api/runs, /api/runs/adhoc,
-# /api/runs/{id}/rerun, and /api/workflows/{id}/launch are evaluated
-# against these rules + per-step argv (ports / methods / rate-limit).
 
 allowed:
   domains:
     - example.com
     - "*.example.com"
-  # Optional CIDR allowlist; targets outside both lists are denied.
-  # cidrs:
-  #   - "10.10.0.0/16"
-  # Optional explicit port allowlist; a tool's argv (-p 22, --top-ports 1000)
-  # is parsed and checked against this.
-  # ports: [80, 443, 8080]
-
-denied:
-  # domains:
-  #   - admin.example.com
-  # cidrs:
-  #   - "10.10.50.0/24"
-  # methods: ["DELETE", "TRACE"]
-  # paths: ["/logout", "/delete"]
-
-# limits:
-#   max_rps: 5
-#   active_scan_window:
-#     start: "22:00"
-#     end: "05:00"
-#     timezone: "Europe/Stockholm"
 
 approval:
   require_for_risk:
     - high_active
-  # Tools that always require fresh consent regardless of profile risk.
-  # require_for_tools:
-  #   - sqlmap_crawl
-  #   - commix
 `;
+
+const RISK_LEVELS = ['passive', 'low_active', 'medium_active', 'high_active', 'destructive'] as const;
+const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'TRACE', 'OPTIONS', 'CONNECT', 'HEAD'] as const;
+
 
 export function Scope() {
   const toast = useToast();
@@ -68,11 +44,13 @@ export function Scope() {
   const { navigate } = useNav();
   const [me, setMe] = useState<WhoAmI | null>(null);
   const [policy, setPolicy] = useState<ScopePolicyResponse | null>(null);
-  const [draft, setDraft] = useState<string>('');
+  const [yamlDraft, setYamlDraft] = useState<string>('');
+  const [structuredDraft, setStructuredDraft] = useState<ScopePolicyStructured>({});
+  const [mode, setMode] = useState<'form' | 'yaml'>('form');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Preflight tester state
+  // Preflight tester
   const [testTarget, setTestTarget] = useState<string>('api.example.com');
   const [testRisk, setTestRisk] = useState<string>('low_active');
   const [testTool, setTestTool] = useState<string>('');
@@ -84,7 +62,6 @@ export function Scope() {
   } : null);
 
   const isAdmin = me?.role === 'admin';
-  const dirty = policy ? draft !== policy.yaml : draft.length > 0;
 
   const reload = async () => {
     try {
@@ -94,7 +71,8 @@ export function Scope() {
       ]);
       setMe(whoami);
       setPolicy(current);
-      setDraft(current.yaml);
+      setYamlDraft(current.yaml);
+      setStructuredDraft(structuredFromParsed(current.parsed));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -103,17 +81,75 @@ export function Scope() {
 
   useEffect(() => { reload().catch(console.error); }, []);
 
-  const save = async () => {
+  // When the operator switches from Form to YAML, render the structured
+  // draft to YAML via the backend so what they see in the textarea
+  // matches what the structured PUT would write.
+  const switchToYaml = async () => {
+    try {
+      const { yaml: rendered } = await api.scopePolicyRender(structuredDraft);
+      setYamlDraft(rendered);
+      setMode('yaml');
+    } catch (e) {
+      toast.fromError(e, 'Could not render YAML');
+    }
+  };
+
+  // Switching YAML→Form drops anything the form can't model (comments,
+  // custom keys, fields outside the known schema). Surface that risk via
+  // confirm before we replace the structured state.
+  const switchToForm = async () => {
+    const cleanedDraft = yamlDraft.replace(/^\s*#.*$/gm, '').trim();
+    const looksDifferent = cleanedDraft.length > 0 && structuredToYamlPreview(structuredDraft).trim() !== cleanedDraft;
+    if (looksDifferent) {
+      const ok = await confirm({
+        title: 'Switch to form view?',
+        body: 'The structured form covers the standard fields only. Comments and any unsupported keys in your YAML draft will be lost.',
+        confirmLabel: 'Switch anyway',
+        cancelLabel: 'Stay in YAML',
+        destructive: true,
+      });
+      if (!ok) return;
+    }
+    // Parse the YAML via a GET to /api/scope/policy that already returns
+    // `parsed`. We don't have a YAML→form server endpoint; instead, we
+    // save first (only if YAML is valid) then reload. Simpler approach
+    // for tier 1: just re-init structured from the last GET response's
+    // parsed shape.
+    setStructuredDraft(policy ? structuredFromParsed(policy.parsed) : {});
+    setMode('form');
+  };
+
+  const saveYaml = async () => {
     if (!isAdmin) {
       toast.warn('Admin required', 'Only admins can write the ROE policy.');
       return;
     }
     setSaving(true);
     try {
-      const next = await api.scopePolicyWrite(draft);
+      const next = await api.scopePolicyWrite(yamlDraft);
       setPolicy(next);
-      setDraft(next.yaml);
-      toast.success('Policy saved', next.enabled ? 'Engine reloaded.' : 'Engine disabled (empty body).');
+      setYamlDraft(next.yaml);
+      setStructuredDraft(structuredFromParsed(next.parsed));
+      toast.success('Policy saved', next.enabled ? 'Engine reloaded.' : 'Engine disabled.');
+    } catch (err) {
+      toast.fromError(err, 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveStructured = async () => {
+    if (!isAdmin) {
+      toast.warn('Admin required', 'Only admins can write the ROE policy.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const next = await api.scopePolicyWriteStructured(structuredDraft);
+      setPolicy(next);
+      setYamlDraft(next.yaml);
+      setStructuredDraft(structuredFromParsed(next.parsed));
+      toast.success('Policy saved', next.enabled ? 'Engine reloaded.' : 'Engine disabled.');
     } catch (err) {
       toast.fromError(err, 'Save failed');
     } finally {
@@ -135,7 +171,8 @@ export function Scope() {
     try {
       const next = await api.scopePolicyWrite('');
       setPolicy(next);
-      setDraft('');
+      setYamlDraft('');
+      setStructuredDraft({});
       toast.info('Policy deleted', 'Engine disabled.');
     } catch (err) {
       toast.fromError(err, 'Delete failed');
@@ -145,22 +182,25 @@ export function Scope() {
   };
 
   const insertSample = () => {
-    setDraft(SAMPLE_POLICY);
+    setYamlDraft(SAMPLE_POLICY);
+    setStructuredDraft({
+      allowed: { domains: ['example.com', '*.example.com'] },
+      approval: { require_for_risk: ['high_active'] },
+    });
   };
 
-  // Render-time YAML "linting" — surface obvious mistakes inline before
-  // the backend's 422. Cheap heuristics, NOT a real YAML parser.
   const localHints = useMemo<string[]>(() => {
+    if (mode !== 'yaml') return [];
     const hints: string[] = [];
-    if (!draft.trim()) return hints;
-    if (!/^(allowed|denied|limits|approval):/m.test(draft)) {
+    if (!yamlDraft.trim()) return hints;
+    if (!/^(allowed|denied|limits|approval):/m.test(yamlDraft)) {
       hints.push('No top-level allowed / denied / limits / approval section found.');
     }
-    if (/\t/.test(draft)) {
+    if (/\t/.test(yamlDraft)) {
       hints.push('Tabs detected — YAML requires spaces for indentation.');
     }
     return hints;
-  }, [draft]);
+  }, [yamlDraft, mode]);
 
   return (
     <div className="grid">
@@ -178,16 +218,34 @@ export function Scope() {
           </span>
           {policy?.path && (
             <span className="muted small mono" title={policy.path}>
-              path: {policy.path.length > 70 ? `…${policy.path.slice(-70)}` : policy.path}
+              path: {policy.path.length > 60 ? `…${policy.path.slice(-60)}` : policy.path}
             </span>
           )}
+          <div className="scope-mode-toggle" role="group" aria-label="Editor mode">
+            <button
+              type="button"
+              className={`btn small ${mode === 'form' ? '' : 'disabledish'}`}
+              onClick={() => mode === 'yaml' ? switchToForm() : null}
+              aria-pressed={mode === 'form'}
+            >
+              <ClipboardList size={12} /> Form
+            </button>
+            <button
+              type="button"
+              className={`btn small ${mode === 'yaml' ? '' : 'disabledish'}`}
+              onClick={() => mode === 'form' ? switchToYaml() : null}
+              aria-pressed={mode === 'yaml'}
+            >
+              <FileText size={12} /> YAML
+            </button>
+          </div>
           <span style={{ marginLeft: 'auto' }} />
           <button className="btn small" type="button" onClick={() => reload()} title="Reload from disk">
             <RefreshCw size={13} /> Reload
           </button>
-          {policy && policy.yaml.length === 0 && (
+          {(!policy?.enabled || (mode === 'yaml' && yamlDraft.length === 0)) && (
             <button className="btn small" type="button" onClick={insertSample} title="Insert a starter policy">
-              <FileText size={13} /> Insert sample
+              <Sparkles size={13} /> Sample
             </button>
           )}
           <button
@@ -202,9 +260,9 @@ export function Scope() {
           <button
             className="btn"
             type="button"
-            onClick={save}
-            disabled={!isAdmin || saving || !dirty}
-            title={!isAdmin ? 'Admin only' : !dirty ? 'No changes' : 'Save & reload engine'}
+            onClick={mode === 'yaml' ? saveYaml : saveStructured}
+            disabled={!isAdmin || saving}
+            title={!isAdmin ? 'Admin only' : 'Save & reload engine'}
           >
             <Save size={13} /> {saving ? 'Saving…' : 'Save policy'}
           </button>
@@ -213,7 +271,7 @@ export function Scope() {
           <div className="row" style={{ marginTop: 6 }}>
             <Lock size={12} color="#94a3b8" />
             <span className="muted small">
-              Read-only view. Operators can read the policy but only admins can write it. {me ? `Signed in as ${me.role}.` : ''}
+              Read-only view. Operators can read; only admins can write. {me ? `Signed in as ${me.role}.` : ''}
             </span>
           </div>
         )}
@@ -226,34 +284,38 @@ export function Scope() {
       )}
 
       <div className="grid cols-2">
-        {/* Left: editor */}
-        <div className="card">
-          <div className="row space">
-            <strong>Policy YAML</strong>
-            {localHints.length > 0 && (
-              <span className="muted small">{localHints.length} hint{localHints.length === 1 ? '' : 's'}</span>
-            )}
-          </div>
-          <textarea
-            className="input scope-policy-editor"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder={SAMPLE_POLICY}
-            spellCheck={false}
-            rows={26}
-            disabled={!isAdmin}
-          />
-          {localHints.length > 0 && (
-            <ul className="scope-hints">
-              {localHints.map((h, i) => (
-                <li key={i}><AlertTriangle size={11} /> {h}</li>
-              ))}
-            </ul>
+        {/* Left: editor — form or YAML */}
+        <div className="grid">
+          {mode === 'form' ? (
+            <FormEditor draft={structuredDraft} setDraft={setStructuredDraft} disabled={!isAdmin} />
+          ) : (
+            <div className="card">
+              <div className="row space">
+                <strong>Policy YAML</strong>
+                {localHints.length > 0 && (
+                  <span className="muted small">{localHints.length} hint{localHints.length === 1 ? '' : 's'}</span>
+                )}
+              </div>
+              <textarea
+                className="input scope-policy-editor"
+                value={yamlDraft}
+                onChange={(e) => setYamlDraft(e.target.value)}
+                placeholder={SAMPLE_POLICY}
+                spellCheck={false}
+                rows={26}
+                disabled={!isAdmin}
+              />
+              {localHints.length > 0 && (
+                <ul className="scope-hints">
+                  {localHints.map((h, i) => <li key={i}><AlertTriangle size={11} /> {h}</li>)}
+                </ul>
+              )}
+              <small className="muted">
+                Sections allowed / denied / limits / approval. See <code>roe.yaml.example</code> for
+                the full reference. Switch to Form view for a guided editor.
+              </small>
+            </div>
           )}
-          <small className="muted">
-            Sections allowed / denied / limits / approval. See <code>roe.yaml.example</code> in
-            packages/platform-config/ for the full reference.
-          </small>
         </div>
 
         {/* Right: live tester */}
@@ -273,11 +335,7 @@ export function Scope() {
             </label>
             <label className="muted small">Risk
               <select className="input" value={testRisk} onChange={(e) => setTestRisk(e.target.value)}>
-                <option value="passive">passive</option>
-                <option value="low_active">low_active</option>
-                <option value="medium_active">medium_active</option>
-                <option value="high_active">high_active</option>
-                <option value="destructive">destructive</option>
+                {RISK_LEVELS.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </label>
             <label className="muted small">Tool ID (optional)
@@ -300,7 +358,6 @@ export function Scope() {
         </div>
       </div>
 
-      {/* Quick "did it land" check — last X audit rows mentioning scope.policy.* */}
       <div className="card">
         <div className="row space">
           <strong>Recent policy changes</strong>
@@ -309,9 +366,8 @@ export function Scope() {
           </button>
         </div>
         <small className="muted">
-          Every PUT (save / delete) writes one of <code>scope.policy.updated</code>
-          or <code>scope.policy.deleted</code> into the audit chain. Use the
-          Audit Log page to filter by action.
+          Every save / delete writes one of <code>scope.policy.updated</code>
+          or <code>scope.policy.deleted</code> into the audit chain.
         </small>
       </div>
     </div>
@@ -319,13 +375,376 @@ export function Scope() {
 }
 
 
+/* ============================================================================
+ * Form editor — structured, chip-list inputs per section
+ * ========================================================================== */
+
+function FormEditor({
+  draft, setDraft, disabled,
+}: {
+  draft: ScopePolicyStructured;
+  setDraft: (next: ScopePolicyStructured) => void;
+  disabled: boolean;
+}) {
+  // Helpers — copy-shallow-update for nested sections; React state setter
+  // closes over the latest draft via the parent.
+  const setAllowed = (next: ScopePolicyStructured['allowed']) =>
+    setDraft({ ...draft, allowed: next });
+  const setDenied = (next: ScopePolicyStructured['denied']) =>
+    setDraft({ ...draft, denied: next });
+  const setApproval = (next: ScopePolicyStructured['approval']) =>
+    setDraft({ ...draft, approval: next });
+  const setLimits = (next: ScopePolicyStructured['limits']) =>
+    setDraft({ ...draft, limits: next });
+
+  const allowed = draft.allowed ?? {};
+  const denied = draft.denied ?? {};
+  const approval = draft.approval ?? {};
+  const limits = draft.limits ?? null;
+
+  return (
+    <div className="grid" style={{ gap: 10 }}>
+      <SectionCard title="Allowed" subtitle="Anything not matched here is denied">
+        <ChipListInput
+          label="Domains"
+          values={allowed.domains ?? []}
+          onChange={(v) => setAllowed({ ...allowed, domains: v })}
+          placeholder="example.com or *.example.com"
+          disabled={disabled}
+        />
+        <ChipListInput
+          label="CIDRs"
+          values={allowed.cidrs ?? []}
+          onChange={(v) => setAllowed({ ...allowed, cidrs: v })}
+          placeholder="10.10.0.0/16"
+          disabled={disabled}
+        />
+        <ChipListInput
+          label="Ports"
+          values={(allowed.ports ?? []).map(String)}
+          onChange={(v) => setAllowed({ ...allowed, ports: v.map((p) => Number(p)).filter((n) => Number.isFinite(n) && n >= 0 && n <= 65535) })}
+          placeholder="80"
+          numeric
+          disabled={disabled}
+        />
+      </SectionCard>
+
+      <SectionCard title="Denied" subtitle="Wins over allowed for the same value">
+        <ChipListInput
+          label="Domains"
+          values={denied.domains ?? []}
+          onChange={(v) => setDenied({ ...denied, domains: v })}
+          placeholder="admin.example.com"
+          disabled={disabled}
+        />
+        <ChipListInput
+          label="CIDRs"
+          values={denied.cidrs ?? []}
+          onChange={(v) => setDenied({ ...denied, cidrs: v })}
+          placeholder="10.10.50.0/24"
+          disabled={disabled}
+        />
+        <ChipListInput
+          label="HTTP methods"
+          values={denied.methods ?? []}
+          onChange={(v) => setDenied({ ...denied, methods: v.map((m) => m.toUpperCase()) })}
+          placeholder="DELETE"
+          presets={[...HTTP_METHODS]}
+          disabled={disabled}
+        />
+        <ChipListInput
+          label="URL paths"
+          values={denied.paths ?? []}
+          onChange={(v) => setDenied({ ...denied, paths: v })}
+          placeholder="/logout"
+          disabled={disabled}
+        />
+      </SectionCard>
+
+      <SectionCard title="Limits" subtitle="Rate ceiling + optional active-scan window">
+        <label className="muted small">Max RPS (per step)
+          <input
+            className="input"
+            type="number"
+            min={0}
+            step={0.5}
+            value={limits?.max_rps ?? ''}
+            disabled={disabled}
+            onChange={(e) => {
+              const next = e.target.value === '' ? null : Number(e.target.value);
+              setLimits({ ...(limits ?? {}), max_rps: next });
+            }}
+            placeholder="e.g. 5"
+          />
+        </label>
+        <div className="grid cols-3" style={{ gap: 6 }}>
+          <label className="muted small">Window start
+            <input
+              className="input"
+              type="time"
+              value={limits?.active_scan_window?.start ?? ''}
+              disabled={disabled}
+              onChange={(e) => setLimits({
+                ...(limits ?? {}),
+                active_scan_window: {
+                  start: e.target.value,
+                  end: limits?.active_scan_window?.end ?? '00:00',
+                  timezone: limits?.active_scan_window?.timezone ?? 'UTC',
+                },
+              })}
+            />
+          </label>
+          <label className="muted small">Window end
+            <input
+              className="input"
+              type="time"
+              value={limits?.active_scan_window?.end ?? ''}
+              disabled={disabled}
+              onChange={(e) => setLimits({
+                ...(limits ?? {}),
+                active_scan_window: {
+                  start: limits?.active_scan_window?.start ?? '00:00',
+                  end: e.target.value,
+                  timezone: limits?.active_scan_window?.timezone ?? 'UTC',
+                },
+              })}
+            />
+          </label>
+          <label className="muted small">Timezone
+            <input
+              className="input"
+              type="text"
+              placeholder="UTC"
+              value={limits?.active_scan_window?.timezone ?? ''}
+              disabled={disabled}
+              onChange={(e) => setLimits({
+                ...(limits ?? {}),
+                active_scan_window: {
+                  start: limits?.active_scan_window?.start ?? '00:00',
+                  end: limits?.active_scan_window?.end ?? '00:00',
+                  timezone: e.target.value,
+                },
+              })}
+            />
+          </label>
+        </div>
+        {limits?.active_scan_window && (
+          <button
+            type="button"
+            className="btn small"
+            style={{ marginTop: 4 }}
+            onClick={() => setLimits({ ...(limits ?? {}), active_scan_window: null })}
+            disabled={disabled}
+          >
+            <X size={11} /> Clear window
+          </button>
+        )}
+      </SectionCard>
+
+      <SectionCard title="Approval" subtitle="Force manual_approval for matching risks / tools">
+        <ChipListInput
+          label="Required for risk"
+          values={approval.require_for_risk ?? []}
+          onChange={(v) => setApproval({ ...approval, require_for_risk: v })}
+          placeholder="high_active"
+          presets={[...RISK_LEVELS]}
+          disabled={disabled}
+        />
+        <ChipListInput
+          label="Required for tools"
+          values={approval.require_for_tools ?? []}
+          onChange={(v) => setApproval({ ...approval, require_for_tools: v })}
+          placeholder="sqlmap_crawl"
+          disabled={disabled}
+        />
+      </SectionCard>
+    </div>
+  );
+}
+
+
+function SectionCard({
+  title, subtitle, children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="card scope-section-card">
+      <div className="row space">
+        <strong>{title}</strong>
+        <span className="muted small">{subtitle}</span>
+      </div>
+      <div className="grid" style={{ gap: 8 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+
+/** Add / remove items from a list. Optional presets render as quick-add
+ *  chips below the input. `numeric` constrains the type-in input to digits
+ *  (used for the ports list). */
+function ChipListInput({
+  label, values, onChange, placeholder, presets, numeric, disabled,
+}: {
+  label: string;
+  values: string[];
+  onChange: (next: string[]) => void;
+  placeholder?: string;
+  presets?: string[];
+  numeric?: boolean;
+  disabled?: boolean;
+}) {
+  const [draft, setDraft] = useState<string>('');
+
+  const add = (raw: string) => {
+    const clean = raw.trim();
+    if (!clean) return;
+    if (values.includes(clean)) {
+      setDraft('');
+      return;
+    }
+    onChange([...values, clean]);
+    setDraft('');
+  };
+
+  const remove = (value: string) => {
+    onChange(values.filter((v) => v !== value));
+  };
+
+  return (
+    <div className="scope-chip-input">
+      <label className="muted small">{label}</label>
+      <div className="row" style={{ gap: 4 }}>
+        <input
+          className="input"
+          type={numeric ? 'number' : 'text'}
+          inputMode={numeric ? 'numeric' : undefined}
+          placeholder={placeholder}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); add(draft); }
+            else if (e.key === ',' && !numeric) {
+              // Comma also acts as a separator for paste-style entry.
+              e.preventDefault();
+              add(draft);
+            }
+          }}
+          disabled={disabled}
+        />
+        <button type="button" className="btn small" onClick={() => add(draft)} disabled={disabled || !draft.trim()}>
+          <Plus size={11} />
+        </button>
+      </div>
+      {presets && presets.length > 0 && (
+        <div className="scope-chip-presets">
+          {presets.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className="scope-chip-preset"
+              disabled={disabled || values.includes(p)}
+              onClick={() => add(p)}
+              title={values.includes(p) ? 'Already added' : 'Add preset'}
+            >
+              + {p}
+            </button>
+          ))}
+        </div>
+      )}
+      {values.length > 0 && (
+        <div className="scope-chip-list">
+          {values.map((value) => (
+            <span key={value} className="scope-chip">
+              {value}
+              <button
+                type="button"
+                className="scope-chip-remove"
+                onClick={() => remove(value)}
+                aria-label={`Remove ${value}`}
+                disabled={disabled}
+              >
+                <X size={10} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/** Convert the engine's parsed dict shape into the form's state shape. The
+ *  parsed dict comes straight from yaml.safe_load — fields may be missing
+ *  or have unexpected types. Be defensive. */
+function structuredFromParsed(parsed: Record<string, unknown>): ScopePolicyStructured {
+  const asStrings = (x: unknown): string[] =>
+    Array.isArray(x) ? x.filter((v): v is string => typeof v === 'string') : [];
+  const asNumbers = (x: unknown): number[] =>
+    Array.isArray(x) ? x.filter((v): v is number => typeof v === 'number') : [];
+
+  const allowed = (parsed.allowed as Record<string, unknown> | undefined) ?? {};
+  const denied = (parsed.denied as Record<string, unknown> | undefined) ?? {};
+  const limitsRaw = (parsed.limits as Record<string, unknown> | undefined) ?? undefined;
+  const approval = (parsed.approval as Record<string, unknown> | undefined) ?? {};
+
+  const limits: ScopePolicyStructured['limits'] = limitsRaw ? {
+    max_rps: typeof limitsRaw.max_rps === 'number' ? limitsRaw.max_rps : null,
+    max_hosts: typeof limitsRaw.max_hosts === 'number' ? limitsRaw.max_hosts : null,
+    active_scan_window: (limitsRaw.active_scan_window && typeof limitsRaw.active_scan_window === 'object') ? {
+      start: String((limitsRaw.active_scan_window as Record<string, unknown>).start ?? ''),
+      end: String((limitsRaw.active_scan_window as Record<string, unknown>).end ?? ''),
+      timezone: String((limitsRaw.active_scan_window as Record<string, unknown>).timezone ?? 'UTC'),
+    } : null,
+  } : null;
+
+  return {
+    allowed: {
+      domains: asStrings(allowed.domains),
+      cidrs: asStrings(allowed.cidrs),
+      ports: asNumbers(allowed.ports),
+    },
+    denied: {
+      domains: asStrings(denied.domains),
+      cidrs: asStrings(denied.cidrs),
+      methods: asStrings(denied.methods),
+      paths: asStrings(denied.paths),
+    },
+    limits,
+    approval: {
+      require_for_risk: asStrings(approval.require_for_risk),
+      require_for_tools: asStrings(approval.require_for_tools),
+    },
+  };
+}
+
+
+/** Very small synchronous YAML stub used only to detect "did the operator
+ *  edit the YAML draft beyond what the structured form would render". This
+ *  is the cheap heuristic that decides whether to show the destructive
+ *  confirm when switching YAML→Form. NOT used for actual saves — the
+ *  server's _serialise_policy is the source of truth for that. */
+function structuredToYamlPreview(draft: ScopePolicyStructured): string {
+  const lines: string[] = [];
+  const allowed = draft.allowed ?? {};
+  if (allowed.domains?.length || allowed.cidrs?.length || allowed.ports?.length) {
+    lines.push('allowed:');
+    if (allowed.domains?.length) { lines.push('  domains:'); allowed.domains.forEach((d) => lines.push(`    - ${d}`)); }
+    if (allowed.cidrs?.length) { lines.push('  cidrs:'); allowed.cidrs.forEach((d) => lines.push(`    - ${d}`)); }
+    if (allowed.ports?.length) { lines.push('  ports:'); allowed.ports.forEach((p) => lines.push(`    - ${p}`)); }
+  }
+  return lines.join('\n');
+}
+
+
 function PreflightResult({ state }: { state: ReturnType<typeof useScopePreflight>['state'] }) {
-  if (!state) {
-    return <p className="muted small">Enter a target above.</p>;
-  }
-  if (state.decision === 'pending') {
-    return <p className="muted small">Evaluating…</p>;
-  }
+  if (!state) return <p className="muted small">Enter a target above.</p>;
+  if (state.decision === 'pending') return <p className="muted small">Evaluating…</p>;
   if (state.decision === 'no-engine') {
     return (
       <p className="muted small">

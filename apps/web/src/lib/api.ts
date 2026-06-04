@@ -1,4 +1,4 @@
-import type { AdHocRunCreate, Advice, APIKeyPublic, Artifact, Asset, AuditPage, CreatedAPIKey, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, SavedWorkflow, ScopeEvaluateRequest, ScopeEvaluateResponse, ScopePolicyResponse, SearchResults, Target, TargetSummary, TargetTech, Tool, ToolAvailability, UserPublic, Webhook, WebhookCreate, WebhookTestResult, WebhookUpdate, WhoAmI, WordlistInfo, WorkflowCreate, WorkflowUpdate, Workspace } from '../types';
+import type { AdHocRunCreate, Advice, APIKeyPublic, Artifact, Asset, AuditPage, CreatedAPIKey, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, SavedWorkflow, ScopeEvaluateRequest, ScopeEvaluateResponse, ScopePolicyResponse, ScopePolicyStructured, SearchResults, Target, TargetSummary, TargetTech, Tool, ToolAvailability, UserPublic, Webhook, WebhookCreate, WebhookTestResult, WebhookUpdate, WhoAmI, WordlistInfo, WorkflowCreate, WorkflowUpdate, Workspace } from '../types';
 
 import { getApiBaseUrl, getWsBaseUrl } from './runtimeConfig';
 
@@ -323,5 +323,13 @@ export const api = {
   scopePolicyWrite: (yamlText: string) =>
     request<ScopePolicyResponse>('/api/scope/policy', {
       method: 'PUT', body: JSON.stringify({ yaml: yamlText }),
+    }),
+  scopePolicyRender: (payload: ScopePolicyStructured) =>
+    request<{ yaml: string }>('/api/scope/policy/render', {
+      method: 'POST', body: JSON.stringify(payload),
+    }),
+  scopePolicyWriteStructured: (payload: ScopePolicyStructured) =>
+    request<ScopePolicyResponse>('/api/scope/policy/structured', {
+      method: 'PUT', body: JSON.stringify(payload),
     }),
 };

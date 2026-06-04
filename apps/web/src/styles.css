@@ -835,6 +835,75 @@ body.advisor-docked .content { max-width: 100%; }
 .scope-trace { margin: 4px 0 0; padding-left: 16px; }
 .scope-trace li { padding: 1px 0; color: #cbd5e1; }
 
+/* Form editor sections + chip-list inputs */
+.scope-section-card { display: grid; gap: 8px; }
+.scope-mode-toggle { display: inline-flex; gap: 2px; }
+.scope-mode-toggle .btn { border-radius: 6px; }
+.scope-chip-input { display: grid; gap: 4px; }
+.scope-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1px solid #1f2937;
+  border-radius: 6px;
+  background: rgba(2,6,23,.45);
+  min-height: 32px;
+}
+.scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 8px;
+  border-radius: 999px;
+  background: rgba(8,145,178,.18);
+  border: 1px solid #155e75;
+  color: #e0f2fe;
+  font-size: 12px;
+  font-family: ui-monospace, monospace;
+}
+.scope-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(220,38,38,.18);
+  border: 1px solid #7f1d1d;
+  color: #fca5a5;
+  cursor: pointer;
+  padding: 0;
+}
+.scope-chip-remove:hover { background: rgba(220,38,38,.35); }
+.scope-chip-remove:disabled { opacity: .4; cursor: not-allowed; }
+.scope-chip-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.scope-chip-preset {
+  background: transparent;
+  border: 1px dashed #334155;
+  color: #94a3b8;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: ui-monospace, monospace;
+}
+.scope-chip-preset:hover:not(:disabled) {
+  color: #e0f2fe;
+  border-color: #22d3ee;
+  background: rgba(8,145,178,.15);
+}
+.scope-chip-preset:disabled { opacity: .35; cursor: default; }
+
+[data-theme="pd-cloud"] .scope-chip { background: var(--pd-pink-soft); border-color: var(--pd-pink); }
+[data-theme="pd-cloud"] .scope-chip-preset:hover:not(:disabled) { border-color: var(--pd-pink); background: var(--pd-pink-soft); }
+
 /* Tool detail modal ==================================================== */
 .tool-modal { width: min(700px, calc(100vw - 36px)); max-height: calc(100vh - 60px); overflow: auto; display: grid; gap: 10px; }
 .tool-section { display: grid; gap: 4px; padding-top: 6px; border-top: 1px solid #1f2937; }
