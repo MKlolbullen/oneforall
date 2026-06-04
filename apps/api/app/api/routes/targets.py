@@ -1,13 +1,14 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import Asset, Finding, Role, Run, Target, User, Workspace
 from app.schemas import BulkTargetCreate, BulkTargetResult, TargetCreate
-from app.services import audit
+from app.services import audit, reports
 from app.services.auth import current_user, require_role
+from app.services.target_validation import normalize_target
 
 router = APIRouter(prefix="/targets", tags=["targets"])
 
@@ -37,7 +38,15 @@ def create_target(
     workspace = session.get(Workspace, payload.workspace_id)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    target = Target(**payload.model_dump())
+    try:
+        normalized = normalize_target(payload.value, payload.type)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    target_data = payload.model_dump()
+    target_data["value"] = normalized.value
+    target_data["type"] = normalized.type
+    target = Target(**target_data)
     session.add(target)
     session.commit()
     session.refresh(target)
@@ -63,10 +72,17 @@ def create_targets_bulk(
     # Normalise: strip, drop blanks + lines starting with `#`, dedupe in-batch.
     seen: set[str] = set()
     candidates: list[str] = []
+    invalid: list[dict[str, str]] = []
     for raw in payload.values:
         v = raw.strip()
         if not v or v.startswith("#"):
             continue
+        try:
+            normalized = normalize_target(v, payload.type)
+        except ValueError as exc:
+            invalid.append({"value": v, "reason": str(exc)})
+            continue
+        v = normalized.value
         if v in seen:
             continue
         seen.add(v)
@@ -80,7 +96,7 @@ def create_targets_bulk(
     }
 
     created: list[Target] = []
-    skipped: list[dict[str, str]] = []
+    skipped: list[dict[str, str]] = list(invalid)
     for v in candidates:
         if v in existing:
             skipped.append({"value": v, "reason": "duplicate"})
@@ -88,7 +104,7 @@ def create_targets_bulk(
         target = Target(
             workspace_id=payload.workspace_id,
             value=v,
-            type=payload.type,
+            type=normalize_target(v, payload.type).type,
             in_scope=payload.in_scope,
             passive_allowed=payload.passive_allowed,
             active_allowed=payload.active_allowed,
@@ -183,6 +199,34 @@ def get_target_findings(
     ).all())
     rows.sort(key=lambda f: (SEVERITY_RANK.get(f.severity, 5), f.created_at.timestamp() * -1))
     return rows
+
+
+_TARGET_REPORT_FORMATS = {"html", "json", "md", "markdown"}
+
+
+@router.get("/{target_id}/report")
+def get_target_report(
+    target_id: str,
+    fmt: str = Query("html", alias="format", description="html | json | md"),
+    session: Session = Depends(get_session),
+    _user: User = Depends(current_user),
+) -> Response:
+    """Engagement-level report — every run against this target rolled up into
+    one shareable document. Same html / json / md surface as the per-run
+    report; findings + loot + assets are deduplicated across runs."""
+    if fmt.lower() not in _TARGET_REPORT_FORMATS:
+        raise HTTPException(400, f"invalid format {fmt!r}; one of {sorted(_TARGET_REPORT_FORMATS)}")
+    target = _target_or_404(session, target_id)
+    body, media_type = reports.render_target(session, target, fmt)
+    ext = "html" if fmt == "html" else ("md" if fmt in {"md", "markdown"} else "json")
+    safe = "".join(c if c.isalnum() or c in "-." else "-" for c in (target.value or target.id))
+    return Response(
+        content=body,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'inline; filename="reconforge-target-{safe}.{ext}"',
+        },
+    )
 
 
 @router.get("/{target_id}/summary")

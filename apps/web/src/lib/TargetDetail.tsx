@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Boxes, Globe, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
+import { ArrowLeft, Boxes, Download, Globe, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
 import { api } from './api';
 import { AdvicePanel } from './AdvicePanel';
 import { AdvisorScopeBinder } from './advisorContext';
@@ -102,6 +102,19 @@ export function TargetDetail({ target, onClose }: Props) {
           <span className="badge passive">{target.type}</span>
           {target.in_scope ? <span className="badge ok">in scope</span> : <span className="badge bad">out</span>}
           {target.active_allowed ? <span className="badge active">active OK</span> : <span className="badge">passive only</span>}
+        </div>
+        <div className="row" style={{ gap: 6 }}>
+          {/* Engagement-level report — unions findings + loot + assets across
+              every run against this target. HTML opens in a new tab; JSON/md
+              download. Self-contained and safe to forward. */}
+          <a className="btn small" href={api.targetReportUrl(target.id, 'html')} target="_blank" rel="noreferrer"
+             title="Open the engagement HTML report (every run against this target)">
+            <Download size={12} /> Report
+          </a>
+          <a className="btn small" href={api.targetReportUrl(target.id, 'json')} target="_blank" rel="noreferrer"
+             title="JSON engagement report" download>JSON</a>
+          <a className="btn small" href={api.targetReportUrl(target.id, 'md')} target="_blank" rel="noreferrer"
+             title="Markdown engagement report" download>MD</a>
         </div>
       </div>
 

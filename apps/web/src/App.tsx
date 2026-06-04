@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Activity, Boxes, Coins, Crosshair, FileSearch, FileText, LayoutDashboard, MessageSquare, Network, RefreshCw, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Wrench } from 'lucide-react';
-import { ReactFlow, Background, Controls, Handle, Position } from '@xyflow/react';
+import { Activity, Bell, Boxes, ChevronDown, ChevronRight, Coins, Crosshair, FileSearch, FileText, History, LayoutDashboard, LogOut, MessageSquare, Network, Palette, RefreshCw, Search, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, User as UserIcon, Users as UsersIcon, Wrench } from 'lucide-react';
 import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
 import { classifyArtifact } from './lib/artifactKind';
@@ -8,33 +7,87 @@ import { TargetDetail } from './lib/TargetDetail';
 import { AdvicePanel } from './lib/AdvicePanel';
 import { AdvisorChat } from './lib/AdvisorChat';
 import { AdvisorProvider, AdvisorScopeBinder } from './lib/advisorContext';
+import { AuditLog } from './lib/AuditLog';
 import { Loot } from './lib/Loot';
 import { Templates } from './lib/Templates';
+import { ToolDetailModal } from './lib/ToolDetailModal';
+import { Users as UsersPage } from './lib/Users';
+import { Webhooks as WebhooksPage } from './lib/Webhooks';
+import { WorkflowBuilder } from './lib/WorkflowBuilder';
+import { Workspaces as WorkspacesPage } from './lib/Workspaces';
 import { useNav, type Page } from './lib/nav';
+import { useWorkspace } from './lib/WorkspaceContext';
+import type { WhoAmI } from './types';
 import { NetworkTab } from './lib/NetworkTab';
 import { CopyButton } from './lib/CopyButton';
 import { EmptyState } from './lib/EmptyState';
 import { Dashboard } from './lib/Dashboard';
 import { NetworkGraph } from './lib/NetworkGraph';
 import { Results } from './lib/Results';
+import { Scope } from './lib/Scope';
+import { SearchPalette } from './lib/SearchPalette';
 import { PendingGHint, ShortcutsCheatsheet, useShortcuts } from './lib/Shortcuts';
 import { useToast } from './lib/Toast';
 import { useConfirm } from './lib/Confirm';
 import { applyTheme, loadTheme, persistTheme, THEMES, type Theme } from './lib/theme';
 import type { Artifact, GrepPatternPack, LootItem, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from './types';
 
-const pages: { id: Page; label: string; icon: ReactNode }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
-  { id: 'targets', label: 'Targets', icon: <Crosshair size={16} /> },
-  { id: 'templates', label: 'Templates', icon: <FileText size={16} /> },
-  { id: 'runs', label: 'Runs', icon: <TerminalSquare size={16} /> },
-  { id: 'results', label: 'Results', icon: <FileSearch size={16} /> },
-  { id: 'loot', label: 'Loot', icon: <Coins size={16} /> },
-  { id: 'network', label: 'Network Graph', icon: <Share2 size={16} /> },
-  { id: 'tools', label: 'Tool Catalog', icon: <Wrench size={16} /> },
-  { id: 'workflow', label: 'Workflow Builder', icon: <Network size={16} /> },
-  { id: 'settings', label: 'Settings Pack', icon: <SettingsIcon size={16} /> },
+/**
+ * Single source of truth for page metadata. Kept as an array so render order
+ * within a group stays deterministic — and the keyboard-shortcut handler can
+ * still validate a target page id with `pageMeta[target]`.
+ */
+const pageMeta: Record<Page, { label: string; icon: ReactNode }> = {
+  dashboard: { label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
+  workspaces: { label: 'Workspaces', icon: <Boxes size={16} /> },
+  targets: { label: 'Targets', icon: <Crosshair size={16} /> },
+  runs: { label: 'Runs', icon: <TerminalSquare size={16} /> },
+  results: { label: 'Results', icon: <FileSearch size={16} /> },
+  loot: { label: 'Loot', icon: <Coins size={16} /> },
+  network: { label: 'Network Graph', icon: <Share2 size={16} /> },
+  templates: { label: 'Templates', icon: <FileText size={16} /> },
+  workflow: { label: 'Workflow Builder', icon: <Network size={16} /> },
+  tools: { label: 'Tool Catalog', icon: <Wrench size={16} /> },
+  users: { label: 'Users', icon: <UsersIcon size={16} /> },
+  webhooks: { label: 'Webhooks', icon: <Bell size={16} /> },
+  scope: { label: 'Scope (ROE)', icon: <ShieldAlert size={16} /> },
+  audit: { label: 'Audit Log', icon: <History size={16} /> },
+  settings: { label: 'Settings Pack', icon: <SettingsIcon size={16} /> },
+};
+
+/**
+ * Sidebar groups. Operations is the daily flow (most operators stay here);
+ * Builders is configuration-of-tooling work; Admin is privileged surface area
+ * (users / webhooks / ROE policy); System is read-mostly bookkeeping. Order
+ * here is the render order. Each group's collapsed state is persisted to
+ * localStorage — but the group that contains the active page is force-shown
+ * so the operator never loses their bearings after a deeplink jump.
+ */
+type SidebarGroup = { id: string; label: string; pages: Page[] };
+const sidebarGroups: SidebarGroup[] = [
+  { id: 'ops', label: 'Operations', pages: ['dashboard', 'workspaces', 'targets', 'runs', 'results', 'loot', 'network'] },
+  { id: 'builders', label: 'Builders', pages: ['templates', 'workflow', 'tools'] },
+  { id: 'admin', label: 'Admin', pages: ['users', 'webhooks', 'scope'] },
+  { id: 'system', label: 'System', pages: ['audit', 'settings'] },
 ];
+
+const SIDEBAR_COLLAPSE_KEY = 'reconforge:sidebar-collapsed:v1';
+
+function loadCollapsedGroups(): Record<string, boolean> {
+  try {
+    const raw = window.localStorage.getItem(SIDEBAR_COLLAPSE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, boolean>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistCollapsedGroups(state: Record<string, boolean>) {
+  try { window.localStorage.setItem(SIDEBAR_COLLAPSE_KEY, JSON.stringify(state)); }
+  catch { /* quota / private mode — sidebar still works, state just won't survive */ }
+}
 
 function availabilityClass(check?: ToolAvailability | ProfileAvailability) {
   if (!check) return 'badge passive';
@@ -57,9 +110,22 @@ export function App() {
   // Shortcuts expects (page: string) => void; cast through Page since our nav
   // accepts NavParams too but the shortcuts only need page-by-name.
   const navForShortcuts = useCallback((target: string) => {
-    if (pages.some((p) => p.id === target)) navigate(target as Page);
+    if (target in pageMeta) navigate(target as Page);
   }, [navigate]);
   const { showCheat, setShowCheat, pendingG } = useShortcuts(navForShortcuts);
+
+  // Sidebar collapse state per group. Persisted to localStorage so the operator
+  // returns to the same shape after a refresh; the group containing the active
+  // page is always shown regardless so deeplinks don't strand a user in a
+  // collapsed section.
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups);
+  const toggleGroup = useCallback((id: string) => {
+    setCollapsedGroups((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      persistCollapsedGroups(next);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     api.health().then(setHealth).catch(console.error);
@@ -92,31 +158,72 @@ export function App() {
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark">RF</span><span>ReconForge</span></div>
         <nav className="nav">
-          {pages.map((item) => (
-            <button key={item.id} className={page === item.id ? 'active' : ''} onClick={() => navigate(item.id)}>
-              <span className="row">
-                {item.icon}
-                {item.label}
-                {item.id === 'runs' && activeRuns > 0 && (
-                  <span className="nav-badge active" title={`${activeRuns} active run(s)`}>
-                    {activeRuns}
-                  </span>
+          {sidebarGroups.map((group) => {
+            const containsActive = group.pages.includes(page);
+            // Force-show the group containing the active page even if the user
+            // had it collapsed — otherwise a deeplink could land them with no
+            // visible navigation context.
+            const collapsed = !containsActive && Boolean(collapsedGroups[group.id]);
+            return (
+              <div key={group.id} className={`nav-section ${collapsed ? 'collapsed' : ''}`}>
+                <button
+                  type="button"
+                  className="nav-section-header"
+                  onClick={() => toggleGroup(group.id)}
+                  aria-expanded={!collapsed}
+                  title={collapsed ? `Expand ${group.label}` : `Collapse ${group.label}`}
+                >
+                  {collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+                  <span className="nav-section-label">{group.label}</span>
+                </button>
+                {!collapsed && (
+                  <div className="nav-section-list">
+                    {group.pages.map((id) => {
+                      const meta = pageMeta[id];
+                      return (
+                        <button
+                          key={id}
+                          className={page === id ? 'active' : ''}
+                          onClick={() => navigate(id)}
+                          type="button"
+                        >
+                          <span className="row">
+                            {meta.icon}
+                            {meta.label}
+                            {id === 'runs' && activeRuns > 0 && (
+                              <span className="nav-badge active" title={`${activeRuns} active run(s)`}>
+                                {activeRuns}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-                {item.id === 'runs' && activeRuns === 0 && page !== 'runs' && (
-                  /* keep the row stable by reserving width — but invisible */
-                  <span style={{ marginLeft: 'auto' }} />
-                )}
-              </span>
-            </button>
-          ))}
+              </div>
+            );
+          })}
         </nav>
       </aside>
       <main className="main">
         <div className="topbar">
-          <div className="row"><ShieldAlert size={18} color="#22d3ee" /> Authorized Security Control Plane</div>
+          <div className="row">
+            <ShieldAlert size={18} color="#22d3ee" />
+            <strong className="topbar-brand">Authorized Security Control Plane</strong>
+            <WorkspaceSelector />
+          </div>
           <div className="row">
             <span className="badge passive">{String(health.execution_mode ?? 'unknown')} mode</span>
             {health.live_execution_enabled === true ? <span className="badge active">live execution</span> : <span className="badge passive">dry-run safe</span>}
+            <button
+              type="button"
+              className="btn small"
+              title="Search (⌘K or /)"
+              onClick={() => window.dispatchEvent(new CustomEvent('reconforge:search-open'))}
+            >
+              <Search size={14} /> Search<kbd className="search-kbd">⌘K</kbd>
+            </button>
             <button
               type="button"
               className="btn small advisor-topbar-btn"
@@ -125,16 +232,12 @@ export function App() {
             >
               <MessageSquare size={14} /> Advisor
             </button>
-            <label className="theme-toggle muted" title="Switch UI theme">
-              theme
-              <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
-                {THEMES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-              </select>
-            </label>
+            <UserMenu theme={theme} setTheme={setTheme} />
           </div>
         </div>
         <div className="content">
           {page === 'dashboard' && <Dashboard />}
+          {page === 'workspaces' && <WorkspacesPage />}
           {page === 'targets' && <Targets />}
           {page === 'templates' && <Templates />}
           {page === 'runs' && <Runs />}
@@ -142,7 +245,11 @@ export function App() {
           {page === 'loot' && <Loot />}
           {page === 'network' && <NetworkGraph />}
           {page === 'tools' && <Tools />}
-          {page === 'workflow' && <Workflow />}
+          {page === 'workflow' && <WorkflowBuilder />}
+          {page === 'users' && <UsersPage />}
+          {page === 'webhooks' && <WebhooksPage />}
+          {page === 'scope' && <Scope />}
+          {page === 'audit' && <AuditLog />}
           {page === 'settings' && <SettingsPack />}
         </div>
       </main>
@@ -150,7 +257,133 @@ export function App() {
       <PendingGHint visible={pendingG} />
     </div>
       <AdvisorChat />
+      <SearchPalette />
     </AdvisorProvider>
+  );
+}
+
+
+/**
+ * Topbar workspace selector — bound to the global WorkspaceContext so the
+ * choice persists across pages and survives a refresh. Pages that previously
+ * mounted their own dropdown can read `useWorkspace().activeWorkspaceId`.
+ */
+function WorkspaceSelector() {
+  const { workspaces, activeWorkspaceId, setActiveWorkspaceId, loading } = useWorkspace();
+  if (loading && workspaces.length === 0) {
+    return <span className="muted small">…</span>;
+  }
+  return (
+    <label className="workspace-selector" title="Currently focused workspace — pages filter to it where supported">
+      <Boxes size={13} color="#94a3b8" />
+      <select
+        className="input"
+        value={activeWorkspaceId ?? ''}
+        onChange={(e) => setActiveWorkspaceId(e.target.value || null)}
+      >
+        <option value="">All workspaces</option>
+        {workspaces.map((w) => (
+          <option key={w.id} value={w.id}>{w.name}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/**
+ * Topbar user menu — collapses the previous bare theme dropdown into a
+ * single avatar button. Shows the current user role, theme switcher, and
+ * a deep-link to the Users page for API-key management. We don't render
+ * a Logout because the platform's auth is bearer-token-based and the
+ * frontend doesn't carry a token in test-bypass mode; production
+ * deployments add a real login flow on top.
+ */
+function UserMenu({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
+  const { navigate } = useNav();
+  const [me, setMe] = useState<WhoAmI | null>(null);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    api.me().then(setMe).catch(() => setMe(null));
+  }, []);
+
+  // Click-outside to close
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener('mousedown', onClick);
+    return () => window.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  // Initials for the avatar — single letter is enough for the topbar's
+  // 28px circle.
+  const initial = me?.username ? me.username[0].toUpperCase() : '?';
+  const roleClass = me?.role === 'admin' ? 'bad' : me?.role === 'operator' ? 'active' : 'passive';
+
+  return (
+    <div className="user-menu-wrap" ref={ref}>
+      <button
+        type="button"
+        className="user-menu-trigger"
+        onClick={() => setOpen((v) => !v)}
+        title={me ? `${me.username} (${me.role})` : 'User menu'}
+        aria-expanded={open}
+      >
+        <span className="user-menu-avatar">{initial}</span>
+        <ChevronDown size={11} color="#94a3b8" />
+      </button>
+      {open && (
+        <div className="user-menu" role="menu">
+          <div className="user-menu-header">
+            <strong>{me?.username ?? '—'}</strong>
+            <span className={`badge ${roleClass}`}>{me?.role ?? 'unknown'}</span>
+          </div>
+          <div className="user-menu-section">
+            <Palette size={12} color="#94a3b8" />
+            <span className="muted small">Theme</span>
+            <select
+              className="input"
+              value={theme}
+              onChange={(e) => setTheme(e.target.value as Theme)}
+            >
+              {THEMES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </div>
+          <button
+            type="button"
+            className="user-menu-item"
+            onClick={() => { setOpen(false); navigate('users'); }}
+            role="menuitem"
+          >
+            <UserIcon size={12} /> Your API keys & roster
+          </button>
+          <button
+            type="button"
+            className="user-menu-item"
+            onClick={() => { setOpen(false); navigate('settings'); }}
+            role="menuitem"
+          >
+            <SettingsIcon size={12} /> Settings pack
+          </button>
+          {me?.role === 'admin' && (
+            <button
+              type="button"
+              className="user-menu-item"
+              onClick={() => { setOpen(false); navigate('scope'); }}
+              role="menuitem"
+            >
+              <ShieldAlert size={12} /> ROE policy
+            </button>
+          )}
+          <div className="user-menu-item muted small" style={{ borderTop: '1px solid #1f2937', cursor: 'default' }}>
+            <LogOut size={12} /> Session is bearer-token based — clear the token at the API layer to log out.
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -161,12 +394,17 @@ function Metric({ title, value, icon }: { title: string; value: number; icon: Re
 
 function Targets() {
   const toast = useToast();
+  const { consume } = useNav();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [targets, setTargets] = useState<Target[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [profileAvailability, setProfileAvailability] = useState<Record<string, ProfileAvailability>>({});
   const [health, setHealth] = useState<Record<string, unknown>>({});
   const [workspaceId, setWorkspaceId] = useState('');
+  // List filter — distinct from the create form's workspaceId so an operator
+  // can review one workspace while the form is queued to drop into another.
+  // Deeplinks from the Workspaces page seed it.
+  const [filterWsId, setFilterWsId] = useState<string>('');
   const [value, setValue] = useState('');
   const [activeAllowed, setActiveAllowed] = useState(false);
   const [selected, setSelected] = useState<Target | null>(null);
@@ -181,7 +419,19 @@ function Targets() {
     setProfileAvailability(Object.fromEntries(checks.filter(Boolean).map((check) => [check!.profile_id, check!])));
   };
 
-  useEffect(() => { reload().catch(console.error); }, []);
+  useEffect(() => {
+    // Consume the workspace deeplink once on mount and snap both the filter
+    // and the create form to it so the user lands somewhere coherent.
+    const params = consume();
+    if (params.workspaceId) {
+      setFilterWsId(params.workspaceId);
+      setWorkspaceId(params.workspaceId);
+    }
+    reload().catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const visibleTargets = filterWsId ? targets.filter((t) => t.workspace_id === filterWsId) : targets;
 
   const createTarget = async () => {
     if (!workspaceId || !value) return;
@@ -232,16 +482,33 @@ function Targets() {
         onImported={() => reload().catch(console.error)}
       />
       <div className="card" style={{ gridColumn: '1 / -1' }}>
-        <h3>Targets</h3>
-        {targets.length === 0 ? (
+        <div className="row space">
+          <h3>Targets</h3>
+          <div className="row" style={{ gap: 8 }}>
+            <span className="muted small">{visibleTargets.length} of {targets.length}</span>
+            <select
+              className="input"
+              style={{ maxWidth: 220 }}
+              value={filterWsId}
+              onChange={(e) => setFilterWsId(e.target.value)}
+              title="Filter the list by workspace"
+            >
+              <option value="">All workspaces</option>
+              {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+        </div>
+        {visibleTargets.length === 0 ? (
           <EmptyState
             icon={<Crosshair size={28} />}
-            title="No targets yet"
-            body="Add one with the form above, or paste a list into the bulk-import card to seed many at once."
+            title={targets.length === 0 ? 'No targets yet' : 'No targets in this workspace'}
+            body={targets.length === 0
+              ? 'Add one with the form above, or paste a list into the bulk-import card to seed many at once.'
+              : 'Clear the workspace filter to see other targets, or add one to this workspace.'}
           />
         ) : (
         <table className="table"><thead><tr><th>Value</th><th>Type</th><th>Scope</th><th>Active</th><th>Launch</th></tr></thead><tbody>
-          {targets.map((t) => <tr key={t.id}><td><button className="link" onClick={() => setSelected(t)} type="button">{t.value}</button></td><td>{t.type}</td><td>{t.in_scope ? <span className="badge ok">in scope</span> : <span className="badge bad">out</span>}</td><td>{t.active_allowed ? <span className="badge active">authorized</span> : <span className="badge">blocked</span>}</td><td><div className="launch-grid">{profiles.map((p) => {
+          {visibleTargets.map((t) => <tr key={t.id}><td><button className="link" onClick={() => setSelected(t)} type="button">{t.value}</button></td><td>{t.type}</td><td>{t.in_scope ? <span className="badge ok">in scope</span> : <span className="badge bad">out</span>}</td><td>{t.active_allowed ? <span className="badge active">authorized</span> : <span className="badge">blocked</span>}</td><td><div className="launch-grid">{profiles.map((p) => {
             const check = profileAvailability[p.id];
             const blocked = liveEnabled && check && !check.runnable;
             return <button key={p.id} className={blocked ? 'btn disabledish' : 'btn'} disabled={Boolean(blocked)} title={blocked ? `Missing: ${check?.missing_tools.join(', ')}` : 'Runnable'} onClick={() => launch(t, p.id)}>
@@ -312,6 +579,8 @@ function BulkImport({ workspaceId, defaultActiveAllowed, onImported }:
 function Runs() {
   const { consume } = useNav();
   const [runs, setRuns] = useState<Run[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [filterWsId, setFilterWsId] = useState<string>('');
   const [selected, setSelected] = useState<Run | null>(null);
   // Pending deeplink — held in a ref so the setInterval's closure always sees
   // the current value (useState would still be null in the first tick because
@@ -333,21 +602,52 @@ function Runs() {
   useEffect(() => {
     const params = consume();
     if (params.runId) pendingRunIdRef.current = params.runId;
+    if (params.workspaceId) setFilterWsId(params.workspaceId);
+    api.workspaces().then(setWorkspaces).catch(() => { /* sidebar list — silent */ });
     reload();
     const timer = window.setInterval(reload, 3000);
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const visibleRuns = filterWsId ? runs.filter((r) => r.workspace_id === filterWsId) : runs;
+
   return <div className="grid cols-2">
-    <div className="card"><h3>Runs</h3><RunTable runs={runs} onSelect={setSelected} /></div>
+    <div className="card">
+      <div className="row space">
+        <h3>Runs</h3>
+        <div className="row" style={{ gap: 8 }}>
+          <span className="muted small">{visibleRuns.length} of {runs.length}</span>
+          <select
+            className="input"
+            style={{ maxWidth: 200 }}
+            value={filterWsId}
+            onChange={(e) => setFilterWsId(e.target.value)}
+            title="Filter runs by workspace"
+          >
+            <option value="">All workspaces</option>
+            {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        </div>
+      </div>
+      <RunTable runs={visibleRuns} onSelect={setSelected} selectedId={selected?.id ?? null} />
+    </div>
     <div className="card"><h3>Live console</h3>{selected ? <RunConsole run={selected} onChanged={reload} /> : <p className="muted">Select a run to attach to its event stream.</p>}</div>
   </div>;
 }
 
-function RunTable({ runs, onSelect }: { runs: Run[]; onSelect?: (run: Run) => void }) {
+function RunTable({ runs, onSelect, selectedId }: { runs: Run[]; onSelect?: (run: Run) => void; selectedId?: string | null }) {
   return <table className="table"><thead><tr><th>ID</th><th>Profile</th><th>Status</th><th>Risk</th></tr></thead><tbody>
-    {runs.map((r) => <tr key={r.id} onClick={() => onSelect?.(r)}><td>{r.id}</td><td>{r.profile_id}</td><td><span className={`badge ${r.status === 'completed' ? 'ok' : r.status === 'failed' ? 'bad' : 'passive'}`}>{r.status}</span></td><td>{r.risk}</td></tr>)}
+    {runs.map((r) => (
+      <tr key={r.id} onClick={() => onSelect?.(r)}
+          className={selectedId === r.id ? 'row-selected' : undefined}
+          style={{ cursor: 'pointer' }}>
+        <td className="mono small">{r.id.slice(0, 16)}…</td>
+        <td>{r.profile_id}</td>
+        <td><span className={`badge ${r.status === 'completed' ? 'ok' : r.status === 'failed' || r.status === 'cancelled' ? 'bad' : r.status === 'running' ? 'active' : 'passive'}`}>{r.status}</span></td>
+        <td>{r.risk}</td>
+      </tr>
+    ))}
   </tbody></table>;
 }
 
@@ -419,6 +719,29 @@ function RunConsoleInner({ run, onChanged }: { run: Run; onChanged?: () => void 
       onChanged?.();
       toast.success('Re-run queued', fresh.id);
     } catch (error) {
+      // Backend V7 fix: high-risk reruns now require fresh manual_approval
+      // instead of inheriting it from the source run's config_snapshot. A
+      // 403 with "manual_approval" in the body is the documented signal.
+      // Catch it and prompt the operator before resubmitting with consent.
+      const message = error instanceof Error ? error.message : String(error);
+      if (/\b403\b/.test(message) && /manual_approval/i.test(message)) {
+        const ok = await confirm({
+          title: 'High-risk re-run needs fresh consent',
+          body: 'The original run was approved manually. The platform no longer inherits that approval. Approve this re-run now?',
+          confirmLabel: 'Approve & re-run',
+          cancelLabel: 'Cancel',
+          destructive: true,
+        });
+        if (!ok) return;
+        try {
+          const fresh = await api.rerun(run.id, { manual_approval: true });
+          onChanged?.();
+          toast.success('Re-run queued', fresh.id);
+        } catch (retryErr) {
+          toast.fromError(retryErr, 'Re-run failed');
+        }
+        return;
+      }
       toast.fromError(error, 'Re-run failed');
     }
   };
@@ -464,6 +787,20 @@ function RunConsoleInner({ run, onChanged }: { run: Run; onChanged?: () => void 
         </span>
       </div>
       <div className="row">
+        {/* Report links open in a new tab — HTML is self-contained, JSON/md
+            are useful for tickets / agents. No JS-side state needed because
+            the backend renders on demand. */}
+        <a
+          className="btn small"
+          href={api.runReportUrl(run.id, 'html')}
+          target="_blank"
+          rel="noreferrer"
+          title="Open the HTML report in a new tab"
+        >
+          Report
+        </a>
+        <a className="btn small" href={api.runReportUrl(run.id, 'json')} target="_blank" rel="noreferrer" title="JSON report" download>JSON</a>
+        <a className="btn small" href={api.runReportUrl(run.id, 'md')} target="_blank" rel="noreferrer" title="Markdown report" download>MD</a>
         <button className="btn small" onClick={rerun} title="Queue a new run with the same target + profile + params">
           Re-run
         </button>
@@ -587,6 +924,7 @@ function Tools() {
   const [category, setCategory] = useState('all');
   const [risk, setRisk] = useState('all');
   const [availabilityFilter, setAvailabilityFilter] = useState('all');
+  const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
 
   const reload = async (force = false) => {
     const [loadedTools, loadedProfiles, loadedAvailability] = await Promise.all([api.tools(), api.profiles(), api.toolAvailability(force)]);
@@ -646,7 +984,7 @@ function Tools() {
         </div>
         <table className="table"><thead><tr><th>Tool</th><th>Availability</th><th>Category</th><th>Risk</th><th>Auth</th><th>Tags</th></tr></thead><tbody>{filtered.map((t) => {
           const check = availabilityByTool[t.id];
-          return <tr key={t.id}>
+          return <tr key={t.id} onClick={() => setSelectedTool(t)} style={{ cursor: 'pointer' }} title="Click for detail + quick-launch">
             <td><strong>{t.name}</strong><br /><span className="muted mono">{t.id}{t.binary ? ` · ${t.binary}` : ''}</span></td>
             <td><span className={availabilityClass(check)} title={check?.message ?? ''}>{availabilityLabel(check)}</span><br /><span className="muted mono">{check?.path ?? check?.message ?? 'not checked'}</span></td>
             <td>{t.category}</td>
@@ -656,6 +994,7 @@ function Tools() {
           </tr>;
         })}</tbody></table>
       </div>
+      {selectedTool && <ToolDetailModal tool={selectedTool} onClose={() => setSelectedTool(null)} />}
       <div className="card"><h3>Profiles</h3>{profiles.map((p) => {
         const check = profileChecks[p.id];
         return <div key={p.id} className="card profile-card"><div className="row space"><strong>{p.name}</strong><span className={availabilityClass(check)}>{check ? `${check.available_tools}/${check.total_tools}` : 'unchecked'}</span></div><p className="muted">{p.description}</p>{check && !check.runnable && <p className="warning-text">Missing: {check.missing_tools.join(', ')}</p>}<code>{p.steps.map((s) => s.tool).join(' -> ')}</code></div>;
@@ -807,27 +1146,3 @@ function KeyValue({ label, value }: { label: string; value: unknown }) {
   return <div className="kv"><span className="muted">{label}</span><strong>{String(value ?? '—')}</strong></div>;
 }
 
-function Workflow() {
-  const nodeTypes = useMemo(() => ({ rfNode: RFNode }), []);
-  const nodes = useMemo(() => [
-    { id: 'target', type: 'rfNode', position: { x: 0, y: 160 }, data: { title: 'Target Domain', sub: 'example.com' } },
-    { id: 'subfinder', type: 'rfNode', position: { x: 240, y: 70 }, data: { title: 'subfinder', sub: 'passive subdomains' } },
-    { id: 'crtsh', type: 'rfNode', position: { x: 240, y: 250 }, data: { title: 'crt.sh', sub: 'certificate transparency' } },
-    { id: 'dnsx', type: 'rfNode', position: { x: 500, y: 160 }, data: { title: 'dnsx', sub: 'resolve/validate' } },
-    { id: 'httpx', type: 'rfNode', position: { x: 760, y: 160 }, data: { title: 'httpx', sub: 'probe + tech detect' } },
-    { id: 'nuclei', type: 'rfNode', position: { x: 1020, y: 160 }, data: { title: 'nuclei', sub: 'findings' } },
-  ], []);
-  const edges = useMemo(() => [
-    { id: 'e1', source: 'target', target: 'subfinder' },
-    { id: 'e2', source: 'target', target: 'crtsh' },
-    { id: 'e3', source: 'subfinder', target: 'dnsx' },
-    { id: 'e4', source: 'crtsh', target: 'dnsx' },
-    { id: 'e5', source: 'dnsx', target: 'httpx' },
-    { id: 'e6', source: 'httpx', target: 'nuclei' },
-  ], []);
-  return <div className="card"><div className="row space"><h3>Workflow Builder</h3><span className="muted">React Flow skeleton: typed sockets come next</span></div><div className="flow-pane"><ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView><Background /><Controls /></ReactFlow></div></div>;
-}
-
-function RFNode({ data }: { data: { title: string; sub: string } }) {
-  return <div className="node-card"><Handle type="target" position={Position.Left} /><div className="title">{data.title}</div><div className="sub">{data.sub}</div><Handle type="source" position={Position.Right} /></div>;
-}

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Coins, Download, RefreshCw, ShieldAlert } from 'lucide-react';
+import { AdvicePanel } from './AdvicePanel';
 import { api } from './api';
 import { CopyButton } from './CopyButton';
 import { EmptyState } from './EmptyState';
 import { useNav } from './nav';
+import { useWorkspace } from './WorkspaceContext';
 import { useToast } from './Toast';
-import type { LootItem, LootPage, Run, Workspace } from '../types';
+import type { Finding, LootItem, LootPage, Run } from '../types';
 
 type ExportFormat = 'csv' | 'json' | 'md';
 
@@ -31,9 +33,11 @@ function severityBadge(sev: string) {
 export function Loot() {
   const toast = useToast();
   const { consume, navigate } = useNav();
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  // The workspace lives in the global topbar context now. A deeplink with
+  // workspaceId (e.g. from a Workspaces card click) sets the global
+  // selector — same code path as the operator picking it manually.
+  const { workspaces, activeWorkspaceId, setActiveWorkspaceId } = useWorkspace();
   const [runs, setRuns] = useState<Run[]>([]);
-  const [workspaceId, setWorkspaceId] = useState('');
   const [runId, setRunId] = useState('');
   const [kind, setKind] = useState('');
   const [severity, setSeverity] = useState('');
@@ -47,7 +51,7 @@ export function Loot() {
   // One-time deeplink consume on mount.
   useEffect(() => {
     const params = consume();
-    if (params.workspaceId) setWorkspaceId(params.workspaceId);
+    if (params.workspaceId) setActiveWorkspaceId(params.workspaceId);
     if (params.runId) setRunId(params.runId);
     if (params.lootKind) setKind(params.lootKind);
     if (params.lootSeverity) setSeverity(params.lootSeverity);
@@ -55,22 +59,16 @@ export function Loot() {
   }, []);
 
   useEffect(() => {
-    Promise.all([api.workspaces(), api.runs()])
-      .then(([ws, rs]) => {
-        setWorkspaces(ws);
-        setRuns(rs);
-        if (!workspaceId && ws[0]) setWorkspaceId(ws[0].id);
-      })
+    api.runs()
+      .then(setRuns)
       .catch((e) => setError(String(e)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const reload = useCallback(() => {
-    if (!workspaceId) return;
     setLoading(true);
     setError(null);
     api.loot({
-      workspace_id: workspaceId,
+      workspace_id: activeWorkspaceId ?? undefined,
       run_id: runId || undefined,
       kind: kind || undefined,
       severity: severity || undefined,
@@ -80,7 +78,7 @@ export function Loot() {
       .then(setPage)
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
-  }, [workspaceId, runId, kind, severity, host]);
+  }, [activeWorkspaceId, runId, kind, severity, host]);
 
   useEffect(() => { reload(); }, [reload]);
 
@@ -103,7 +101,7 @@ export function Loot() {
 
   const exportLink = (format: ExportFormat) =>
     api.lootExportUrl({
-      workspace_id: workspaceId || undefined,
+      workspace_id: activeWorkspaceId ?? undefined,
       run_id: runId || undefined,
       kind: kind || undefined,
       severity: severity || undefined,
@@ -113,9 +111,11 @@ export function Loot() {
 
   // Workspace-scoped run options so the dropdown doesn't show foreign runs.
   const runOptions = useMemo(
-    () => runs.filter((r) => !workspaceId || r.workspace_id === workspaceId),
-    [runs, workspaceId],
+    () => runs.filter((r) => !activeWorkspaceId || r.workspace_id === activeWorkspaceId),
+    [runs, activeWorkspaceId],
   );
+
+  const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
 
   const kindFacets = page?.facets.kinds ?? [];
   const sevFacets = (page?.facets.severities ?? []).slice().sort(
@@ -139,13 +139,11 @@ export function Loot() {
         <div className="row space">
           <h3><Coins size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} /> Loot</h3>
           <span className="muted">
+            {activeWorkspace ? `Workspace: ${activeWorkspace.name}` : 'All workspaces'} ·
             Curated high-signal output derived from findings. Secrets, takeovers, critical vulns — not raw scanner noise.
           </span>
         </div>
         <div className="toolbar availability-toolbar">
-          <select className="input" value={workspaceId} onChange={(e) => setWorkspaceId(e.target.value)}>
-            {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select>
           <select className="input" value={runId} onChange={(e) => setRunId(e.target.value)}>
             <option value="">All runs</option>
             {runOptions.map((r) => <option key={r.id} value={r.id}>{r.profile_id} · {r.id.slice(0, 14)}</option>)}
@@ -272,6 +270,22 @@ function LootRow({
   onToggle: () => void;
   onOpenRun: () => void;
 }) {
+  // Lazy-load the linked finding so closed rows don't issue requests. The
+  // fetch happens once per (item, expanded) transition; subsequent toggles
+  // are free because state persists.
+  const [finding, setFinding] = useState<Finding | null>(null);
+  const [findingError, setFindingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!expanded || !item.finding_id) return;
+    if (finding && finding.id === item.finding_id) return;
+    let cancelled = false;
+    api.finding(item.finding_id)
+      .then((f) => { if (!cancelled) { setFinding(f); setFindingError(null); } })
+      .catch((e) => { if (!cancelled) setFindingError(e instanceof Error ? e.message : String(e)); });
+    return () => { cancelled = true; };
+  }, [expanded, item.finding_id, finding]);
+
   return (
     <>
       <tr onClick={onToggle} style={{ cursor: 'pointer' }}>
@@ -301,12 +315,33 @@ function LootRow({
               <div>
                 <div className="row space"><span className="muted">Value preview</span><CopyButton value={item.value_preview} title="Copy preview" /></div>
                 <pre className="mono loot-preview">{item.value_preview || '(empty)'}</pre>
+                {finding && finding.evidence && finding.evidence !== item.value_preview && (
+                  <>
+                    <div className="row space" style={{ marginTop: 8 }}>
+                      <span className="muted">Full finding evidence</span>
+                      <CopyButton value={finding.evidence} title="Copy evidence" />
+                    </div>
+                    <pre className="mono loot-preview">{finding.evidence}</pre>
+                  </>
+                )}
               </div>
               <div>
-                <KV label="ID" value={<span className="mono">{item.id}</span>} />
+                <KV label="Loot ID" value={<span className="mono">{item.id}</span>} />
                 <KV label="Finding" value={item.finding_id ? <span className="mono">{item.finding_id}</span> : '—'} />
                 <KV label="Artifact" value={item.artifact_id ? <span className="mono">{item.artifact_id}</span> : '—'} />
                 <KV label="Created" value={item.created_at} />
+                {finding && (
+                  <>
+                    <KV label="Status" value={<span className="badge passive">{finding.status}</span>} />
+                    <KV label="Category" value={finding.category} />
+                    <KV label="Confidence" value={finding.confidence} />
+                  </>
+                )}
+                {findingError && (
+                  <p className="advice-error" style={{ margin: 0, fontSize: 12 }}>
+                    Could not load finding: {findingError}
+                  </p>
+                )}
                 {Object.keys(item.meta ?? {}).length > 0 && (
                   <details>
                     <summary className="muted">meta</summary>
@@ -315,6 +350,16 @@ function LootRow({
                 )}
               </div>
             </div>
+            {finding && (
+              <div style={{ marginTop: 10 }}>
+                <AdvicePanel
+                  label="Explain this finding with Claude"
+                  refKey={finding.id}
+                  fetchCached={() => api.getFindingExplain(finding.id)}
+                  invoke={() => api.explainFinding(finding.id)}
+                />
+              </div>
+            )}
           </td>
         </tr>
       )}

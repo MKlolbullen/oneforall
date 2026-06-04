@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ReconForge — current UI snapshot</title>
+<style>
+/* ============================================================
+ * Self-contained snapshot of the live app's look. Captures the
+ * sidebar grouping (pass 3), topbar workspace selector + user
+ * menu (pass 1), and dashboard platform-health cards (pass 2).
+ * Uses the same dark palette as styles.css.
+ * ============================================================ */
+
+* { box-sizing: border-box; }
+body, html { margin: 0; padding: 0; height: 100%; }
+body {
+  background: #0d1117;
+  color: #e2e8f0;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.mono { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; }
+.muted { color: #94a3b8; }
+.small { font-size: 11.5px; }
+
+.shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+}
+
+/* ----- Sidebar ----- */
+.sidebar {
+  border-right: 1px solid #1f2937;
+  background: rgba(13,17,23,.92);
+  padding: 18px;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 800; letter-spacing: .04em; margin-bottom: 24px;
+}
+.brand-mark {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border: 1px solid #22d3ee; border-radius: 10px;
+  color: #22d3ee; box-shadow: 0 0 18px rgba(34,211,238,.22);
+}
+.nav { display: grid; gap: 4px; }
+.nav-section { display: grid; gap: 4px; margin-top: 12px; }
+.nav-section:first-child { margin-top: 0; }
+.nav-section-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 8px; margin: 0 2px;
+  color: #64748b; font-size: 10.5px;
+  letter-spacing: .12em; text-transform: uppercase;
+  font-weight: 600;
+}
+.nav-section-header svg { flex-shrink: 0; }
+.nav-section-list { display: grid; gap: 4px; }
+.nav-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  border: 1px solid transparent; color: #94a3b8;
+  cursor: pointer;
+}
+.nav-row.active {
+  color: #e5e7eb; border-color: #164e63; background: rgba(8,145,178,.10);
+}
+.nav-row svg { flex-shrink: 0; }
+.nav-badge {
+  margin-left: auto; padding: 1px 7px; border-radius: 6px;
+  font-size: 10.5px; font-family: 'JetBrains Mono', ui-monospace, monospace;
+  background: rgba(34,211,238,.18); color: #22d3ee;
+  border: 1px solid rgba(34,211,238,.4);
+}
+
+/* ----- Main ----- */
+.main { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; border-bottom: 1px solid #1f2937;
+  background: rgba(2,6,23,.4);
+}
+.topbar .row { display: flex; align-items: center; gap: 10px; }
+.topbar-brand { font-weight: 700; }
+.workspace-selector {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 8px; border-radius: 8px;
+  background: rgba(34,211,238,.08); border: 1px solid #164e63;
+}
+.workspace-selector select {
+  background: transparent; color: #e5e7eb; border: 0;
+  font-size: 12.5px; outline: none;
+}
+
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  font-size: 11px; border: 1px solid #1f2937;
+  background: rgba(31,41,55,.55); color: #cbd5e1;
+}
+.badge.ok { background: rgba(34,197,94,.12); color: #4ade80; border-color: rgba(34,197,94,.5); }
+.badge.bad { background: rgba(220,38,38,.12); color: #fca5a5; border-color: rgba(220,38,38,.5); }
+.badge.active { background: rgba(34,211,238,.12); color: #67e8f9; border-color: rgba(34,211,238,.5); }
+.badge.passive { background: rgba(148,163,184,.10); color: #cbd5e1; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 6px;
+  background: rgba(15,23,42,.7); color: #e2e8f0;
+  border: 1px solid #1f2937; font-size: 12px;
+  cursor: pointer;
+}
+.btn:hover { border-color: #334155; }
+.btn .kbd {
+  border: 1px solid #1f2937; border-radius: 3px;
+  padding: 0 4px; font-size: 10px; color: #94a3b8;
+}
+.user-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: linear-gradient(135deg, #22d3ee, #0891b2);
+  color: #0d1117; display: grid; place-items: center;
+  font-weight: 700; font-size: 12px;
+  border: 1px solid rgba(34,211,238,.4);
+}
+
+.content { padding: 18px; display: grid; gap: 14px; }
+
+.row { display: flex; align-items: center; gap: 10px; }
+.row.space { justify-content: space-between; }
+
+.card {
+  border: 1px solid #1f2937; border-radius: 10px;
+  background: rgba(2,6,23,.4); padding: 14px 16px;
+}
+.grid { display: grid; gap: 14px; }
+.grid.cols-2 { grid-template-columns: 1fr 1fr; }
+.grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+h3 { margin: 0; font-size: 14.5px; font-weight: 700; }
+
+/* KPI strip */
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 12px;
+}
+.kpi-card { padding: 12px 14px; }
+.kpi-card .metric {
+  font-size: 26px; font-weight: 700;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  margin-top: 6px;
+}
+.kpi-card.highlight {
+  border-color: #b91c1c;
+  background: linear-gradient(180deg, rgba(252,165,165,.06), rgba(2,6,23,.4));
+}
+
+/* Dashboard platform-health cards */
+.dashboard-platform-row { gap: 14px; }
+.dashboard-roe-grid, .dashboard-webhook-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 8px; margin: 8px 0 6px;
+}
+.dashboard-webhook-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
+.dashboard-count-tile {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 8px 6px; border: 1px solid rgba(31,41,55,.6);
+  border-radius: 6px; background: rgba(2,6,23,.35); gap: 2px;
+}
+.dashboard-count-tile strong {
+  font-size: 18px; color: #e2e8f0;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+.dashboard-count-tile.ok {
+  border-color: rgba(34,197,94,.5); background: rgba(34,197,94,.06);
+}
+.dashboard-count-tile.bad {
+  border-color: rgba(220,38,38,.55); background: rgba(220,38,38,.08);
+}
+.dashboard-count-tile.ok strong { color: #4ade80; }
+.dashboard-count-tile.bad strong { color: #fca5a5; }
+
+.dashboard-failing-hooks { margin-top: 8px; display: grid; gap: 4px; }
+.dashboard-failing-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 4px 6px; border-radius: 4px;
+  background: rgba(220,38,38,.06); border: 1px solid rgba(220,38,38,.25);
+  font-size: 11.5px;
+}
+
+/* Severity row */
+.severity-bar {
+  display: flex; height: 14px; border-radius: 4px; overflow: hidden;
+  margin: 10px 0 14px; background: rgba(2,6,23,.6);
+}
+.severity-seg.critical { background: #dc2626; }
+.severity-seg.high { background: #ea580c; }
+.severity-seg.medium { background: #facc15; }
+.severity-seg.low { background: #3b82f6; }
+.severity-seg.info { background: #71717a; }
+.severity-rows { display: grid; gap: 6px; }
+.severity-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 2px; border-bottom: 1px solid rgba(31,41,55,.4);
+}
+.severity-row:last-child { border-bottom: 0; }
+
+/* Three-column feed row */
+.dashboard-feeds { gap: 14px; }
+.feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.feed-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 0; border-bottom: 1px solid rgba(31,41,55,.4);
+  font-size: 12.5px;
+}
+.feed-row:last-child { border-bottom: 0; }
+.feed-row .ellipsis-cell {
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Annotations overlay */
+.note {
+  font-size: 11px; color: #fcd34d;
+  background: rgba(252,211,77,.08); border: 1px dashed rgba(252,211,77,.4);
+  padding: 6px 10px; border-radius: 6px;
+  margin: 0 18px 14px;
+}
+.note strong { color: #fde68a; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <strong>Snapshot:</strong> this is a static mock-up of the running app's
+  current layout — sidebar grouping (pass 3), topbar workspace selector +
+  user menu (pass 1), and dashboard platform-health cards (pass 2). Numbers
+  and rows are stand-ins; the real app pulls from the API.
+</div>
+
+<div class="shell">
+  <!-- =================== SIDEBAR =================== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">RF</span>
+      <span>ReconForge</span>
+    </div>
+
+    <nav class="nav">
+
+      <div class="nav-section">
+        <div class="nav-section-header">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <span>Operations</span>
+        </div>
+        <div class="nav-section-list">
+          <div class="nav-row active">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+            Dashboard
+          </div>
+          <div class="nav-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+            Workspaces
+          </div>
+          <div class="nav-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+            Targets
+          </div>
+          <div class="nav-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            Runs
+            <span class="nav-badge">3</span>
+          </div>
+          <div class="nav-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line></svg>
+            Results
+          </div>
+          <div class="nav-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"></circle><path d="M9.5 9h5M9.5 15h5"></path></svg>
+            Loot
+          </div>
+          <div class="nav-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+            Network Graph
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-header">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <span>Builders</span>
+        </div>
+        <div class="nav-section-list">
+          <div class="nav-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            Templates
+          </div>
+          <div class="nav-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="6" height="6"></rect><rect x="15" y="3" width="6" height="6"></rect><rect x="9" y="15" width="6" height="6"></rect><path d="M6 9v3a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9"></path></svg>
+            Workflow Builder
+          </div>
+          <div class="nav-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+            Tool Catalog
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-header">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <span>Admin</span>
+        </div>
+        <div class="nav-section-list">
+          <div class="nav-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            Users
+          </div>
+          <div class="nav-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            Webhooks
+          </div>
+          <div class="nav-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            Scope (ROE)
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-header">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <span>System</span>
+        </div>
+        <div class="nav-section-list">
+          <div class="nav-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"></path><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path><polyline points="12 7 12 12 15 14"></polyline></svg>
+            Audit Log
+          </div>
+          <div class="nav-row">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            Settings Pack
+          </div>
+        </div>
+      </div>
+
+    </nav>
+  </aside>
+
+  <!-- =================== MAIN =================== -->
+  <main class="main">
+
+    <div class="topbar">
+      <div class="row">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        <strong class="topbar-brand">Authorized Security Control Plane</strong>
+        <label class="workspace-selector" title="Currently focused workspace">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+          <select>
+            <option>acme-pentest-q2</option>
+            <option>All workspaces</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <span class="badge passive">dry_run mode</span>
+        <span class="badge passive">dry-run safe</span>
+        <button class="btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          Search <span class="kbd">⌘K</span>
+        </button>
+        <button class="btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          Advisor
+        </button>
+        <button class="btn" title="victor (admin)" style="padding: 3px 6px;">
+          <span class="user-avatar">V</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- Header strip -->
+      <div class="row space">
+        <div class="row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          <strong>Operations overview</strong>
+          <span class="muted">live · refreshes every 10s</span>
+        </div>
+        <button class="btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          Refresh
+        </button>
+      </div>
+
+      <!-- KPI strip -->
+      <div class="kpi-grid">
+        <div class="card kpi-card">
+          <div class="row space"><span class="muted">Workspaces</span><span style="color:#22d3ee;">▦</span></div>
+          <div class="metric">3</div>
+        </div>
+        <div class="card kpi-card">
+          <div class="row space"><span class="muted">Targets</span><span style="color:#22d3ee;">⊕</span></div>
+          <div class="metric">47</div>
+        </div>
+        <div class="card kpi-card">
+          <div class="row space"><span class="muted">Runs</span><span style="color:#22d3ee;">▶</span></div>
+          <div class="metric">128</div>
+        </div>
+        <div class="card kpi-card">
+          <div class="row space"><span class="muted">Assets</span><span style="color:#22d3ee;">▦</span></div>
+          <div class="metric">1,402</div>
+        </div>
+        <div class="card kpi-card">
+          <div class="row space"><span class="muted">Findings</span><span style="color:#22d3ee;">⚠</span></div>
+          <div class="metric">86</div>
+        </div>
+        <div class="card kpi-card highlight">
+          <div class="row space"><span class="muted">Open</span><span style="color:#fca5a5;">⚠</span></div>
+          <div class="metric">19</div>
+        </div>
+      </div>
+
+      <!-- Pass 2: platform-health row -->
+      <div class="grid cols-2 dashboard-platform-row">
+
+        <div class="card">
+          <div class="row space">
+            <h3>🛡 ROE policy</h3>
+            <button class="btn">↗ Edit</button>
+          </div>
+          <div class="row" style="margin-bottom:6px;">
+            <span style="color:#22c55e;">●</span>
+            <strong>Engine on</strong>
+            <span class="muted small">path: config/roe.yaml</span>
+          </div>
+          <div class="dashboard-roe-grid">
+            <div class="dashboard-count-tile"><strong>12</strong><span class="muted small">allowed.domains</span></div>
+            <div class="dashboard-count-tile"><strong>4</strong><span class="muted small">allowed.cidrs</span></div>
+            <div class="dashboard-count-tile"><strong>3</strong><span class="muted small">allowed.ports</span></div>
+            <div class="dashboard-count-tile"><strong>2</strong><span class="muted small">denied.domains</span></div>
+            <div class="dashboard-count-tile"><strong>1</strong><span class="muted small">denied.methods</span></div>
+            <div class="dashboard-count-tile"><strong>5</strong><span class="muted small">approval.tools</span></div>
+          </div>
+          <small class="muted">Enforced at every run-creation. Per-tool argv (ports / methods / rate-limit) is also evaluated.</small>
+        </div>
+
+        <div class="card">
+          <div class="row space">
+            <h3>🔔 Webhook health</h3>
+            <button class="btn">↗ Manage</button>
+          </div>
+          <small class="muted" style="display:block; margin-bottom:6px;">Workspace: acme-pentest-q2</small>
+          <div class="dashboard-webhook-grid">
+            <div class="dashboard-count-tile ok"><strong>4</strong><span class="muted small">active</span></div>
+            <div class="dashboard-count-tile ok"><strong>3</strong><span class="muted small">healthy</span></div>
+            <div class="dashboard-count-tile bad"><strong>1</strong><span class="muted small">failing</span></div>
+            <div class="dashboard-count-tile"><strong>0</strong><span class="muted small">untested</span></div>
+          </div>
+          <div class="dashboard-failing-hooks">
+            <strong class="muted small">⚠ Failing</strong>
+            <div class="dashboard-failing-row">
+              <span class="mono small">ops-slack-alerts</span>
+              <span class="badge bad">HTTP 503</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Severity + run status -->
+      <div class="grid cols-2">
+        <div class="card">
+          <div class="row space"><h3>Findings by severity</h3><span class="muted">86 total</span></div>
+          <div class="severity-bar">
+            <div class="severity-seg critical" style="flex:3;"></div>
+            <div class="severity-seg high" style="flex:12;"></div>
+            <div class="severity-seg medium" style="flex:28;"></div>
+            <div class="severity-seg low" style="flex:31;"></div>
+            <div class="severity-seg info" style="flex:12;"></div>
+          </div>
+          <div class="severity-rows">
+            <div class="severity-row"><span class="badge bad">critical</span><span class="mono"><strong>3</strong> <span class="muted">· 3%</span></span></div>
+            <div class="severity-row"><span class="badge bad">high</span><span class="mono"><strong>12</strong> <span class="muted">· 14%</span></span></div>
+            <div class="severity-row"><span class="badge active">medium</span><span class="mono"><strong>28</strong> <span class="muted">· 33%</span></span></div>
+            <div class="severity-row"><span class="badge passive">low</span><span class="mono"><strong>31</strong> <span class="muted">· 36%</span></span></div>
+            <div class="severity-row"><span class="badge">info</span><span class="mono"><strong>12</strong> <span class="muted">· 14%</span></span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="row space"><h3>Run status</h3><span class="muted">all-time</span></div>
+          <div class="severity-rows">
+            <div class="severity-row"><span class="badge ok">completed</span><strong class="mono">112</strong></div>
+            <div class="severity-row"><span class="badge active">running</span><strong class="mono">3</strong></div>
+            <div class="severity-row"><span class="badge bad">failed</span><strong class="mono">8</strong></div>
+            <div class="severity-row"><span class="badge bad">cancelled</span><strong class="mono">2</strong></div>
+            <div class="severity-row"><span class="badge passive">queued</span><strong class="mono">3</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active runs banner -->
+      <div class="card" style="border-color:#22d3ee; background:linear-gradient(180deg, rgba(34,211,238,.06), rgba(13,17,23,.78));">
+        <div class="row space">
+          <h3><span style="display:inline-block; width:8px; height:8px; background:#22d3ee; border-radius:50%; box-shadow:0 0 6px rgba(34,211,238,.8); margin-right:8px;"></span> Active runs</h3>
+          <span class="muted">3 in flight</span>
+        </div>
+        <div class="severity-rows">
+          <div class="severity-row">
+            <span class="mono small">7a3f8e21-1c5d-4b2a…</span>
+            <span class="mono small">passive_recon</span>
+            <span class="badge active">running</span>
+            <span class="muted small">2m ago</span>
+          </div>
+          <div class="severity-row">
+            <span class="mono small">b91d7a44-3e8c-49f1…</span>
+            <span class="mono small">web_active</span>
+            <span class="badge active">running</span>
+            <span class="muted small">5m ago</span>
+          </div>
+          <div class="severity-row">
+            <span class="mono small">c5e2c089-9a14-4d23…</span>
+            <span class="mono small">cloud_enum</span>
+            <span class="badge passive">queued</span>
+            <span class="muted small">8m ago</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Three-column feeds -->
+      <div class="grid cols-3 dashboard-feeds">
+        <div class="card">
+          <div class="row space"><h3>Recent runs</h3><span class="muted">⏱</span></div>
+          <ul class="feed">
+            <li class="feed-row">
+              <span class="mono small">passive_recon</span>
+              <span class="badge ok">completed</span>
+              <span class="muted small">12m ago</span>
+            </li>
+            <li class="feed-row">
+              <span class="mono small">web_active</span>
+              <span class="badge bad">failed</span>
+              <span class="muted small">1h ago</span>
+            </li>
+            <li class="feed-row">
+              <span class="mono small">cloud_enum</span>
+              <span class="badge ok">completed</span>
+              <span class="muted small">3h ago</span>
+            </li>
+            <li class="feed-row">
+              <span class="mono small">passive_recon</span>
+              <span class="badge ok">completed</span>
+              <span class="muted small">5h ago</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="row space"><h3>Recent findings</h3><span class="muted">⚠</span></div>
+          <ul class="feed">
+            <li class="feed-row">
+              <span class="badge bad">critical</span>
+              <span class="ellipsis-cell" title="Exposed .git directory on api.acme.com">Exposed .git directory on api.acme.com</span>
+              <span class="muted small">8m ago</span>
+            </li>
+            <li class="feed-row">
+              <span class="badge bad">high</span>
+              <span class="ellipsis-cell">CORS wildcard with credentials</span>
+              <span class="muted small">22m ago</span>
+            </li>
+            <li class="feed-row">
+              <span class="badge active">medium</span>
+              <span class="ellipsis-cell">jQuery 1.7 — known XSS sinks</span>
+              <span class="muted small">1h ago</span>
+            </li>
+            <li class="feed-row">
+              <span class="badge passive">low</span>
+              <span class="ellipsis-cell">Missing X-Content-Type-Options</span>
+              <span class="muted small">2h ago</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="row space"><h3>Audit feed</h3><span class="muted">📜</span></div>
+          <ul class="feed">
+            <li class="feed-row">
+              <span class="mono small">#284</span>
+              <span class="badge passive">scope.policy.updated</span>
+              <span class="muted small">by admin</span>
+              <span class="muted small">5m ago</span>
+            </li>
+            <li class="feed-row">
+              <span class="mono small">#283</span>
+              <span class="badge passive">webhook.created</span>
+              <span class="muted small">by operator</span>
+              <span class="muted small">14m ago</span>
+            </li>
+            <li class="feed-row">
+              <span class="mono small">#282</span>
+              <span class="badge passive">run.cancelled</span>
+              <span class="muted small">by operator</span>
+              <span class="muted small">28m ago</span>
+            </li>
+            <li class="feed-row">
+              <span class="mono small">#281</span>
+              <span class="badge passive">finding.status</span>
+              <span class="muted small">by operator</span>
+              <span class="muted small">41m ago</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

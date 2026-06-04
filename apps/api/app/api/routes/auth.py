@@ -67,6 +67,15 @@ class CreateUserPayload(BaseModel):
     role: Role = Role.viewer
 
 
+class UpdateUserPayload(BaseModel):
+    """Mutate a user's role or activation flag. Username + password rotation
+    are intentionally separate (no endpoint for them yet) — username is a
+    permanent identifier for audit attribution, and password resets need
+    their own confirmed flow."""
+    role: Role | None = None
+    is_active: bool | None = None
+
+
 @router.post("/login", response_model=LoginResponse)
 def login(payload: LoginPayload, session: Session = Depends(get_session)) -> LoginResponse:
     user = session.exec(select(User).where(User.username == payload.username)).first()
@@ -163,6 +172,59 @@ def revoke_api_key(
         target_kind="api_key", target_id=api_key.id, payload={},
     )
     session.commit()
+
+
+class UserPublic(BaseModel):
+    id: str
+    username: str
+    role: Role
+    is_active: bool
+    created_at: datetime
+    last_login_at: datetime | None
+
+
+@router.get("/users", response_model=list[UserPublic],
+            dependencies=[Depends(require_role(Role.admin))])
+def list_users(session: Session = Depends(get_session)) -> list[UserPublic]:
+    """Admin-only roster of every user. Password hashes are never serialised
+    (UserPublic doesn't include the field)."""
+    from app.models import User as UserModel
+    rows = session.exec(select(UserModel).order_by(UserModel.created_at.desc())).all()
+    return [UserPublic.model_validate(u.model_dump()) for u in rows]
+
+
+@router.patch("/users/{user_id}", response_model=UserPublic,
+              dependencies=[Depends(require_role(Role.admin))])
+def update_user(
+    user_id: str,
+    payload: UpdateUserPayload,
+    actor: User = Depends(current_user),
+    session: Session = Depends(get_session),
+) -> UserPublic:
+    """Promote/demote a user's role or toggle their is_active flag. Refuses to
+    let an admin lock themselves out (downgrade or deactivate self → 400)."""
+    target = session.get(User, user_id)
+    if not target:
+        raise HTTPException(404, "User not found")
+    if target.id == actor.id:
+        if payload.is_active is False:
+            raise HTTPException(400, "Refusing to deactivate the acting admin")
+        if payload.role is not None and payload.role != Role.admin:
+            raise HTTPException(400, "Refusing to demote the acting admin")
+    changes: dict[str, Any] = {}
+    if payload.role is not None and payload.role != target.role:
+        changes["role"] = {"from": target.role.value, "to": payload.role.value}
+        target.role = payload.role
+    if payload.is_active is not None and payload.is_active != target.is_active:
+        changes["is_active"] = {"from": target.is_active, "to": payload.is_active}
+        target.is_active = payload.is_active
+    if changes:
+        session.add(target)
+        audit.record(session, actor=actor, action="auth.user.updated",
+                     target_kind="user", target_id=target.id, payload=changes)
+        session.commit()
+        session.refresh(target)
+    return UserPublic.model_validate(target.model_dump())
 
 
 @router.post("/users", response_model=WhoAmI, status_code=201,

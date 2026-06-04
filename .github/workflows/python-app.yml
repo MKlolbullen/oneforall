@@ -2,9 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    # Run on main and on every working branch so the 305-test suite
+    # exercises feature work before merge. CI on main alone meant
+    # multi-commit branches landed without ever running CI.
+    branches: [ "main", "claude/**", "feature/**", "fix/**" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -36,8 +40,9 @@ jobs:
         run: pytest -v
 
   reconforge-api:
-    name: reconforge api (import smoke)
+    name: reconforge api (305-test suite)
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python 3.12
@@ -50,8 +55,40 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
       - name: Install pytest deps
-        run: pip install pytest httpx
-      - name: Reconforge tests (registry, e2e dry-run, DAG artifact passing)
+        run: pip install pytest httpx ruff
+      - name: Ruff (touched paths only)
+        # Limit to the modules + tests we own — pre-existing E402 lint
+        # in services/runner.py is unrelated to anything new.
+        run: |
+          ruff check apps/api/app/services/scope.py \
+                     apps/api/app/services/scope_engine.py \
+                     apps/api/app/services/roe_guard.py \
+                     apps/api/app/services/argv_extractor.py \
+                     apps/api/app/services/reports.py \
+                     apps/api/app/services/loot.py \
+                     apps/api/app/services/target_validation.py \
+                     apps/api/app/api/routes/scope.py \
+                     apps/api/app/api/routes/runs.py \
+                     apps/api/app/api/routes/webhooks.py \
+                     apps/api/app/api/routes/workflows.py \
+                     apps/api/app/api/routes/agent.py \
+                     apps/api/app/api/routes/loot.py \
+                     apps/api/app/api/routes/search.py \
+                     tests/test_scope_engine.py \
+                     tests/test_scope_poc.py \
+                     tests/test_scope_evaluate.py \
+                     tests/test_roe_guard_wired.py \
+                     tests/test_argv_extractor.py \
+                     tests/test_reports.py \
+                     tests/test_loot.py \
+                     tests/test_webhooks.py \
+                     tests/test_search.py \
+                     tests/test_workflows.py \
+                     tests/test_adhoc_workflow.py \
+                     tests/test_target_validation.py \
+                     tests/test_agent_brief.py \
+                     tests/test_user_admin.py
+      - name: Reconforge full suite (registry, e2e dry-run, ROE, reports, webhooks, search…)
         env:
           DATABASE_URL: sqlite:///./reconforge.db
           REDIS_URL: redis://localhost:6379/0
@@ -60,7 +97,11 @@ jobs:
           EXECUTION_MODE: dry_run
           ALLOW_LIVE_EXECUTION: "false"
           RUNNER_MODE: in_process
-        run: python -m pytest tests/ -v
+          # 0 keeps CI fast (~2-3 min instead of 4-5); the dry-run delay
+          # is purely cosmetic for live demos and shaving it on CI is
+          # the difference between a 12-minute and a 4-minute build.
+          DRY_RUN_LINE_DELAY_SECONDS: "0"
+        run: python -m pytest tests/ -q
 
   web-build:
     name: web (tsc + vite build)

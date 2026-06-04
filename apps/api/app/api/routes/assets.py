@@ -258,6 +258,21 @@ class FindingStatusUpdate(BaseModel):
     status: str = Field(min_length=1, max_length=32)
 
 
+@router.get("/findings/{finding_id}", response_model=Finding)
+def get_finding(
+    finding_id: str,
+    session: Session = Depends(get_session),
+    _user: User = Depends(current_user),
+) -> Finding:
+    """Single-finding fetch for drill-in panels (Loot row expansion, run
+    brief click-through). The paginated /api/findings list is the right
+    surface for everything else."""
+    finding = session.get(Finding, finding_id)
+    if not finding:
+        raise HTTPException(status_code=404, detail="Finding not found")
+    return finding
+
+
 @router.patch("/findings/{finding_id}", response_model=Finding)
 def update_finding_status(
     finding_id: str,

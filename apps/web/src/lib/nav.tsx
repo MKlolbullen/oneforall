@@ -6,14 +6,20 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
  * to consume any pending params (then clear them so a re-render doesn't loop).
  */
 export type Page =
-  | 'dashboard' | 'targets' | 'runs' | 'results' | 'network'
-  | 'tools' | 'templates' | 'workflow' | 'loot' | 'settings';
+  | 'dashboard' | 'workspaces' | 'targets' | 'runs' | 'results' | 'network'
+  | 'tools' | 'templates' | 'workflow' | 'loot' | 'users' | 'webhooks'
+  | 'scope' | 'audit' | 'settings';
 
 export type NavParams = {
   runId?: string;
   findingId?: string;
   targetId?: string;
   workspaceId?: string;
+  workflowId?: string;
+  // fromProfile is consumed by the WorkflowBuilder to seed the canvas from
+  // a YAML profile — lets operators fork "passive_recon" etc. into editable
+  // workflows without retyping the step list.
+  fromProfile?: string;
   lootKind?: string;
   lootSeverity?: string;
 };

@@ -5,16 +5,12 @@
 
 > **History note.** This repo previously hosted a CLI-only 10-stage pipeline called *OneForAll*. That package is preserved under [`legacy/`](./legacy) and wired into the new system as registry tools (`oneforall`, `oneforall_s01_passive` … `oneforall_s10_report`) and a profile (`oneforall_chain`). See [`legacy/README.md`](./legacy/README.md).
 
-> **Default safety posture for this branch is *lab mode*.**
-> `EXECUTION_MODE=live` and `ALLOW_LIVE_EXECUTION=true` are baked in everywhere
-> — `.env.example`, `apps/api/app/core/config.py` Pydantic defaults, the
-> `.env` template `scripts/install-stack.sh` writes, and the
-> `packages/platform-config/sniper-inspired.yaml` plugin matrix has every
-> scanner / channel / integration enabled. The platform still gates each run
-> behind `target.active_allowed=true` and a populated `scope.yaml`, but real
-> tools will fire as soon as those conditions are met. Flip both env flags
-> back to `dry_run` / `false` before exposing this to anything you don't
-> fully control.
+> **Default safety posture is safe dry-run.**
+> Fresh checkouts use `EXECUTION_MODE=dry_run` and `ALLOW_LIVE_EXECUTION=false`.
+> Real tools require both flags to be deliberately changed, a target to be in
+> scope, and active/high-risk authorization checks to pass. Treat live mode as
+> an explicitly authorized lab/engagement setting, not a normal default.
+> See [`docs/HARDENING.md`](./docs/HARDENING.md) for the operator safety checklist.
 
 ## What is included
 
@@ -203,6 +199,9 @@ That means scan runs simulate tool output and normalize sample assets. This is i
 EXECUTION_MODE=dry_run
 ALLOW_LIVE_EXECUTION=false
 
+# Dry-run pacing. 0.05s keeps demos readable; set to 0 in CI for fast tests.
+DRY_RUN_LINE_DELAY_SECONDS=0.05
+
 # Live mode requires both switches:
 # EXECUTION_MODE=live
 # ALLOW_LIVE_EXECUTION=true
@@ -274,7 +273,7 @@ Profile steps can override the tool's argv inline rather than editing the tool Y
 
 `argv_replace` fully overrides the tool's default argv; `argv_extra` is appended. The rendered argv for each attempt is persisted into `RunStep.meta.argv`, so the UI / API consumers can show exactly what was executed.
 
-This scaffold now includes **137 registry entries** and **24 scan profiles**, including passive ASM, ProjectDiscovery-style attack-surface discovery, DNS permutation/resolution, web fingerprinting, crawler/URL intelligence, content/parameter discovery, JS/secrets, API recon, cloud/takeover checks, port/service inventory, and a clean-room Enterprise ASM parity workflow. The current implementation executes those loops safely in dry-run mode through the worker container.
+This scaffold now includes **172 registry entries** and **28 scan profiles**, including passive ASM, ProjectDiscovery-style attack-surface discovery, DNS permutation/resolution, web fingerprinting, crawler/URL intelligence, content/parameter discovery, JS/secrets, API recon, cloud/takeover checks, port/service inventory, and a clean-room Enterprise ASM parity workflow. The current implementation executes those loops safely in dry-run mode through the worker container.
 
 ## Run control
 
@@ -341,7 +340,7 @@ Two dark themes. Toggle from the top bar; the choice persists in `localStorage`.
 
 ## Tool library
 
-The registry includes a clean-room, Sn1per/Enterprise-ASM-inspired set of **137** common building blocks. The categories are intentionally broad enough for a professional ASM/recon platform instead of a narrow “run a few bash tools” dashboard:
+The registry includes a clean-room, Sn1per/Enterprise-ASM-inspired set of **172** common building blocks. The categories are intentionally broad enough for a professional ASM/recon platform instead of a narrow “run a few bash tools” dashboard:
 
 ```text
 reconnaissance, external-intel, network-intel, resolution, permutation, brand-intel,

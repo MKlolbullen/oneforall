@@ -71,19 +71,42 @@ async def notify_run_event(
     run_id: str,
     payload: dict[str, Any] | None = None,
 ) -> None:
-    """Best-effort POST to the configured webhook. Returns silently on every
-    failure mode (disabled, no webhook, network error, non-2xx)."""
+    """Best-effort POST to all configured webhooks for this event:
+
+      1. The legacy platform-config-defined Slack webhook (back-compat).
+      2. Every active DB-backed Webhook in the run's workspace that's
+         subscribed to this event type.
+
+    Returns silently on every failure mode (disabled, no webhook, network
+    error, non-2xx) — a busted webhook must never crash a run.
+    """
     if event_type not in {"run.completed", "run.failed", "run.cancelled"}:
         return
+    body_text = _format(event_type, run_id, payload or {})
+
+    # 1) Legacy global webhook
     enabled, webhook = _resolve_settings()
-    if not enabled or not webhook:
-        return
-    body = {"text": _format(event_type, run_id, payload or {})}
-    try:
-        async with httpx.AsyncClient(timeout=WEBHOOK_TIMEOUT) as client:
-            r = await client.post(webhook, json=body)
-            if r.status_code >= 300:
-                logger.warning("webhook %s returned %s: %s",
-                                webhook[:30] + "…", r.status_code, r.text[:200])
-    except Exception as exc:  # noqa: BLE001 — webhook failures must never propagate
-        logger.warning("webhook delivery failed: %s", exc)
+    if enabled and webhook:
+        try:
+            async with httpx.AsyncClient(timeout=WEBHOOK_TIMEOUT) as client:
+                r = await client.post(webhook, json={"text": body_text})
+                if r.status_code >= 300:
+                    logger.warning("webhook %s returned %s: %s",
+                                    webhook[:30] + "…", r.status_code, r.text[:200])
+        except Exception as exc:  # noqa: BLE001 — webhook failures must never propagate
+            logger.warning("webhook delivery failed: %s", exc)
+
+    # 2) Per-workspace DB webhooks. Skip silently if the payload didn't carry
+    #    workspace_id (legacy code paths), since we don't want a synchronous
+    #    DB lookup on every legacy call site.
+    workspace_id = (payload or {}).get("workspace_id")
+    if workspace_id:
+        try:
+            from app.api.routes.webhooks import fanout
+            from app.db import engine
+            from sqlmodel import Session
+            def _session_factory() -> Session:
+                return Session(engine)
+            await fanout(workspace_id, event_type, body_text, _session_factory)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("workspace webhook fan-out failed: %s", exc)

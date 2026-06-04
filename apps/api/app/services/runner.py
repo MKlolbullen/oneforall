@@ -330,7 +330,12 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
         )
 
     try:
-        profile = registry.get_profile(profile_id)
+        # Ad-hoc workflows ship the profile inline through config_snapshot so
+        # the runner doesn't have to look it up on disk — the YAML registry has
+        # no entry for an ad-hoc id. Falls back to the registry for the named
+        # profiles operators usually launch.
+        profile_inline = config_snapshot.get("profile_inline")
+        profile = profile_inline if isinstance(profile_inline, dict) else registry.get_profile(profile_id)
         params = dict(config_snapshot.get("params") or {})
         params.setdefault("target", config_snapshot.get("target_value"))
 
@@ -408,6 +413,7 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
             "profile_id": profile_id,
             "target_value": config_snapshot.get("target_value"),
             "runner_mode": settings.runner_mode,
+            "workspace_id": workspace_id,
         })
         if ctx is not None and ctx.capture is not None:
             with session_factory() as session:
@@ -439,6 +445,7 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
             "profile_id": profile_id,
             "target_value": config_snapshot.get("target_value"),
             "error": str(exc),
+            "workspace_id": workspace_id,
         })
         if ctx is not None and ctx.capture is not None:
             await http_capture.stop(ctx.capture)
@@ -462,6 +469,7 @@ async def execute_run(run_id: str, registry: ToolRegistry, session_factory: Sess
             "profile_id": profile_id,
             "target_value": config_snapshot.get("target_value"),
             "error": repr(exc),
+            "workspace_id": workspace_id,
         })
         if ctx is not None and ctx.capture is not None:
             await http_capture.stop(ctx.capture)
@@ -673,12 +681,16 @@ async def _run_dry_tool(
 ) -> list[str]:
     stdout_lines: list[str] = []
     started = time.monotonic()
+    # Configurable pacing — non-zero keeps demos readable; CI runs with 0 so
+    # the dry-run e2e tests don't take 0.25s per simulated tool line.
+    delay = max(0.0, float(get_settings().dry_run_line_delay_seconds))
     for line in lines:
         if await _cancel_requested(session_factory, run_id):
             raise RunCancelled("operator requested cancellation")
         if time.monotonic() - started > timeout_seconds:
             raise StepTimedOut(f"{tool_id} exceeded timeout of {timeout_seconds}s")
-        await asyncio.sleep(0.25)
+        if delay:
+            await asyncio.sleep(delay)
         stdout_lines.append(line)
         with session_factory() as session:
             await event_bus.publish(

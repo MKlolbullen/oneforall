@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ChevronRight, Crosshair, FileText, Rocket, Search, ShieldAlert, X } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Crosshair, Edit3, FileText, Network, Rocket, Search, ShieldAlert, X } from 'lucide-react';
 import { api } from './api';
 import { EmptyState } from './EmptyState';
 import { useNav } from './nav';
+import { ScopePreflight, useScopePreflight } from './ScopePreflight';
 import { useToast } from './Toast';
-import type { Profile, ProfileAvailability, Target, Workspace } from '../types';
+import type { Profile, ProfileAvailability, SavedWorkflow, Target, Workspace } from '../types';
 
 const RISK_LABEL: Record<string, string> = {
   passive: 'Passive',
@@ -27,15 +28,22 @@ function riskBadge(risk: string) {
 export function Templates() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [availability, setAvailability] = useState<Record<string, ProfileAvailability>>({});
+  const [workflows, setWorkflows] = useState<SavedWorkflow[]>([]);
   const [query, setQuery] = useState('');
   const [risk, setRisk] = useState('all');
   const [health, setHealth] = useState<Record<string, unknown>>({});
   const [picking, setPicking] = useState<Profile | null>(null);
+  const [pickingWf, setPickingWf] = useState<SavedWorkflow | null>(null);
 
   const reload = async () => {
-    const [loaded, h] = await Promise.all([api.profiles(), api.health()]);
+    const [loaded, h, wfs] = await Promise.all([
+      api.profiles(),
+      api.health(),
+      api.workflows().catch(() => []),
+    ]);
     setProfiles(loaded);
     setHealth(h);
+    setWorkflows(wfs);
     const checks = await Promise.all(loaded.map((p) => api.profileAvailability(p.id).catch(() => null)));
     setAvailability(Object.fromEntries(checks.filter(Boolean).map((c) => [c!.profile_id, c!])));
   };
@@ -85,6 +93,28 @@ export function Templates() {
         </div>
       </div>
 
+      {workflows.length > 0 && (
+        <>
+          <div className="card">
+            <div className="row space">
+              <strong><Network size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Saved workflows</strong>
+              <span className="muted small">{workflows.length} workflow{workflows.length === 1 ? '' : 's'} · built in the canvas, launchable from here</span>
+            </div>
+          </div>
+          <div className="templates-grid">
+            {workflows.map((wf) => (
+              <WorkflowCard key={wf.id} workflow={wf} onLaunch={() => setPickingWf(wf)} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {workflows.length > 0 && (
+        <div className="card">
+          <strong>System profiles</strong>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <EmptyState
           icon={<FileText size={28} />}
@@ -115,6 +145,9 @@ export function Templates() {
           onClose={() => setPicking(null)}
         />
       )}
+      {pickingWf && (
+        <WorkflowLaunchPicker workflow={pickingWf} onClose={() => setPickingWf(null)} />
+      )}
     </div>
   );
 }
@@ -127,6 +160,7 @@ function TemplateCard({
   liveEnabled: boolean;
   onLaunch: () => void;
 }) {
+  const { navigate } = useNav();
   const blocked = liveEnabled && check && !check.runnable;
   const stepNames = profile.steps.map((s) => s.tool);
   const visibleSteps = stepNames.slice(0, 8);
@@ -163,9 +197,19 @@ function TemplateCard({
       )}
       <div className="row space" style={{ marginTop: 8 }}>
         <span className="muted mono small">{profile.id}</span>
-        <button className="btn" disabled={Boolean(blocked)} onClick={onLaunch}>
-          <Rocket size={14} /> Launch
-        </button>
+        <div className="row" style={{ gap: 6 }}>
+          <button
+            className="btn small"
+            type="button"
+            title="Open this profile's steps in the Workflow Builder for editing"
+            onClick={() => navigate('workflow', { fromProfile: profile.id })}
+          >
+            <Edit3 size={12} /> Customize
+          </button>
+          <button className="btn" disabled={Boolean(blocked)} onClick={onLaunch}>
+            <Rocket size={14} /> Launch
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -212,7 +256,15 @@ function LaunchPicker({
   const selected = targets.find((t) => t.id === targetId) ?? null;
   const targetReady = selected != null && (!needsActive || selected.active_allowed);
 
-  const launch = async () => {
+  // Use a stable param string for the preflight call so flipping
+  // unrelated state doesn't refire the debounced fetch.
+  const preflight = useScopePreflight(selected ? {
+    target: selected.value,
+    risk: profile.risk,
+    tool_id: profile.id,
+  } : null);
+
+  const launch = async (extraParams: Record<string, unknown> = {}) => {
     if (!selected || !targetReady) return;
     setBusy(true);
     try {
@@ -289,11 +341,201 @@ function LaunchPicker({
               <ShieldAlert size={12} /> Live mode: missing {check.missing_tools.slice(0, 3).join(', ')}{check.missing_tools.length > 3 ? '…' : ''}
             </p>
           )}
+          {selected && preflight.state && preflight.state.decision !== 'no-engine' && (
+            <div className="row" style={{ gap: 6, alignItems: 'center', marginTop: 4 }}>
+              <span className="muted small">ROE preflight:</span>
+              <ScopePreflight action={selected ? {
+                target: selected.value, risk: profile.risk, tool_id: profile.id,
+              } : null} />
+              {preflight.state.decision === 'deny' && preflight.state.reason && (
+                <small className="warning-text">— {preflight.state.reason}</small>
+              )}
+            </div>
+          )}
         </div>
         <div className="modal-actions">
           <button className="btn small" onClick={onClose} type="button">Cancel</button>
-          <button className="btn" onClick={launch} type="button" disabled={!targetReady || busy}>
-            {busy ? 'Queueing…' : <><Rocket size={14} /> Launch run</>}
+          <button
+            className="btn"
+            onClick={() => launch()}
+            type="button"
+            disabled={!targetReady || busy || preflight.blocked}
+            title={preflight.blocked ? `Blocked by ROE policy: ${preflight.state?.reason ?? ''}` : ''}
+          >
+            {busy ? 'Queueing…' : preflight.blocked ? (
+              <><Rocket size={14} /> Blocked by ROE</>
+            ) : (
+              <><Rocket size={14} /> Launch run</>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================================
+ * Saved workflow card + launch picker
+ * ========================================================================== */
+
+function WorkflowCard({ workflow, onLaunch }: { workflow: SavedWorkflow; onLaunch: () => void }) {
+  const { navigate } = useNav();
+  const steps = workflow.body?.steps ?? [];
+  const visible = steps.slice(0, 8);
+  const hidden = steps.length - visible.length;
+
+  return (
+    <div className="template-card">
+      <div className="row space">
+        <strong className="template-title">{workflow.name}</strong>
+        <span className="badge ok">workflow</span>
+      </div>
+      <p className="muted template-desc">{workflow.description || 'Saved Workflow Builder graph.'}</p>
+      <div className="template-meta">
+        <span className="muted small">{steps.length} step{steps.length === 1 ? '' : 's'}</span>
+        <span className="muted small" title={`Updated ${new Date(workflow.updated_at).toLocaleString()}`}>
+          updated {new Date(workflow.updated_at).toLocaleDateString()}
+        </span>
+      </div>
+      <div className="template-steps">
+        {visible.map((s, i) => (
+          <span key={`${s.tool}-${i}`} className="template-step">
+            {s.tool}
+            {i < visible.length - 1 && <ChevronRight size={12} className="muted" />}
+          </span>
+        ))}
+        {hidden > 0 && <span className="muted">… +{hidden}</span>}
+      </div>
+      <div className="row space" style={{ marginTop: 8 }}>
+        <button
+          className="btn small"
+          type="button"
+          onClick={() => navigate('workflow', { workflowId: workflow.id })}
+          title="Open this workflow in the canvas editor"
+        >
+          <Edit3 size={12} /> Edit
+        </button>
+        <button className="btn" type="button" onClick={onLaunch}>
+          <Rocket size={14} /> Launch
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function WorkflowLaunchPicker({ workflow, onClose }: { workflow: SavedWorkflow; onClose: () => void }) {
+  const toast = useToast();
+  const { navigate } = useNav();
+  const [targets, setTargets] = useState<Target[]>([]);
+  const [filter, setFilter] = useState('');
+  const [targetId, setTargetId] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.targets().then((all) => {
+      // Workflow is workspace-scoped; show only targets in that workspace.
+      setTargets(all.filter((t) => t.workspace_id === workflow.workspace_id));
+    }).catch((e) => toast.fromError(e, 'Failed to load targets'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filteredTargets = useMemo(
+    () => targets.filter((t) => !filter || t.value.toLowerCase().includes(filter.toLowerCase())),
+    [targets, filter],
+  );
+  const selected = targets.find((t) => t.id === targetId) ?? null;
+  // Use the first tool from the workflow's saved body as the preflight tool
+  // id — surfaces per-tool approval gates if any step's tool is listed.
+  const firstTool = (workflow.body?.steps ?? [])[0]?.tool;
+  const preflight = useScopePreflight(selected ? {
+    target: selected.value,
+    risk: 'low_active',  // workflows don't carry an explicit risk; use a midpoint
+    tool_id: firstTool,
+  } : null);
+
+  const launch = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const run = await api.launchWorkflow(workflow.id, { target_id: selected.id });
+      toast.success('Run queued', `${workflow.name} → ${selected.value}`);
+      onClose();
+      navigate('runs', { runId: run.id });
+    } catch (e) {
+      toast.fromError(e, 'Launch failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal launch-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="modal-header">
+          <span className="row">
+            <Rocket size={16} color="#22d3ee" />
+            <strong>Launch workflow <span className="mono">{workflow.name}</span></strong>
+            <span className="badge ok">workflow</span>
+          </span>
+          <button className="icon-btn" onClick={onClose} type="button" aria-label="Close"><X size={14} /></button>
+        </div>
+        {workflow.description && <p className="muted">{workflow.description}</p>}
+        <p className="muted small">
+          Scoped to its saved workspace. Target list is filtered to that workspace.
+        </p>
+        <div className="grid">
+          <input
+            className="input"
+            placeholder="Filter targets by host…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+          <div className="launch-target-list">
+            {filteredTargets.length === 0 && <p className="muted">No targets in this workspace. Open Targets to add one.</p>}
+            {filteredTargets.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`launch-target ${targetId === t.id ? 'selected' : ''}`}
+                onClick={() => setTargetId(t.id)}
+              >
+                <span className="row">
+                  <Crosshair size={14} />
+                  <span className="mono">{t.value}</span>
+                </span>
+                <span className="row">
+                  {t.active_allowed ? <span className="badge active">active OK</span> : <span className="badge">passive only</span>}
+                  {!t.in_scope && <span className="badge bad">out of scope</span>}
+                </span>
+              </button>
+            ))}
+          </div>
+          {selected && preflight.state && preflight.state.decision !== 'no-engine' && (
+            <div className="row" style={{ gap: 6, alignItems: 'center', marginTop: 4 }}>
+              <span className="muted small">ROE preflight:</span>
+              <ScopePreflight action={{
+                target: selected.value, risk: 'low_active', tool_id: firstTool,
+              }} />
+              {preflight.state.decision === 'deny' && preflight.state.reason && (
+                <small className="warning-text">— {preflight.state.reason}</small>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="modal-actions">
+          <button className="btn small" onClick={onClose} type="button">Cancel</button>
+          <button
+            className="btn"
+            onClick={launch}
+            type="button"
+            disabled={!selected || busy || preflight.blocked}
+            title={preflight.blocked ? `Blocked by ROE policy: ${preflight.state?.reason ?? ''}` : ''}
+          >
+            {busy ? 'Queueing…' : preflight.blocked ? (
+              <><Rocket size={14} /> Blocked by ROE</>
+            ) : (
+              <><Rocket size={14} /> Launch run</>
+            )}
           </button>
         </div>
       </div>

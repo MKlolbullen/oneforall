@@ -38,6 +38,12 @@ export type RunEvent = {
   created_at: string;
 };
 
+export type ToolIO = {
+  name: string;
+  type: string;
+  required?: boolean;
+};
+
 export type Tool = {
   id: string;
   name: string;
@@ -46,7 +52,62 @@ export type Tool = {
   binary?: string | null;
   risk: string;
   requires_authorization: boolean;
+  inputs?: ToolIO[];
+  outputs?: ToolIO[];
+  default_timeout_seconds?: number;
+  max_retries?: number;
+  retry_backoff_seconds?: number;
+  continue_on_error?: boolean;
+  command?: { argv?: string[]; [k: string]: unknown };
+  install?: Record<string, unknown>;
   tags?: string[];
+};
+
+export type AdHocStep = {
+  tool: string;
+  argv_replace?: string[];
+  argv_extra?: string[];
+  timeout_seconds?: number;
+  max_retries?: number;
+  retry_backoff_seconds?: number;
+  continue_on_error?: boolean;
+};
+
+export type AdHocRunCreate = {
+  workspace_id: string;
+  target_id: string;
+  name: string;
+  steps: AdHocStep[];
+  params?: Record<string, unknown>;
+};
+
+export type WorkflowBody = {
+  steps: AdHocStep[];
+  graph?: { nodes: unknown[]; edges: unknown[] } | null;
+};
+
+export type SavedWorkflow = {
+  id: string;
+  workspace_id: string;
+  name: string;
+  description: string | null;
+  body: WorkflowBody;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WorkflowCreate = {
+  workspace_id: string;
+  name: string;
+  description?: string | null;
+  body: WorkflowBody;
+};
+
+export type WorkflowUpdate = {
+  name?: string;
+  description?: string | null;
+  body?: WorkflowBody;
 };
 
 export type Profile = {
@@ -334,6 +395,166 @@ export type Advice = {
   cached_tokens: number;
   summary: string;
   body: Record<string, unknown>;
+};
+
+export type WhoAmI = {
+  id: string;
+  username: string;
+  role: 'viewer' | 'operator' | 'admin' | string;
+  is_active: boolean;
+  last_login_at: string | null;
+};
+
+export type UserPublic = {
+  id: string;
+  username: string;
+  role: 'viewer' | 'operator' | 'admin' | string;
+  is_active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+};
+
+export type APIKeyPublic = {
+  id: string;
+  name: string;
+  prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+};
+
+export type CreatedAPIKey = {
+  id: string;
+  token: string;  // shown once on creation; never re-fetchable
+  prefix: string;
+};
+
+export type SearchTargetHit = { id: string; value: string; type: string; workspace_id: string; active_allowed: boolean; in_scope: boolean };
+export type SearchRunHit = { id: string; profile_id: string; workspace_id: string; target_id: string; status: string; risk: string; created_at: string | null };
+export type SearchFindingHit = { id: string; title: string; severity: string; category: string; status: string; run_id: string | null; workspace_id: string; tool_source: string | null };
+export type SearchLootHit = { id: string; label: string; kind: string; severity: string; run_id: string | null; workspace_id: string; host: string | null };
+export type SearchWorkflowHit = { id: string; name: string; workspace_id: string; step_count: number; updated_at: string | null };
+export type SearchWorkspaceHit = { id: string; name: string; description: string | null };
+export type SearchWebhookHit = { id: string; name: string; workspace_id: string; is_active: boolean };
+export type SearchToolHit = { id: string; name: string; category: string; risk: string; description: string };
+export type SearchProfileHit = { id: string; name: string; risk: string; description: string; step_count: number };
+
+export type ScopeEvaluateRequest = {
+  target: string;
+  tool_id?: string;
+  risk?: string;
+  method?: string;
+  port?: number;
+  path?: string;
+  requested_rps?: number;
+  manual_approval?: boolean;
+};
+
+export type ScopeDecision =
+  | 'allow' | 'deny' | 'require_approval' | 'rate_limit' | 'no-engine' | string;
+
+export type ScopeEvaluateResponse = {
+  decision: ScopeDecision;
+  reason?: string | null;
+  matched_rule?: string | null;
+  normalized_target?: string | null;
+  risk?: string | null;
+  trace?: string[];
+  effective_limits?: Record<string, unknown>;
+};
+
+export type ScopePolicyResponse = {
+  enabled: boolean;
+  path: string;
+  yaml: string;
+  parsed: Record<string, unknown>;
+};
+
+export type ScopeActiveWindow = {
+  start: string;
+  end: string;
+  timezone: string;
+};
+
+export type ScopePolicyStructured = {
+  allowed?: { domains?: string[]; cidrs?: string[]; ports?: number[] };
+  denied?: { domains?: string[]; cidrs?: string[]; methods?: string[]; paths?: string[] };
+  limits?: {
+    max_rps?: number | null;
+    max_hosts?: number | null;
+    active_scan_window?: ScopeActiveWindow | null;
+  } | null;
+  approval?: { require_for_risk?: string[]; require_for_tools?: string[] };
+};
+
+export type SearchResults = {
+  q: string;
+  workspaces: SearchWorkspaceHit[];
+  targets: SearchTargetHit[];
+  runs: SearchRunHit[];
+  findings: SearchFindingHit[];
+  loot: SearchLootHit[];
+  workflows: SearchWorkflowHit[];
+  webhooks: SearchWebhookHit[];
+  tools: SearchToolHit[];
+  profiles: SearchProfileHit[];
+};
+
+export type Webhook = {
+  id: string;
+  workspace_id: string;
+  name: string;
+  url: string;
+  events: string[];
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  last_used_at: string | null;
+  last_status: number | null;
+  last_error: string | null;
+};
+
+export type WebhookCreate = {
+  workspace_id: string;
+  name: string;
+  url: string;
+  events: string[];
+  is_active?: boolean;
+};
+
+export type WebhookUpdate = {
+  name?: string;
+  url?: string;
+  events?: string[];
+  is_active?: boolean;
+};
+
+export type WebhookTestResult = {
+  delivered: boolean;
+  status: number | null;
+  error: string | null;
+};
+
+export type AuditEvent = {
+  sequence: number;
+  actor_id: string | null;
+  actor_role: 'viewer' | 'operator' | 'admin' | string | null;
+  action: string;
+  target_kind: string | null;
+  target_id: string | null;
+  payload: Record<string, unknown>;
+  prev_signature: string | null;
+  signature: string;
+  created_at: string;
+};
+
+export type AuditBreak = { sequence: number; reason: string };
+
+export type AuditPage = {
+  ok: boolean;
+  breaks: AuditBreak[];
+  events: AuditEvent[];
 };
 
 export type LootItem = {

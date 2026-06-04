@@ -301,6 +301,35 @@ def test_patch_finding_status_persists_and_audits(stack):
     assert audit["ok"] is True
 
 
+def test_get_single_finding(stack):
+    """GET /api/findings/{id} surfaces one finding for drill-in panels
+    (Loot row expansion fetches the linked Finding here)."""
+    client, headers = stack
+    _, _, _, ids = _seed_run_with_findings(client, headers, severities=["high"])
+    r = client.get(f"/api/findings/{ids[0]}", headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["id"] == ids[0]
+    assert body["severity"] == "high"
+    # password / hash fields are not on Finding but verify it doesn't leak
+    # an unexpected shape — keys are the model fields and nothing weird.
+    assert set(body.keys()) >= {
+        "id", "workspace_id", "run_id", "title", "severity", "status",
+        "category", "evidence", "tool_source", "created_at",
+    }
+
+
+def test_get_finding_404_unknown(stack):
+    client, headers = stack
+    r = client.get("/api/findings/finding_nope", headers=headers)
+    assert r.status_code == 404
+
+
+def test_get_finding_anonymous_blocked(stack):
+    client, _ = stack
+    assert client.get("/api/findings/anything").status_code == 401
+
+
 def test_patch_finding_invalid_status(stack):
     client, headers = stack
     _, _, _, ids = _seed_run_with_findings(

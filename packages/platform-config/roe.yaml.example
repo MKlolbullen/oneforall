@@ -1,0 +1,67 @@
+# ReconForge ROE policy — example.
+#
+# Drop this file (renamed roe.yaml) next to it, or set
+# ROE_POLICY_PATH=/path/to/your/policy.yaml in the environment. The
+# platform's ROE engine loads it on import and refuses any run that
+# matches a denied rule, exceeds an active-scan window, or requires
+# manual approval the request didn't supply.
+#
+# When the file is ABSENT the engine no-ops and the legacy target-level
+# scope check remains the only gate — that's the platform's default.
+
+allowed:
+  # Domains and wildcard subdomains the platform may touch. `*.x.y`
+  # patterns cover the apex `x.y` too.
+  domains:
+    - example.com
+    - "*.example.com"
+  # CIDR allowlist. Anything not matched is denied.
+  cidrs:
+    - "10.10.0.0/16"
+  # Optional port allowlist. If set, the engine refuses requests that
+  # name a port outside this list. (Enforced wherever a caller passes
+  # `port` to the engine — see app/services/roe_guard.py.)
+  ports:
+    - 80
+    - 443
+    - 8080
+
+denied:
+  # Deny rules always win before allow rules. Domain / CIDR / methods /
+  # paths are evaluated in that order.
+  domains:
+    - admin.example.com
+  cidrs:
+    - "10.10.50.0/24"
+  paths:
+    - "/logout"
+    - "/delete"
+  methods:
+    - "DELETE"
+    - "TRACE"
+
+limits:
+  # Max requests-per-second any single step may issue. Enforcement lands
+  # wherever rps is known (per-tool argv parser or HTTP capture).
+  max_rps: 5
+  # Active-scan time window. Active runs outside this window escalate to
+  # require_approval — keep them out of business hours, etc.
+  active_scan_window:
+    start: "22:00"
+    end: "05:00"
+    timezone: "Europe/Stockholm"
+
+approval:
+  # Risk levels that must carry `manual_approval=true` in run params.
+  # Mirrors the legacy `require_high_risk_manual_approval` but
+  # supports more risk classes than just `high_active`.
+  require_for_risk:
+    - high_active
+    - destructive
+  # Specific tools that always require fresh consent, regardless of the
+  # profile's aggregate risk. Use this when a profile happens to include
+  # one heavy-blast-radius tool inside an otherwise tame chain.
+  require_for_tools:
+    - sqlmap_crawl
+    - commix
+    - metasploit

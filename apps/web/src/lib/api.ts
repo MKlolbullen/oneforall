@@ -1,6 +1,10 @@
-import type { Advice, Artifact, Asset, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, Target, TargetSummary, TargetTech, Tool, ToolAvailability, WordlistInfo, Workspace } from '../types';
+import type { AdHocRunCreate, Advice, APIKeyPublic, Artifact, Asset, AuditPage, CreatedAPIKey, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, SavedWorkflow, ScopeEvaluateRequest, ScopeEvaluateResponse, ScopePolicyResponse, ScopePolicyStructured, SearchResults, Target, TargetSummary, TargetTech, Tool, ToolAvailability, UserPublic, Webhook, WebhookCreate, WebhookTestResult, WebhookUpdate, WhoAmI, WordlistInfo, WorkflowCreate, WorkflowUpdate, Workspace } from '../types';
+
 import { getApiBaseUrl, getWsBaseUrl } from './runtimeConfig';
 
+// Resolve at module load; the helpers honour window-injected config first
+// (useful for an Electron shell that picks the sidecar URL at app start) and
+// fall back to Vite's build-time env, then to localhost defaults.
 const API_BASE_URL = getApiBaseUrl();
 const WS_BASE_URL = getWsBaseUrl();
 
@@ -14,6 +18,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(`${response.status} ${response.statusText}: ${body}`);
   }
   return response.json() as Promise<T>;
+}
+
+// 204 No Content + DELETE-style endpoints can't be JSON-parsed; request<T>
+// would throw on response.json(). Use this helper for void endpoints.
+async function requestVoid(path: string, init?: RequestInit): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    ...init,
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`${response.status} ${response.statusText}: ${body}`);
+  }
 }
 
 export const api = {
@@ -41,6 +58,7 @@ export const api = {
     request<Finding>(`/api/findings/${findingId}`, {
       method: 'PATCH', body: JSON.stringify({ status }),
     }),
+  finding: (findingId: string) => request<Finding>(`/api/findings/${findingId}`),
   workspaces: () => request<Workspace[]>('/api/workspaces'),
   createWorkspace: (payload: { name: string; description?: string }) =>
     request<Workspace>('/api/workspaces', { method: 'POST', body: JSON.stringify(payload) }),
@@ -58,6 +76,9 @@ export const api = {
   runs: () => request<Run[]>('/api/runs'),
   createRun: (payload: { workspace_id: string; target_id: string; profile_id: string }) =>
     request<Run>('/api/runs', { method: 'POST', body: JSON.stringify(payload) }),
+  createAdhocRun: (payload: AdHocRunCreate) =>
+    request<Run>('/api/runs/adhoc', { method: 'POST', body: JSON.stringify(payload) }),
+  tool: (toolId: string) => request<Tool>(`/api/tools/${toolId}`),
   cancelRun: (runId: string) => request<Run>(`/api/runs/${runId}/cancel`, { method: 'POST' }),
   runEvents: (runId: string) => request<RunEvent[]>(`/api/runs/${runId}/events`),
   runSteps: (runId: string) => request<RunStep[]>(`/api/runs/${runId}/steps`),
@@ -157,7 +178,15 @@ export const api = {
     workspace_id: string;
   }>('/api/targets/bulk', { method: 'POST', body: JSON.stringify(payload) }),
 
-  rerun: (runId: string) => request<Run>(`/api/runs/${runId}/rerun`, { method: 'POST' }),
+  rerun: (runId: string, params?: Record<string, unknown>) =>
+    request<Run>(`/api/runs/${runId}/rerun`, {
+      method: 'POST',
+      // Body is optional; when supplied, the backend uses `params` (plus
+      // inherited non-consent params from the source run). Pass
+      // `{ manual_approval: true }` to provide fresh consent on a
+      // high-risk rerun.
+      body: params ? JSON.stringify({ params }) : undefined,
+    }),
 
   // Loot — curated high-signal layer (secrets, takeovers, critical/high vulns).
   // See AGENTS.md and apps/api/app/services/loot.py.
@@ -197,4 +226,110 @@ export const api = {
   // Agent — machine-facing structured run brief; cheaper than the advisor
   // because no LLM is involved.
   runBrief: (runId: string) => request<RunBrief>(`/api/agent/runs/${runId}/brief`),
+
+  // Run report — html/json/md document with full findings + loot + assets.
+  // Returns the absolute URL so the operator can click a real <a download>
+  // and the browser handles the file dialog; the same URL works in a new tab.
+  runReportUrl: (runId: string, format: 'html' | 'json' | 'md' = 'html') =>
+    `${API_BASE_URL}/api/runs/${runId}/report?format=${format}`,
+  targetReportUrl: (targetId: string, format: 'html' | 'json' | 'md' = 'html') =>
+    `${API_BASE_URL}/api/targets/${targetId}/report?format=${format}`,
+
+  // Identity + audit. /auth/audit is admin-only — non-admins get 403.
+  me: () => request<WhoAmI>('/api/auth/me'),
+  audit: (limit = 100) => request<AuditPage>(`/api/auth/audit?limit=${limit}`),
+
+  // User admin (admin-only roster + role/active toggles).
+  listUsers: () => request<UserPublic[]>('/api/auth/users'),
+  createUser: (payload: { username: string; password: string; role: string }) =>
+    request<WhoAmI>('/api/auth/users', { method: 'POST', body: JSON.stringify(payload) }),
+  updateUser: (userId: string, payload: { role?: string; is_active?: boolean }) =>
+    request<UserPublic>(`/api/auth/users/${userId}`, {
+      method: 'PATCH', body: JSON.stringify(payload),
+    }),
+
+  // Per-user API keys. List + create + revoke. The token is only returned by
+  // POST /api/auth/api-keys; it must be shown to the operator once and never
+  // re-fetched (only its sha256 + prefix are persisted).
+  listApiKeys: () => request<APIKeyPublic[]>('/api/auth/api-keys'),
+  createApiKey: (name: string) =>
+    request<CreatedAPIKey>('/api/auth/api-keys', {
+      method: 'POST', body: JSON.stringify({ name }),
+    }),
+  revokeApiKey: (apiKeyId: string) =>
+    requestVoid(`/api/auth/api-keys/${apiKeyId}`, { method: 'DELETE' }),
+
+  // Saved Workflow Builder graphs (DB-backed). Body holds the steps[] used
+  // at launch + a "graph" with the React Flow nodes/edges for the canvas.
+  workflows: (workspaceId?: string) =>
+    request<SavedWorkflow[]>(`/api/workflows${workspaceId ? `?workspace_id=${workspaceId}` : ''}`),
+  workflow: (workflowId: string) =>
+    request<SavedWorkflow>(`/api/workflows/${workflowId}`),
+  createWorkflow: (payload: WorkflowCreate) =>
+    request<SavedWorkflow>('/api/workflows', { method: 'POST', body: JSON.stringify(payload) }),
+  updateWorkflow: (workflowId: string, payload: WorkflowUpdate) =>
+    request<SavedWorkflow>(`/api/workflows/${workflowId}`, {
+      method: 'PUT', body: JSON.stringify(payload),
+    }),
+  deleteWorkflow: (workflowId: string) =>
+    requestVoid(`/api/workflows/${workflowId}`, { method: 'DELETE' }),
+  launchWorkflow: (workflowId: string, payload: { target_id: string; params?: Record<string, unknown> }) =>
+    request<Run>(`/api/workflows/${workflowId}/launch`, {
+      method: 'POST', body: JSON.stringify(payload),
+    }),
+  workflowExportUrl: (workflowId: string, format: 'yaml' | 'json' = 'yaml') =>
+    `${API_BASE_URL}/api/workflows/${workflowId}/export?format=${format}`,
+  importWorkflow: (payload: { workspace_id: string; yaml: string; name?: string; description?: string }) =>
+    request<SavedWorkflow>('/api/workflows/import', {
+      method: 'POST', body: JSON.stringify(payload),
+    }),
+
+  // Outbound webhooks (Slack / Discord / generic JSON). DB-backed and
+  // workspace-scoped — different engagements can route to different channels.
+  webhooks: (workspaceId?: string) =>
+    request<Webhook[]>(`/api/webhooks${workspaceId ? `?workspace_id=${workspaceId}` : ''}`),
+  webhook: (webhookId: string) => request<Webhook>(`/api/webhooks/${webhookId}`),
+  createWebhook: (payload: WebhookCreate) =>
+    request<Webhook>('/api/webhooks', { method: 'POST', body: JSON.stringify(payload) }),
+  updateWebhook: (webhookId: string, payload: WebhookUpdate) =>
+    request<Webhook>(`/api/webhooks/${webhookId}`, {
+      method: 'PUT', body: JSON.stringify(payload),
+    }),
+  deleteWebhook: (webhookId: string) =>
+    requestVoid(`/api/webhooks/${webhookId}`, { method: 'DELETE' }),
+  testWebhook: (webhookId: string) =>
+    request<WebhookTestResult>(`/api/webhooks/${webhookId}/test`, { method: 'POST' }),
+
+  // Cross-entity palette search. workspaceId is optional; when set, DB
+  // results narrow to that scope (registry tools/profiles stay global).
+  search: (q: string, opts: { workspaceId?: string; limit?: number } = {}) => {
+    const p = new URLSearchParams({ q });
+    if (opts.workspaceId) p.set('workspace_id', opts.workspaceId);
+    if (opts.limit) p.set('limit', String(opts.limit));
+    return request<SearchResults>(`/api/search?${p.toString()}`);
+  },
+
+  // ROE engine preflight. Frontend launch UIs call this before posting an
+  // actual run so operators see the policy decision in-line. Returns
+  // `{decision: "no-engine"}` when no roe.yaml is configured — the UI
+  // hides the badge in that case.
+  scopeEvaluate: (payload: ScopeEvaluateRequest) =>
+    request<ScopeEvaluateResponse>('/api/scope/evaluate', {
+      method: 'POST', body: JSON.stringify(payload),
+    }),
+  // ROE policy CRUD. GET is open to any authenticated user; PUT is admin
+  // only (enforced server-side). Sending `yaml: ""` deletes the file.
+  scopePolicy: () => request<ScopePolicyResponse>('/api/scope/policy'),
+  scopePolicyWrite: (yamlText: string) =>
+    request<ScopePolicyResponse>('/api/scope/policy', {
+      method: 'PUT', body: JSON.stringify({ yaml: yamlText }),
+    }),
+  scopePolicyRender: (payload: ScopePolicyStructured) =>
+    request<{ yaml: string }>('/api/scope/policy/render', {
+      method: 'POST', body: JSON.stringify(payload),
+    }),
+  scopePolicyWriteStructured: (payload: ScopePolicyStructured) =>
+    request<ScopePolicyResponse>('/api/scope/policy/structured', {
+      method: 'PUT', body: JSON.stringify(payload),
+    }),
 };
