@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ReconForge — Scope (ROE)</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.mode-tab-row {
+  display: flex; gap: 4px; border-bottom: 1px solid #1f2937; padding-bottom: 6px;
+}
+.mode-tab {
+  padding: 5px 12px; border-radius: 6px; background: transparent;
+  border: 1px solid transparent; color: #94a3b8; cursor: pointer; font-size: 12.5px;
+}
+.mode-tab.active { color: #22d3ee; border-color: #164e63; background: rgba(8,145,178,.1); }
+.scope-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 14px; }
+.policy-block {
+  border: 1px solid #1f2937; border-radius: 6px; padding: 10px 14px;
+  background: rgba(2,6,23,.5); margin-bottom: 10px;
+}
+.policy-block strong { color: #67e8f9; }
+.list-input {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px;
+  background: rgba(2,6,23,.7); border: 1px solid #1f2937; border-radius: 6px;
+  color: #cbd5e1; padding: 8px 10px; width: 100%; min-height: 60px; resize: vertical;
+}
+.yaml-editor {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px;
+  background: rgba(2,6,23,.85); border: 1px solid #1f2937; border-radius: 6px;
+  padding: 10px 12px; color: #cbd5e1; min-height: 320px; white-space: pre;
+}
+.preflight-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 8px; align-items: end;
+}
+.decision-card {
+  border-radius: 6px; padding: 12px 14px; margin-top: 10px;
+  border: 1px solid #1f2937; background: rgba(2,6,23,.6);
+}
+.decision-card.allow { border-color: rgba(34,197,94,.5); background: rgba(34,197,94,.06); }
+.decision-card.deny  { border-color: rgba(220,38,38,.5); background: rgba(220,38,38,.08); }
+.decision-card.approval { border-color: rgba(252,211,77,.4); background: rgba(252,211,77,.06); }
+.decision-card pre {
+  font-size: 11px; color: #cbd5e1; background: rgba(2,6,23,.6);
+  border-radius: 4px; padding: 8px 10px; margin: 8px 0 0; overflow-x: auto;
+}
+</style>
+</head>
+<body>
+
+<div class="note">
+  <strong>Mockup — Scope (ROE) page.</strong> Visual policy editor for
+  <code>config/roe.yaml</code> with Form/YAML toggle and a live preflight
+  tester. Engine state ribbon, structured sections, live decision card.
+  &nbsp;<a href="index.html">← back to index</a>
+</div>
+
+<div class="shell">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="topbar"></div>
+
+    <div class="content">
+
+      <div class="row space">
+        <div class="row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="12"></line></svg>
+          <strong>Scope (ROE)</strong>
+          <span class="muted">defence-in-depth policy enforced at every run-creation</span>
+        </div>
+        <div class="row">
+          <span class="badge ok" style="font-size: 11px;">● engine on</span>
+          <span class="muted small mono">config/roe.yaml</span>
+          <button class="btn">↻ Reload</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="mode-tab-row">
+          <button class="mode-tab active">Form editor</button>
+          <button class="mode-tab">YAML editor</button>
+          <button class="mode-tab">Diff vs disk</button>
+        </div>
+
+        <div class="scope-grid" style="margin-top: 12px;">
+
+          <!-- ===== Form editor ===== -->
+          <div>
+            <div class="policy-block">
+              <strong>allowed</strong>
+              <div class="muted small" style="margin-bottom: 6px;">explicit allow lists. Anything outside fails closed.</div>
+              <label class="muted small">domains</label>
+              <textarea class="list-input">acme.com
+*.acme.com
+acme-staging.com</textarea>
+              <label class="muted small" style="margin-top:8px; display:block;">cidrs</label>
+              <textarea class="list-input">203.0.113.0/24
+198.51.100.0/27</textarea>
+              <label class="muted small" style="margin-top:8px; display:block;">ports</label>
+              <textarea class="list-input">80, 443, 8080, 8443, 9000-9100</textarea>
+            </div>
+
+            <div class="policy-block">
+              <strong>denied</strong>
+              <div class="muted small" style="margin-bottom: 6px;">hard deny list — short-circuits before any other check.</div>
+              <label class="muted small">domains</label>
+              <textarea class="list-input">prod-internal.acme.com
+finance.acme.com</textarea>
+              <label class="muted small" style="margin-top:8px; display:block;">methods</label>
+              <textarea class="list-input">DELETE</textarea>
+            </div>
+
+            <div class="policy-block">
+              <strong>approval.require_for_tools</strong>
+              <div class="muted small" style="margin-bottom: 6px;">these tools require fresh manual approval per run — never inherited.</div>
+              <textarea class="list-input">sqlmap_crawl
+commix_basic
+ssrfmap
+nosqlmap
+log4shell_scanner</textarea>
+            </div>
+
+            <div class="policy-block">
+              <strong>approval.time_window</strong>
+              <div class="muted small">runs queued outside this window need admin override.</div>
+              <div class="row" style="gap: 8px; margin-top: 6px;">
+                <label class="muted small">from</label>
+                <input class="input" type="time" value="09:00" style="width: 100px;">
+                <label class="muted small">to</label>
+                <input class="input" type="time" value="18:00" style="width: 100px;">
+                <select class="input" style="width: 140px;"><option>Europe/Stockholm</option></select>
+              </div>
+            </div>
+
+            <div class="row space" style="margin-top: 10px;">
+              <span class="muted small">last saved 7m ago by victor (admin)</span>
+              <div class="row">
+                <button class="btn">Cancel</button>
+                <button class="btn" style="border-color: #164e63; background: rgba(8,145,178,.15); color: #67e8f9;">Save policy</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== Preflight tester ===== -->
+          <div>
+            <div class="policy-block">
+              <strong>Preflight</strong>
+              <div class="muted small" style="margin-bottom: 8px;">simulate a run against the current draft policy without committing it.</div>
+              <div class="preflight-row">
+                <label>
+                  <div class="muted small">profile</div>
+                  <select class="input"><option>web_active</option><option>passive_recon</option><option>sniper_ce_web_plugins</option></select>
+                </label>
+                <label>
+                  <div class="muted small">target</div>
+                  <input class="input" value="api.acme.com">
+                </label>
+                <label>
+                  <div class="muted small">tool</div>
+                  <select class="input"><option>sqlmap_crawl</option><option>nuclei</option><option>subfinder</option></select>
+                </label>
+                <button class="btn" style="border-color:#164e63; background: rgba(8,145,178,.15); color:#67e8f9;">Run preflight</button>
+              </div>
+
+              <div class="decision-card approval">
+                <div class="row space">
+                  <strong style="color:#fde68a;">⚠ approval required</strong>
+                  <span class="muted small">~8ms</span>
+                </div>
+                <p class="muted small" style="margin:6px 0 0;">
+                  Target is in scope (matches <code>*.acme.com</code>). Tool
+                  <code>sqlmap_crawl</code> is in <code>approval.require_for_tools</code> and the
+                  run was queued during business hours. The operator must
+                  approve this run manually before it queues.
+                </p>
+                <pre>{
+  "decision": "approval_required",
+  "reason": "tool sqlmap_crawl requires manual approval per policy",
+  "trace": [
+    {"check": "scope.in_scope",   "result": "pass", "matched": "*.acme.com"},
+    {"check": "scope.not_denied", "result": "pass"},
+    {"check": "approval.tool",    "result": "block", "matched": "sqlmap_crawl"}
+  ]
+}</pre>
+              </div>
+
+              <div class="decision-card allow" style="margin-top: 8px;">
+                <div class="row space">
+                  <strong style="color:#4ade80;">✓ allowed</strong>
+                  <span class="muted small">try: subfinder → api.acme.com</span>
+                </div>
+                <p class="muted small" style="margin:6px 0 0;">Passive recon profile passes all gates — no approval needed.</p>
+              </div>
+
+              <div class="decision-card deny" style="margin-top: 8px;">
+                <div class="row space">
+                  <strong style="color:#fca5a5;">✗ denied</strong>
+                  <span class="muted small">try: nuclei → prod-internal.acme.com</span>
+                </div>
+                <p class="muted small" style="margin:6px 0 0;">Target matches <code>denied.domains</code>. No tool list will pass this.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="_chrome.js"></script>
+<script>renderChrome('scope');</script>
+</body>
+</html>

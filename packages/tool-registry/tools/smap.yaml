@@ -1,0 +1,36 @@
+id: smap
+name: smap
+category: network
+description: s0md3v smap Shodan-backed port scanner with nmap-compatible output.
+binary: smap
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: ports
+  type: finding_list
+command:
+  argv:
+  - smap
+  - -oJ
+  - /dev/stdout
+  - '{{target}}'
+parser:
+  type: json
+  entity: port
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- shodan
+- port-scan
+- passive
+install:
+  method: go_install
+  package: github.com/s0md3v/smap/cmd/smap@latest
+dry_run_output:
+- '{"ip":"93.184.216.34","ports":[{"port":80,"service":"http"},{"port":443,"service":"https"}]}'

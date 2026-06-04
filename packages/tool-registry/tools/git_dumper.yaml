@@ -1,0 +1,36 @@
+id: git_dumper
+name: git-dumper
+category: content_discovery
+description: arthaud git-dumper reconstructs a git repository from a publicly exposed .git directory.
+binary: git-dumper
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url
+  required: true
+outputs:
+- name: artifacts
+  type: artifact_list
+command:
+  argv:
+  - git-dumper
+  - https://{{target}}/.git/
+  - /artifacts/output
+parser:
+  type: line_based
+  entity: artifact
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- git
+- exposure
+- content
+install:
+  method: pipx
+  package: git-dumper
+dry_run_output:
+- '[+] Fetched HEAD, refs and pack files'
+- '[+] Reconstructed 142 commits from https://www.example.com/.git/'

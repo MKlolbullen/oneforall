@@ -1,0 +1,37 @@
+id: noseyparker
+name: Nosey Parker
+category: secrets
+description: Praetorian Nosey Parker high-performance secret scanner for git history and filesystems.
+binary: noseyparker
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - noseyparker
+  - scan
+  - --datastore
+  - /artifacts/np
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: secret
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- secrets
+- git
+- history
+install:
+  method: manual
+  package: praetorian-inc/noseyparker
+dry_run_output:
+- 'Scanned 1.2 GB; 17 findings, 5 unique rules'

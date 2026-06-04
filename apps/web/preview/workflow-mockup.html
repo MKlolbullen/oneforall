@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ReconForge — Workflow Builder</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.workflow-shell {
+  display: grid; grid-template-columns: 240px 1fr 280px;
+  gap: 12px; min-height: calc(100vh - 200px);
+}
+.tool-palette, .inspector {
+  background: rgba(2,6,23,.4); border: 1px solid #1f2937;
+  border-radius: 8px; padding: 12px;
+}
+.canvas {
+  position: relative;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(148,163,184,.18) 1px, transparent 1px) 0 0 / 18px 18px,
+    rgba(2,6,23,.4);
+  border: 1px solid #1f2937; border-radius: 8px;
+  min-height: 500px; overflow: hidden;
+}
+.palette-group { margin-bottom: 12px; }
+.palette-group h4 {
+  margin: 0 0 6px; font-size: 10.5px; text-transform: uppercase;
+  letter-spacing: .1em; color: #94a3b8;
+}
+.palette-tool {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 8px; border-radius: 4px;
+  border: 1px solid #1f2937; background: rgba(2,6,23,.6);
+  margin-bottom: 4px; cursor: grab; font-size: 12px;
+}
+.palette-tool:hover { border-color: #164e63; }
+.palette-tool .risk-dot { width: 7px; height: 7px; border-radius: 50%; }
+.palette-tool .risk-dot.passive { background: #94a3b8; }
+.palette-tool .risk-dot.low { background: #3b82f6; }
+.palette-tool .risk-dot.medium { background: #facc15; }
+.palette-tool .risk-dot.high { background: #ef4444; }
+
+.node {
+  position: absolute;
+  width: 180px; padding: 8px 12px;
+  background: rgba(13,17,23,.95); border: 1px solid #164e63;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.5);
+}
+.node.selected { border-color: #22d3ee; box-shadow: 0 0 0 2px rgba(34,211,238,.2), 0 4px 14px rgba(0,0,0,.5); }
+.node-header { display: flex; align-items: center; justify-content: space-between; }
+.node-title { font-weight: 700; font-size: 12.5px; color: #e2e8f0; }
+.node-tool { font-size: 11px; color: #67e8f9; font-family: 'JetBrains Mono', ui-monospace, monospace; margin-top: 2px; }
+.node-foot { display: flex; gap: 4px; margin-top: 6px; }
+.handle { width: 8px; height: 8px; background: #22d3ee; border-radius: 50%; position: absolute; }
+.handle.in  { left: -4px; top: 50%; transform: translateY(-50%); }
+.handle.out { right: -4px; top: 50%; transform: translateY(-50%); }
+
+.edge { position: absolute; pointer-events: none; }
+
+.inspector-field { margin-bottom: 10px; }
+.inspector-field label { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: #94a3b8; margin-bottom: 4px; }
+.inspector-field input, .inspector-field select, .inspector-field textarea {
+  width: 100%; padding: 5px 8px; font-size: 12px;
+  background: rgba(2,6,23,.7); border: 1px solid #1f2937;
+  border-radius: 4px; color: #e2e8f0;
+}
+.inspector-field textarea { min-height: 60px; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <strong>Mockup — Workflow Builder.</strong> React-Flow style DAG editor. Left:
+  tool palette grouped by category with risk dots. Centre: graph canvas with
+  selectable nodes + connecting edges. Right: inspector for the selected step.
+  &nbsp;<a href="index.html">← back to index</a>
+</div>
+
+<div class="shell">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="topbar"></div>
+
+    <div class="content">
+
+      <div class="row space">
+        <div class="row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><rect x="3" y="3" width="6" height="6"></rect><rect x="15" y="3" width="6" height="6"></rect><rect x="9" y="15" width="6" height="6"></rect><path d="M6 9v3a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9"></path></svg>
+          <strong>Workflow Builder</strong>
+          <span class="muted">draft: bug-bounty triage v3 · 8 steps · all runnable</span>
+        </div>
+        <div class="row">
+          <button class="btn">⬇ Import profile</button>
+          <button class="btn">⤴ Export YAML</button>
+          <button class="btn" style="border-color:#164e63; background:rgba(8,145,178,.15); color:#67e8f9;">Save profile</button>
+        </div>
+      </div>
+
+      <div class="workflow-shell">
+
+        <!-- ===== Tool palette ===== -->
+        <div class="tool-palette">
+          <input class="input" placeholder="search 227 tools…" style="margin-bottom: 10px;">
+
+          <div class="palette-group">
+            <h4>Passive recon</h4>
+            <div class="palette-tool"><span class="risk-dot passive"></span><span>subfinder</span></div>
+            <div class="palette-tool"><span class="risk-dot passive"></span><span>amass_passive</span></div>
+            <div class="palette-tool"><span class="risk-dot passive"></span><span>assetfinder</span></div>
+            <div class="palette-tool"><span class="risk-dot passive"></span><span>crtsh</span></div>
+            <div class="palette-tool"><span class="risk-dot passive"></span><span>chaos</span></div>
+          </div>
+
+          <div class="palette-group">
+            <h4>Resolution</h4>
+            <div class="palette-tool"><span class="risk-dot passive"></span><span>dnsx</span></div>
+            <div class="palette-tool"><span class="risk-dot passive"></span><span>puredns</span></div>
+            <div class="palette-tool"><span class="risk-dot passive"></span><span>massdns</span></div>
+          </div>
+
+          <div class="palette-group">
+            <h4>Crawling</h4>
+            <div class="palette-tool"><span class="risk-dot low"></span><span>katana</span></div>
+            <div class="palette-tool"><span class="risk-dot low"></span><span>hakrawler</span></div>
+            <div class="palette-tool"><span class="risk-dot low"></span><span>gospider</span></div>
+          </div>
+
+          <div class="palette-group">
+            <h4>Secrets</h4>
+            <div class="palette-tool"><span class="risk-dot passive"></span><span>trufflehog_filesystem</span></div>
+            <div class="palette-tool"><span class="risk-dot passive"></span><span>gitleaks_history</span></div>
+            <div class="palette-tool"><span class="risk-dot low"></span><span>sourcemapper</span></div>
+            <div class="palette-tool"><span class="risk-dot low"></span><span>noseyparker</span></div>
+          </div>
+
+          <div class="palette-group">
+            <h4>Active</h4>
+            <div class="palette-tool"><span class="risk-dot medium"></span><span>nuclei</span></div>
+            <div class="palette-tool"><span class="risk-dot high"></span><span>sqlmap_crawl</span></div>
+            <div class="palette-tool"><span class="risk-dot high"></span><span>ssrfmap</span></div>
+          </div>
+        </div>
+
+        <!-- ===== Canvas ===== -->
+        <div class="canvas">
+          <!-- Edges drawn as SVG behind nodes -->
+          <svg style="position:absolute; inset:0; width:100%; height:100%;" preserveAspectRatio="none">
+            <defs>
+              <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#22d3ee"/></marker>
+            </defs>
+            <path d="M 200 80 C 260 80, 260 80, 320 80" stroke="#22d3ee" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+            <path d="M 500 80 C 560 80, 560 180, 620 180" stroke="#22d3ee" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+            <path d="M 500 80 C 560 80, 560 280, 320 280" stroke="#22d3ee" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+            <path d="M 500 180 C 560 180, 560 280, 620 280" stroke="#22d3ee" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+            <path d="M 500 280 C 560 280, 560 400, 320 400" stroke="#22d3ee" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+            <path d="M 500 400 C 560 400, 560 400, 620 400" stroke="#22d3ee" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+          </svg>
+
+          <div class="node" style="left:18px; top:50px;">
+            <div class="node-header"><span class="node-title">target.in</span><span class="badge passive">input</span></div>
+            <div class="node-tool">{{ target }}</div>
+            <span class="handle out"></span>
+          </div>
+
+          <div class="node" style="left:320px; top:50px;">
+            <div class="node-header"><span class="node-title">subfinder</span><span class="badge passive">passive</span></div>
+            <div class="node-tool">subfinder -d {{target}}</div>
+            <div class="node-foot"><span class="muted small">timeout: 15m</span></div>
+            <span class="handle in"></span><span class="handle out"></span>
+          </div>
+
+          <div class="node" style="left:620px; top:150px;">
+            <div class="node-header"><span class="node-title">dnsx</span><span class="badge passive">passive</span></div>
+            <div class="node-tool">dnsx -silent -a -resp</div>
+            <div class="node-foot"><span class="muted small">timeout: 15m</span></div>
+            <span class="handle in"></span><span class="handle out"></span>
+          </div>
+
+          <div class="node selected" style="left:320px; top:250px;">
+            <div class="node-header"><span class="node-title">katana</span><span class="badge active">low active</span></div>
+            <div class="node-tool">katana -d 3 -jc</div>
+            <div class="node-foot"><span class="muted small">timeout: 30m · retries: 1</span></div>
+            <span class="handle in"></span><span class="handle out"></span>
+          </div>
+
+          <div class="node" style="left:620px; top:250px;">
+            <div class="node-header"><span class="node-title">sourcemapper</span><span class="badge active">low active</span></div>
+            <div class="node-tool">sourcemapper -url …</div>
+            <div class="node-foot"><span class="muted small">timeout: 10m</span></div>
+            <span class="handle in"></span><span class="handle out"></span>
+          </div>
+
+          <div class="node" style="left:320px; top:370px;">
+            <div class="node-header"><span class="node-title">trufflehog</span><span class="badge passive">secret</span></div>
+            <div class="node-tool">trufflehog filesystem</div>
+            <div class="node-foot"><span class="muted small">timeout: 30m</span></div>
+            <span class="handle in"></span><span class="handle out"></span>
+          </div>
+
+          <div class="node" style="left:620px; top:370px;">
+            <div class="node-header"><span class="node-title">nuclei</span><span class="badge active">medium</span></div>
+            <div class="node-tool">nuclei -severity high,critical</div>
+            <div class="node-foot"><span class="muted small">timeout: 60m</span></div>
+            <span class="handle in"></span><span class="handle out"></span>
+          </div>
+        </div>
+
+        <!-- ===== Inspector ===== -->
+        <div class="inspector">
+          <div class="row space">
+            <strong>Inspector</strong>
+            <span class="muted small">step #4</span>
+          </div>
+          <div class="muted small" style="margin: 4px 0 12px;">
+            Selected: <strong style="color:#67e8f9;">katana</strong> (low_active)
+          </div>
+
+          <div class="inspector-field">
+            <label>step name</label>
+            <input value="crawl_endpoints">
+          </div>
+
+          <div class="inspector-field">
+            <label>tool</label>
+            <select><option>katana</option></select>
+          </div>
+
+          <div class="inspector-field">
+            <label>argv override</label>
+            <textarea>katana
+-u {{previous.output}}
+-d 3
+-jc
+-silent</textarea>
+          </div>
+
+          <div class="inspector-field">
+            <label>input from</label>
+            <select><option>subfinder.resolved_domains</option></select>
+          </div>
+
+          <div class="inspector-field">
+            <label>timeout (seconds)</label>
+            <input type="number" value="1800">
+          </div>
+
+          <div class="inspector-field">
+            <label>max retries</label>
+            <input type="number" value="1">
+          </div>
+
+          <div class="row space" style="margin-top: 12px;">
+            <button class="btn danger">Delete step</button>
+            <button class="btn" style="border-color:#164e63; color:#67e8f9;">Apply</button>
+          </div>
+
+          <div class="muted small" style="margin-top: 16px; padding-top: 10px; border-top: 1px solid #1f2937;">
+            <strong style="color:#94a3b8;">Scope preview</strong><br>
+            risk: <strong>low_active</strong> → needs <code>active_allowed</code> on the target.<br>
+            policy: <strong>allowed</strong>, no manual approval required.
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="_chrome.js"></script>
+<script>renderChrome('workflow');</script>
+</body>
+</html>

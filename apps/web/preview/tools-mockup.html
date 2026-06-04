@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ReconForge — Tool Catalog</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.tools-toolbar {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 10px; margin-top: 8px;
+}
+.tool-card-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px; margin-top: 12px;
+}
+.tool-card-mini {
+  border: 1px solid #1f2937; border-radius: 8px;
+  background: rgba(2,6,23,.4); padding: 10px 12px;
+  display: grid; gap: 6px; cursor: pointer;
+}
+.tool-card-mini:hover { border-color: #164e63; }
+.tool-card-mini .name {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12.5px; font-weight: 700; color: #e2e8f0;
+}
+.tool-card-mini .desc { font-size: 11.5px; color: #94a3b8; line-height: 1.4; }
+.tool-card-mini .tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.tool-card-mini .head-row { display: flex; align-items: center; justify-content: space-between; }
+.risk-pill {
+  font-size: 10.5px; padding: 1px 6px; border-radius: 4px;
+}
+.risk-pill.passive { background: rgba(148,163,184,.10); color: #cbd5e1; border: 1px solid #1f2937; }
+.risk-pill.low_active { background: rgba(59,130,246,.10); color: #93c5fd; border: 1px solid rgba(59,130,246,.4); }
+.risk-pill.medium_active { background: rgba(252,211,77,.10); color: #fcd34d; border: 1px solid rgba(252,211,77,.4); }
+.risk-pill.high_active { background: rgba(220,38,38,.12); color: #fca5a5; border: 1px solid rgba(220,38,38,.4); }
+.cat-pill {
+  font-size: 10.5px; padding: 1px 6px; border-radius: 4px;
+  background: rgba(34,211,238,.08); color: #67e8f9; border: 1px solid rgba(34,211,238,.3);
+}
+.category-header {
+  margin-top: 14px; padding: 6px 10px;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: #94a3b8; border-bottom: 1px solid #1f2937;
+}
+</style>
+</head>
+<body>
+
+<div class="note">
+  <strong>Mockup — Tool Catalog.</strong> Now 227 tools (172 + the 55 just added)
+  organised by category. Metric strip up top, filters, grid of mini tool cards.
+  The expansion adds: container/SBOM scanners, IaC analysers, mobile, GraphQL,
+  CI/CD posture, OSINT, git-history mining, SSRF, and Web3 categories.
+  &nbsp;<a href="index.html">← back to index</a>
+</div>
+
+<div class="shell">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="topbar"></div>
+
+    <div class="content">
+
+      <div class="grid cols-4">
+        <div class="card"><div class="row space"><span class="muted">Registered Tools</span></div><div style="font-size:26px;font-family:'JetBrains Mono',monospace;font-weight:700;margin-top:4px;">227</div></div>
+        <div class="card"><div class="row space"><span class="muted">Available</span></div><div style="font-size:26px;font-family:'JetBrains Mono',monospace;font-weight:700;margin-top:4px;color:#4ade80;">198</div></div>
+        <div class="card"><div class="row space"><span class="muted">Missing / broken</span></div><div style="font-size:26px;font-family:'JetBrains Mono',monospace;font-weight:700;margin-top:4px;color:#fca5a5;">29</div></div>
+        <div class="card"><div class="row space"><span class="muted">Active-gated</span></div><div style="font-size:26px;font-family:'JetBrains Mono',monospace;font-weight:700;margin-top:4px;color:#fcd34d;">62</div></div>
+      </div>
+
+      <div class="card">
+        <div class="row space">
+          <h3>Tool registry</h3>
+          <span class="muted small">227 tools across 27 categories · ↻ Refresh availability</span>
+        </div>
+        <div class="tools-toolbar">
+          <input class="input" placeholder="search tools, tags, categories...">
+          <select class="input">
+            <option>All categories (227)</option>
+            <option>passive_recon (28)</option>
+            <option>active_recon (24)</option>
+            <option>container (5)</option>
+            <option>infrastructure_as_code (4)</option>
+            <option>mobile (3)</option>
+            <option>graphql (3)</option>
+            <option>secrets (12)</option>
+            <option>kubernetes (2)</option>
+          </select>
+          <select class="input">
+            <option>All risks</option>
+            <option>passive (104)</option>
+            <option>low_active (61)</option>
+            <option>medium_active (39)</option>
+            <option>high_active (23)</option>
+          </select>
+          <select class="input"><option>All availability</option></select>
+        </div>
+
+        <!-- Container & SBOM -->
+        <div class="category-header">Container &amp; SBOM (NEW)</div>
+        <div class="tool-card-grid" id="container-tools"></div>
+
+        <!-- IaC -->
+        <div class="category-header">Infrastructure-as-Code (NEW)</div>
+        <div class="tool-card-grid" id="iac-tools"></div>
+
+        <!-- GraphQL & API -->
+        <div class="category-header">GraphQL &amp; API (NEW)</div>
+        <div class="tool-card-grid" id="graphql-tools"></div>
+
+        <!-- Mobile -->
+        <div class="category-header">Mobile (NEW)</div>
+        <div class="tool-card-grid" id="mobile-tools"></div>
+
+        <!-- OSINT -->
+        <div class="category-header">OSINT &amp; threat-intel (NEW)</div>
+        <div class="tool-card-grid" id="osint-tools"></div>
+
+        <!-- Existing top category sample -->
+        <div class="category-header">Passive recon (existing)</div>
+        <div class="tool-card-grid" id="passive-tools"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="_chrome.js"></script>
+<script>
+renderChrome('tools');
+
+const tool = (name, desc, cat, risk, tags) => `
+  <div class="tool-card-mini">
+    <div class="head-row">
+      <span class="name">${name}</span>
+      <span class="risk-pill ${risk}">${risk}</span>
+    </div>
+    <div class="desc">${desc}</div>
+    <div class="tags">
+      <span class="cat-pill">${cat}</span>
+      ${tags.map(t => `<span class="cat-pill" style="background:rgba(148,163,184,.08); color:#94a3b8; border-color:#1f2937;">${t}</span>`).join('')}
+    </div>
+  </div>
+`;
+
+document.getElementById('container-tools').innerHTML = [
+  tool('syft',     'Generate SBOMs from container images / source trees.', 'container', 'passive', ['sbom', 'inventory']),
+  tool('grype',    'Vulnerability matching against a syft SBOM.', 'container', 'passive', ['cve']),
+  tool('trivy_image', 'Container image vulnerability + misconfiguration scan.', 'container', 'passive', ['cve', 'misconfig']),
+  tool('dockle',   'Dockerfile + image best-practice linter.', 'container', 'passive', ['lint']),
+  tool('hadolint', 'Dockerfile linter focused on shellcheck rules.', 'container', 'passive', ['lint']),
+].join('');
+
+document.getElementById('iac-tools').innerHTML = [
+  tool('checkov',   'Multi-cloud Terraform / CloudFormation / k8s policy scanner.', 'iac', 'passive', ['terraform', 'k8s']),
+  tool('tfsec',     'Static analysis of Terraform for known security issues.', 'iac', 'passive', ['terraform']),
+  tool('terrascan', 'OPA-style scanner for Terraform, k8s, Helm, Docker.', 'iac', 'passive', ['opa']),
+  tool('kics',      'IaC scanner across Terraform, k8s, Ansible, ARM, etc.', 'iac', 'passive', ['multi-iac']),
+].join('');
+
+document.getElementById('graphql-tools').innerHTML = [
+  tool('inql',          'GraphQL introspection + query generation for Burp.', 'graphql', 'low_active', ['introspection']),
+  tool('clairvoyance',  'GraphQL field-suggestion inference under disabled introspection.', 'graphql', 'low_active', ['recon']),
+  tool('batchql',       'Batch query / alias-overloading GraphQL audit.', 'graphql', 'medium_active', ['dos-risk']),
+].join('');
+
+document.getElementById('mobile-tools').innerHTML = [
+  tool('mobsfscan', 'Static analysis SAST for Android / iOS code.', 'mobile', 'passive', ['sast']),
+  tool('qark',      'Quick Android app review for known issues.', 'mobile', 'passive', ['android']),
+  tool('apkid',     'Identify packers, obfuscators, anti-VM tricks in APKs.', 'mobile', 'passive', ['fingerprint']),
+].join('');
+
+document.getElementById('osint-tools').innerHTML = [
+  tool('shodan_cli',     'Query Shodan for hosts, ports, banners.', 'osint', 'passive', ['hosts']),
+  tool('censys_cli',     'Censys hosts/certs query.', 'osint', 'passive', ['certs']),
+  tool('urlhaus_cli',    'URLhaus malicious URL lookups.', 'osint', 'passive', ['malware']),
+  tool('abuseipdb_cli',  'AbuseIPDB IP reputation.', 'osint', 'passive', ['reputation']),
+  tool('holehe',         'Find accounts registered to an email address.', 'osint', 'passive', ['email']),
+  tool('sherlock',       'Hunt usernames across 400+ social sites.', 'osint', 'passive', ['username']),
+  tool('spiderfoot',     'Automated OSINT correlation across hundreds of sources.', 'osint', 'passive', ['automation']),
+].join('');
+
+document.getElementById('passive-tools').innerHTML = [
+  tool('subfinder',   'ProjectDiscovery passive subdomain enumeration.', 'passive_recon', 'passive', ['pd', 'subdomain']),
+  tool('amass_passive', 'OWASP Amass — passive ASM enumeration.', 'passive_recon', 'passive', ['asm']),
+  tool('assetfinder', 'Quick subdomain enumeration via public sources.', 'passive_recon', 'passive', ['subdomain']),
+  tool('chaos',       'PD Chaos data set — historical domains.', 'passive_recon', 'passive', ['pd']),
+  tool('crtsh',       'crt.sh certificate transparency lookup.', 'passive_recon', 'passive', ['ct-logs']),
+].join('');
+</script>
+</body>
+</html>

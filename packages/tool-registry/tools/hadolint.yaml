@@ -1,0 +1,36 @@
+id: hadolint
+name: Hadolint
+category: container
+description: Dockerfile linter to surface best-practice and security issues.
+binary: hadolint
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - hadolint
+  - -f
+  - json
+  - '{{target}}'
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- container
+- dockerfile
+- linter
+install:
+  method: manual
+  package: hadolint/hadolint
+dry_run_output:
+- '[{"line":1,"code":"DL3007","level":"warning","message":"Using latest is prone to errors"}]'

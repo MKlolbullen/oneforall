@@ -1,0 +1,35 @@
+id: shodan_cli
+name: Shodan CLI
+category: osint
+description: Official Shodan CLI for passive host and service intelligence.
+binary: shodan
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: hosts
+  type: finding_list
+command:
+  argv:
+  - shodan
+  - domain
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- osint
+- shodan
+- passive
+install:
+  method: pipx
+  package: shodan
+dry_run_output:
+- 'www.example.com 93.184.216.34 [open ports: 80, 443]'

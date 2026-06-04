@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
 import os
+import re
 import shlex
 import signal
 import time
@@ -23,6 +25,8 @@ from app.services.events import event_bus
 from app.services import http_capture
 from app.services.normalizer import normalize_tool_line
 from app.services.notifications import notify_run_event
+from app.services.file_artifact import FileArtifactHint, classify_file_url
+from app.services.secrets_extractor import deduplicate, extract_secrets_from_text
 from app.services.queue import clear_run_cancel, is_run_cancel_requested
 from app.services.tool_availability import check_tool_availability
 from app.services.tool_registry import ToolRegistry
@@ -825,12 +829,13 @@ async def _run_live_tool(
         await asyncio.gather(proc_task, cancel_task, return_exceptions=True)
         await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
 
+    stdout_blob = "\n".join(stdout_lines) + ("\n" if stdout_lines else "")
     await _write_artifact(
         session_factory,
         run_id,
         workspace_id,
         f"{tool_id}.stdout.txt",
-        "\n".join(stdout_lines) + ("\n" if stdout_lines else ""),
+        stdout_blob,
     )
     if stderr_lines:
         await _write_artifact(
@@ -840,6 +845,22 @@ async def _run_live_tool(
             f"{tool_id}.stderr.txt",
             "\n".join(stderr_lines) + "\n",
         )
+
+    # End-of-step secret sweep. Even tools that aren't dedicated secret
+    # scanners sometimes echo a credential back (curl with -H Authorization,
+    # API debugging output, accidental .env dump). Scanning the aggregated
+    # stdout once per step is cheap, and the result is a typed artifact
+    # the operator can audit without re-running grep by hand.
+    await _maybe_emit_secrets_artifact(
+        session_factory, run_id, workspace_id, tool_id, stdout_blob, stderr_lines,
+    )
+    # End-of-step file-of-interest sweep. URLs classified as env files,
+    # source maps, keystores etc. are stamped into a single typed artifact
+    # so the Artifacts tab can group "what notable files did this tool
+    # reveal" without re-walking the asset list.
+    await _maybe_emit_files_artifact(
+        session_factory, run_id, workspace_id, tool_id, stdout_blob,
+    )
 
     if reason:
         raise reason
@@ -871,8 +892,18 @@ async def _write_artifact(
     workspace_id: str,
     name: str,
     content: str,
+    *,
+    artifact_type: str = "text",
+    content_type: str = "text/plain; charset=utf-8",
+    meta: dict[str, Any] | None = None,
 ) -> None:
-    stored = ArtifactStore().put_text(run_id=run_id, name=name, content=content)
+    stored = ArtifactStore().put_text(
+        run_id=run_id,
+        name=name,
+        content=content,
+        artifact_type=artifact_type,
+        content_type=content_type,
+    )
     with session_factory() as session:
         artifact = Artifact(
             workspace_id=workspace_id,
@@ -886,6 +917,7 @@ async def _write_artifact(
             bucket=stored.bucket,
             object_key=stored.object_key,
             content_type=stored.content_type,
+            meta=meta or {},
         )
         session.add(artifact)
         session.commit()
@@ -901,5 +933,115 @@ async def _write_artifact(
                 "sha256": stored.sha256,
                 "storage_backend": stored.storage_backend,
                 "path": stored.path,
+                "type": stored.type,
             },
         )
+
+
+async def _maybe_emit_secrets_artifact(
+    session_factory: SessionFactory,
+    run_id: str,
+    workspace_id: str,
+    tool_id: str,
+    stdout_blob: str,
+    stderr_lines: list[str],
+) -> None:
+    """If the step's combined output contains secret-shaped tokens, persist
+    a structured `<tool>.secrets.json` artifact (type=`secret`).
+
+    Each entry is the redacted form + kind + fingerprint, never the raw
+    credential. The artifact's meta block carries a count + the kinds
+    matched so the UI / loot pipeline can branch on them without parsing
+    the body."""
+    combined = stdout_blob
+    if stderr_lines:
+        combined = combined + "\n" + "\n".join(stderr_lines)
+    matches = deduplicate(extract_secrets_from_text(combined, max_matches=50))
+    if not matches:
+        return
+
+    payload = {
+        "tool_id": tool_id,
+        "run_id": run_id,
+        "match_count": len(matches),
+        "matches": [m.as_payload() for m in matches],
+    }
+    kinds = sorted({m.kind for m in matches})
+    await _write_artifact(
+        session_factory,
+        run_id,
+        workspace_id,
+        f"{tool_id}.secrets.json",
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        artifact_type="secret",
+        content_type="application/json",
+        meta={
+            "tool_id": tool_id,
+            "match_count": len(matches),
+            "kinds": kinds,
+        },
+    )
+
+
+# Recognise URLs in arbitrary stdout (one-off heuristic — used only to
+# build the discovered-files artifact, not to upsert assets). Catches
+# bare https://… forms; protocol-relative URLs are handled by the
+# tool-specific JSON parsers.
+_URL_SWEEP_RE = re.compile(r"https?://[^\s\"'<>()]+", re.IGNORECASE)
+
+
+async def _maybe_emit_files_artifact(
+    session_factory: SessionFactory,
+    run_id: str,
+    workspace_id: str,
+    tool_id: str,
+    stdout_blob: str,
+) -> None:
+    """Persist a typed `<tool>.files.json` artifact when the step's stdout
+    reveals URLs that classify as interesting files (env, source maps,
+    backups, keystores, IaC state…).
+
+    Each hint records the kind + severity guess + URL; no content fetch
+    happens here. The artifact is the inventory; the operator decides
+    what to download."""
+    if not stdout_blob:
+        return
+    seen: set[str] = set()
+    hints: list[FileArtifactHint] = []
+    for raw_url in _URL_SWEEP_RE.findall(stdout_blob):
+        # Trim trailing punctuation that often follows URLs in prose
+        # ("found at https://x/.env.") so the classifier sees a clean path.
+        url = raw_url.rstrip(",.;:!?)")
+        if url in seen:
+            continue
+        seen.add(url)
+        hint = classify_file_url(url)
+        if hint is not None:
+            hints.append(hint)
+    if not hints:
+        return
+
+    by_kind: dict[str, int] = {}
+    for h in hints:
+        by_kind[h.kind] = by_kind.get(h.kind, 0) + 1
+    payload = {
+        "tool_id": tool_id,
+        "run_id": run_id,
+        "file_count": len(hints),
+        "by_kind": by_kind,
+        "files": [h.as_meta() for h in hints],
+    }
+    await _write_artifact(
+        session_factory,
+        run_id,
+        workspace_id,
+        f"{tool_id}.files.json",
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        artifact_type="file_inventory",
+        content_type="application/json",
+        meta={
+            "tool_id": tool_id,
+            "file_count": len(hints),
+            "by_kind": by_kind,
+        },
+    )

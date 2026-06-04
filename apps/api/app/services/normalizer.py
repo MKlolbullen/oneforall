@@ -9,6 +9,14 @@ from sqlmodel import Session, select
 
 from app.models import Asset, Finding
 from app.services import loot as loot_svc
+from app.services.file_artifact import FileArtifactHint, classify_file_url
+from app.services.secrets_extractor import (
+    SecretMatch,
+    extract_secrets_from_text,
+    parse_gitleaks_json,
+    parse_secretfinder_json,
+    parse_trufflehog_json,
+)
 
 DOMAIN_RE = re.compile(r"^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$")
 IP_RE = re.compile(r"^(?:\d{1,3}\.){3}\d{1,3}$")
@@ -88,6 +96,38 @@ def _finding(
     return finding
 
 
+def _secret_finding(
+    session: Session,
+    *,
+    workspace_id: str,
+    run_id: str,
+    tool_id: str,
+    match: SecretMatch,
+    raw: str,
+) -> Finding:
+    """Persist a SecretMatch as a high-severity Finding.
+
+    The finding carries the fingerprint and kind in `meta` so a downstream
+    artifact writer (runner._maybe_emit_secrets_artifact) can join on it.
+    We deliberately don't put the redacted value in the title — the title
+    has to stay short for the Results table — but the evidence field gets
+    enough context for triage."""
+    return _finding(
+        session,
+        workspace_id=workspace_id,
+        run_id=run_id,
+        tool_id=tool_id,
+        title=f"Secret detected: {match.kind} ({match.fingerprint})",
+        severity=match.severity,
+        category="secret-exposed",
+        evidence=f"{match.rationale}\nfingerprint: {match.fingerprint}\nredacted: {match.redacted}\ncontext: {match.context}",
+        meta={
+            "secret": match.as_payload(),
+            "raw": raw[:1000] if raw else "",
+        },
+    )
+
+
 def _normalize_json_line(
     session: Session,
     *,
@@ -97,10 +137,32 @@ def _normalize_json_line(
     raw: str,
     data: dict[str, Any],
 ) -> Asset | Finding | None:
+    # Secret-scanner shapes come first so a trufflehog or gitleaks JSON line
+    # never falls into the generic url/host extractor — its `Raw` field
+    # would otherwise be misclassified as a URL or domain.
+    if any(key in data for key in ("DetectorName", "detector_name", "Verified", "verified")):
+        match = parse_trufflehog_json(data)
+        if match is not None:
+            return _secret_finding(session, workspace_id=workspace_id, run_id=run_id, tool_id=tool_id, match=match, raw=raw)
+    if "RuleID" in data or "Secret" in data:
+        match = parse_gitleaks_json(data)
+        if match is not None:
+            return _secret_finding(session, workspace_id=workspace_id, run_id=run_id, tool_id=tool_id, match=match, raw=raw)
+    if "match" in data and ("name" in data or "type" in data) and "string" not in data.get("kind", ""):
+        match = parse_secretfinder_json(data)
+        if match is not None:
+            return _secret_finding(session, workspace_id=workspace_id, run_id=run_id, tool_id=tool_id, match=match, raw=raw)
+
     # ProjectDiscovery-style httpx output commonly has url/input/host fields.
     for key in ("url", "matched-at", "matched", "endpoint"):
         value = data.get(key)
         if isinstance(value, str) and URL_RE.match(value):
+            hint = classify_file_url(value)
+            meta: dict[str, Any] = {"raw": raw, "json": data}
+            if hint is not None:
+                # Attach the file classification on the asset so the Loot
+                # service can promote noisy-but-juicy URLs without re-parsing.
+                meta["file_artifact"] = hint.as_meta()
             return upsert_asset(
                 session,
                 workspace_id=workspace_id,
@@ -109,7 +171,7 @@ def _normalize_json_line(
                 value=value,
                 source=tool_id,
                 confidence=0.9,
-                meta={"raw": raw, "json": data},
+                meta=meta,
             )
 
     host = data.get("host") or data.get("input") or data.get("ip")
@@ -188,7 +250,26 @@ def normalize_tool_line(
             if normalized:
                 return normalized
 
+    # Raw-text secret detection. Runs after JSON / URL / IP / domain matches
+    # so a trufflehog JSONL line still hits the structured branch above. For
+    # plain stdout from custom scripts or curl, the regex catalogue picks up
+    # leaked credentials and turns them into a high-severity Finding.
+    matches = extract_secrets_from_text(value, max_matches=3)
+    if matches:
+        return _secret_finding(
+            session,
+            workspace_id=workspace_id,
+            run_id=run_id,
+            tool_id=tool_id,
+            match=matches[0],
+            raw=line,
+        )
+
     if URL_RE.match(value):
+        hint = classify_file_url(value)
+        meta: dict[str, Any] = {"raw": line}
+        if hint is not None:
+            meta["file_artifact"] = hint.as_meta()
         return upsert_asset(
             session,
             workspace_id=workspace_id,
@@ -196,7 +277,7 @@ def normalize_tool_line(
             type_="url",
             value=value,
             source=tool_id,
-            meta={"raw": line},
+            meta=meta,
         )
     if IP_RE.match(value):
         return upsert_asset(

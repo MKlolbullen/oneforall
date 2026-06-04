@@ -1,0 +1,35 @@
+id: hakcheckurl
+name: hakcheckurl
+category: fingerprinting
+description: hakluke hakcheckurl high-speed HTTP status code checker for URL lists.
+binary: hakcheckurl
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: urls
+  type: finding_list
+command:
+  argv:
+  - hakcheckurl
+  - -u
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- http
+- probing
+install:
+  method: go_install
+  package: github.com/hakluke/hakcheckurl@latest
+dry_run_output:
+- '200 https://www.example.com'
+- '404 https://www.example.com/missing'

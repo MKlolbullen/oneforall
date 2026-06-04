@@ -1,0 +1,38 @@
+id: tfsec
+name: tfsec
+category: infrastructure_as_code
+description: Aqua tfsec static analysis for Terraform configurations.
+binary: tfsec
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - tfsec
+  - '{{target}}'
+  - --format
+  - json
+  - --no-color
+  - --soft-fail
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- iac
+- terraform
+- aqua
+install:
+  method: manual
+  package: aquasecurity/tfsec
+dry_run_output:
+- '{"results":[{"rule_id":"AWS017","severity":"HIGH","description":"S3 bucket has no server-side encryption"}]}'

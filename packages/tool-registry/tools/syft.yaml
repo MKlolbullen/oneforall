@@ -1,0 +1,37 @@
+id: syft
+name: Syft
+category: supply-chain
+description: Anchore SBOM generator for container images, filesystems and archives.
+binary: syft
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: image
+  required: true
+outputs:
+- name: sbom
+  type: text
+command:
+  argv:
+  - syft
+  - '{{target}}'
+  - -o
+  - json
+  - -q
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- sbom
+- container
+- supply-chain
+install:
+  method: manual
+  package: anchore/syft
+dry_run_output:
+- '{"artifacts":[{"name":"openssl","version":"1.1.1k","type":"deb"}]}'

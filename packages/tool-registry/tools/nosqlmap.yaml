@@ -1,0 +1,37 @@
+id: nosqlmap
+name: NoSQLMap
+category: vulnerability
+description: codingo NoSQLMap automatic NoSQL injection and database enumeration.
+binary: nosqlmap
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - nosqlmap
+  - --attack
+  - '1'
+  - --url
+  - https://{{target}}
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- nosql
+- injection
+- vulnerability
+install:
+  method: manual
+  package: codingo/NoSQLMap
+dry_run_output:
+- '[+] MongoDB injection candidate on parameter id'

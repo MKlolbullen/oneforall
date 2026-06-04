@@ -1,0 +1,42 @@
+id: kics
+name: KICS
+category: infrastructure_as_code
+description: Checkmarx KICS scanner for IaC across Terraform, Kubernetes, CloudFormation and Helm.
+binary: kics
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - kics
+  - scan
+  - -p
+  - '{{target}}'
+  - --report-formats
+  - json
+  - -o
+  - /tmp/kics
+  - -s
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- iac
+- terraform
+- kubernetes
+- helm
+install:
+  method: manual
+  package: Checkmarx/kics
+dry_run_output:
+- '{"queries":[{"query_name":"S3 Bucket Without Versioning","severity":"MEDIUM","files":[{"file_name":"main.tf"}]}]}'

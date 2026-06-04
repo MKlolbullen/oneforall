@@ -1,0 +1,39 @@
+id: legitify
+name: Legitify
+category: ci_cd
+description: Legit Security scanner for GitHub/GitLab organisation security posture.
+binary: legitify
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - legitify
+  - analyze
+  - --org
+  - '{{target}}'
+  - --output-format
+  - json
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- ci_cd
+- github
+- gitlab
+- posture
+install:
+  method: manual
+  package: Legit-Labs/legitify
+dry_run_output:
+- '{"policies":[{"policy_name":"branch_protection","status":"FAILED","resources":["repo1","repo2"]}]}'

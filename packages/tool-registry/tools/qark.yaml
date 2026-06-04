@@ -1,0 +1,37 @@
+id: qark
+name: QARK
+category: mobile
+description: LinkedIn Quick Android Review Kit static analyzer for APK and source.
+binary: qark
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: apk
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - qark
+  - --apk
+  - '{{target}}'
+  - --report-type
+  - json
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- mobile
+- android
+- sast
+install:
+  method: pipx
+  package: qark
+dry_run_output:
+- '{"issues":[{"category":"WebView","severity":"WARNING","name":"setJavaScriptEnabled true"}]}'

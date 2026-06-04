@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ReconForge — Results</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.filter-grid {
+  display: grid; grid-template-columns: 1.2fr .9fr .9fr 1fr 2fr;
+  gap: 10px; margin-top: 8px;
+}
+.filter-grid .input { padding: 6px 10px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 12px; font-size: 11px;
+  background: rgba(8,145,178,.12); border: 1px solid #164e63;
+  color: #67e8f9; margin-right: 6px;
+}
+.chip-x { color: #94a3b8; cursor: pointer; padding: 0 2px; }
+.severity-bar {
+  display: flex; height: 12px; border-radius: 4px; overflow: hidden;
+  margin: 8px 0 6px; background: rgba(2,6,23,.6);
+}
+.severity-seg.critical { background: #dc2626; }
+.severity-seg.high { background: #ea580c; }
+.severity-seg.medium { background: #facc15; }
+.severity-seg.low { background: #3b82f6; }
+.severity-seg.info { background: #71717a; }
+.results-row { cursor: pointer; }
+.results-row:hover { background: rgba(8,145,178,.06); }
+.results-row.selected { background: rgba(8,145,178,.12); }
+.detail-block {
+  background: rgba(2,6,23,.6); border-radius: 6px; padding: 10px 14px;
+  margin-top: 10px;
+}
+.cat-secret {
+  background: rgba(220,38,38,.1); color: #fca5a5;
+  border: 1px solid rgba(220,38,38,.4);
+  padding: 1px 6px; border-radius: 4px; font-size: 10.5px;
+}
+</style>
+</head>
+<body>
+
+<div class="note">
+  <strong>Mockup — Results page.</strong> Severity bar headlines, filters in
+  chips, finding rows with category badges (now including the new
+  <span class="cat-secret">secret-exposed</span> category from the secrets
+  extractor), inline expansion with redacted credentials + AI explanation.
+  &nbsp;<a href="index.html">← back to index</a>
+</div>
+
+<div class="shell">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="topbar"></div>
+
+    <div class="content">
+
+      <div class="row space">
+        <div class="row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          <strong>Results</strong>
+          <span class="muted">workspace-wide findings</span>
+        </div>
+        <div class="row">
+          <button class="btn">↻ Refresh</button>
+          <a class="btn" href="#">⬇ CSV</a>
+          <a class="btn" href="#">⬇ JSON</a>
+          <a class="btn" href="#">⬇ MD</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row space">
+          <div class="row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg><strong>Filters</strong></div>
+          <span class="muted">86 matches</span>
+        </div>
+        <div class="filter-grid">
+          <span class="muted small">scope: <strong>acme-pentest-q2</strong></span>
+          <select class="input"><option>all severities</option></select>
+          <select class="input"><option>all statuses</option></select>
+          <select class="input"><option>all tools</option></select>
+          <input class="input" placeholder="search title or evidence… (press / to focus)">
+        </div>
+        <div style="margin-top: 10px;">
+          <span class="chip">severity: critical <span class="chip-x">×</span></span>
+          <span class="chip">tool: trufflehog_filesystem <span class="chip-x">×</span></span>
+          <span class="chip">search: "AKIA" <span class="chip-x">×</span></span>
+          <button class="btn" style="border:none; background:transparent; color:#94a3b8;">Clear all</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row space">
+          <strong>Findings</strong>
+          <div class="row">
+            <span class="badge bad">critical: 3</span>
+            <span class="badge bad">high: 12</span>
+            <span class="badge active">medium: 28</span>
+            <span class="badge passive">low: 31</span>
+            <span class="badge">info: 12</span>
+          </div>
+        </div>
+        <div class="severity-bar">
+          <div class="severity-seg critical" style="flex:3;"></div>
+          <div class="severity-seg high" style="flex:12;"></div>
+          <div class="severity-seg medium" style="flex:28;"></div>
+          <div class="severity-seg low" style="flex:31;"></div>
+          <div class="severity-seg info" style="flex:12;"></div>
+        </div>
+
+        <table class="table compact" style="margin-top: 8px;">
+          <thead><tr><th style="width:18px;"></th><th>Severity</th><th>Title</th><th>Category</th><th>Tool</th><th>Status</th><th>Created</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+
+        <div class="row space" style="margin-top: 10px;">
+          <span class="muted">page 1 / 2 · 86 total</span>
+          <div class="row">
+            <button class="btn">Prev</button>
+            <button class="btn">Next</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="_chrome.js"></script>
+<script>
+renderChrome('results');
+
+const FINDINGS = [
+  { sev:'critical', title:'Secret detected: aws_access_key (1a5d44a2dca1)', cat:'secret-exposed', tool:'trufflehog_filesystem', status:'new',    when:'2m ago', expanded: true,
+    detail: {
+      fingerprint: '1a5d44a2dca1',
+      kind: 'aws_access_key',
+      redacted: 'AKIA***MPLE (20 chars)',
+      rationale: 'AWS access key id — pair with secret key grants programmatic AWS access.',
+      context: '…config/aws.js:42  AKIAIOSFODNN7EXAMPLE…',
+      artifact: 'trufflehog_filesystem.secrets.json'
+    }
+  },
+  { sev:'critical', title:'Secret detected: github_token (8c91def204a3)', cat:'secret-exposed', tool:'gitleaks_history', status:'triaged', when:'6m ago' },
+  { sev:'critical', title:'Exposed .git directory at api.acme.com',         cat:'exposure',       tool:'snallygaster',     status:'new',     when:'12m ago' },
+  { sev:'high',     title:'Source map exposes original TS — /static/app.bundle.js.map', cat:'exposure', tool:'sourcemapper', status:'new', when:'14m ago' },
+  { sev:'high',     title:'CORS wildcard with credentials — payments.acme.com', cat:'cors',     tool:'corsy',            status:'new',     when:'18m ago' },
+  { sev:'high',     title:'Subdomain takeover candidate — old-cdn.acme.com',   cat:'takeover', tool:'subzy',            status:'new',     when:'22m ago' },
+  { sev:'medium',   title:'jQuery 1.7 known XSS sinks',                        cat:'outdated', tool:'retirejs',         status:'new',     when:'1h ago' },
+  { sev:'medium',   title:'TLS supports SSLv3 / TLS 1.0',                      cat:'crypto',   tool:'testssl',          status:'new',     when:'1h ago' },
+  { sev:'low',      title:'Missing X-Content-Type-Options header',             cat:'headers',  tool:'httpx',            status:'closed',  when:'2h ago' },
+];
+const sevBadge = (s) => (s==='critical'||s==='high')?'bad':s==='medium'?'active':s==='low'?'passive':'';
+const statusBadge = (s) => (s==='fixed'||s==='closed')?'ok':s==='triaged'?'active':s==='false_positive'?'passive':'';
+const catClass = (c) => c==='secret-exposed' ? 'cat-secret' : 'badge passive';
+
+document.getElementById('rows').innerHTML = FINDINGS.map((f, i) => {
+  const expandedRow = f.expanded && f.detail ? `
+    <tr><td colspan="7" style="background:rgba(2,6,23,.5);">
+      <div class="detail-block">
+        <div class="row space">
+          <div class="row"><span class="muted small">category:</span><strong>${f.cat}</strong></div>
+          <div class="row"><span class="muted small">confidence:</span><strong>0.95</strong></div>
+        </div>
+        <pre style="background:rgba(2,6,23,.7); border-radius:6px; padding:10px 12px; margin-top:8px; font-size:11px; color:#cbd5e1;">${f.detail.rationale}
+fingerprint: ${f.detail.fingerprint}
+redacted: ${f.detail.redacted}
+context: ${f.detail.context}
+artifact: ${f.detail.artifact}</pre>
+        <div class="card" style="margin-top:10px; background:rgba(34,211,238,.04); border-color:rgba(34,211,238,.3);">
+          <strong style="color:#67e8f9;">Explain with Claude</strong>
+          <p class="muted small" style="margin:6px 0 0;">A live AWS access key id leaked in front-end JavaScript means an attacker can use it to call AWS APIs directly. Recommended actions: rotate the key in AWS IAM, audit CloudTrail for usage of <code>${f.detail.fingerprint}</code>, and remove the credential from source. The secret was written to <code>${f.detail.artifact}</code> with the value redacted — never exposed in the audit log.</p>
+        </div>
+      </div>
+    </td></tr>` : '';
+  return `
+    <tr class="results-row ${f.expanded ? 'selected' : ''}">
+      <td>${f.expanded ? '▼' : '▶'}</td>
+      <td><span class="badge ${sevBadge(f.sev)}">${f.sev}</span></td>
+      <td>${f.title}</td>
+      <td><span class="${catClass(f.cat)}">${f.cat}</span></td>
+      <td class="mono small">${f.tool}</td>
+      <td><span class="badge ${statusBadge(f.status)}">${f.status}</span></td>
+      <td class="muted small">${f.when}</td>
+    </tr>${expandedRow}
+  `;
+}).join('');
+</script>
+</body>
+</html>

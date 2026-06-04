@@ -1,0 +1,35 @@
+id: urlhaus_cli
+name: URLhaus CLI
+category: osint
+description: abuse.ch URLhaus API lookups for known malicious URL intelligence.
+binary: urlhaus
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: indicators
+  type: finding_list
+command:
+  argv:
+  - urlhaus
+  - host
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- osint
+- threat-intel
+- malware
+install:
+  method: pipx
+  package: urlhaus-client
+dry_run_output:
+- 'no_results for example.com'

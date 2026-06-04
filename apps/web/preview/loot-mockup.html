@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ReconForge — Loot</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.loot-toolbar {
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  margin-top: 8px;
+}
+.kind-grid {
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px; margin: 10px 0;
+}
+.kind-tile {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 10px 6px; border: 1px solid rgba(31,41,55,.6);
+  border-radius: 6px; background: rgba(2,6,23,.35); gap: 2px;
+  cursor: pointer;
+}
+.kind-tile:hover { border-color: #164e63; }
+.kind-tile.active { border-color: #22d3ee; background: rgba(34,211,238,.08); }
+.kind-tile strong { font-size: 18px; font-family: 'JetBrains Mono', ui-monospace, monospace; color: #e2e8f0; }
+.kind-tile.bad { border-color: rgba(220,38,38,.5); background: rgba(220,38,38,.08); }
+.kind-tile.bad strong { color: #fca5a5; }
+.kind-tile.warn { border-color: rgba(252,211,77,.4); background: rgba(252,211,77,.05); }
+.kind-tile.warn strong { color: #fcd34d; }
+.loot-card {
+  display: grid;
+  grid-template-columns: 100px 90px 1fr auto;
+  gap: 12px; align-items: center;
+  padding: 10px 14px; border: 1px solid #1f2937; border-radius: 6px;
+  background: rgba(2,6,23,.4); margin-bottom: 6px;
+}
+.loot-card .kind {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em;
+  color: #67e8f9; padding: 2px 8px; border: 1px solid rgba(34,211,238,.4);
+  border-radius: 4px; background: rgba(34,211,238,.06);
+  text-align: center;
+}
+.loot-card .kind.secret { color: #fca5a5; border-color: rgba(220,38,38,.4); background: rgba(220,38,38,.06); }
+.loot-card .kind.file { color: #fcd34d; border-color: rgba(252,211,77,.4); background: rgba(252,211,77,.06); }
+.loot-card .label { color: #e2e8f0; font-weight: 600; }
+.loot-card .host { color: #94a3b8; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; margin-top: 2px; }
+.loot-card .meta-strip { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.loot-card .meta-pill {
+  font-size: 10.5px; padding: 1px 6px; border-radius: 4px;
+  background: rgba(148,163,184,.10); color: #94a3b8;
+  border: 1px solid #1f2937;
+}
+</style>
+</head>
+<body>
+
+<div class="note">
+  <strong>Mockup — Loot page.</strong> Kind tiles up top (now including
+  <em>secrets</em> and <em>files</em> derived from the new artifact pipeline)
+  and a flat list of loot cards. Each card shows the kind, severity, label,
+  source tool, and meta — fingerprint for secrets, file-kind hint for files.
+  &nbsp;<a href="index.html">← back to index</a>
+</div>
+
+<div class="shell">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="topbar"></div>
+
+    <div class="content">
+
+      <div class="row space">
+        <div class="row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><circle cx="12" cy="12" r="8"></circle></svg>
+          <strong>Loot</strong>
+          <span class="muted">curated, deduplicated findings worth keeping</span>
+        </div>
+        <div class="row">
+          <button class="btn">↻ Refresh</button>
+          <a class="btn" href="#">⬇ CSV</a>
+          <a class="btn" href="#">⬇ JSON</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row space">
+          <strong>By kind</strong>
+          <span class="muted small">click a tile to filter</span>
+        </div>
+        <div class="kind-grid">
+          <div class="kind-tile bad active"><strong>11</strong><span class="muted small">secret</span></div>
+          <div class="kind-tile warn"><strong>18</strong><span class="muted small">file</span></div>
+          <div class="kind-tile"><strong>7</strong><span class="muted small">subdomain</span></div>
+          <div class="kind-tile"><strong>14</strong><span class="muted small">endpoint</span></div>
+          <div class="kind-tile"><strong>5</strong><span class="muted small">takeover</span></div>
+          <div class="kind-tile"><strong>23</strong><span class="muted small">exposure</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row space">
+          <strong>Loot · secret</strong>
+          <div class="loot-toolbar">
+            <select class="input"><option>all severities</option></select>
+            <select class="input"><option>all tools</option></select>
+            <input class="input" placeholder="search loot…" style="width:240px;">
+          </div>
+        </div>
+        <div id="loot-rows" style="margin-top: 10px;"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="_chrome.js"></script>
+<script>
+renderChrome('loot');
+
+const LOOT = [
+  { kind:'secret', sev:'critical', label:'aws_access_key — AKIA***MPLE',  host:'config/aws.js:42',                tool:'trufflehog_filesystem', fingerprint:'1a5d44a2dca1', when:'2m ago' },
+  { kind:'secret', sev:'critical', label:'github_token — ghp_***xyz9',     host:'.git/config (history)',           tool:'gitleaks_history',      fingerprint:'8c91def204a3', when:'6m ago' },
+  { kind:'secret', sev:'critical', label:'private_key_pem — ----***KEY--', host:'static/keys.bundle.js',           tool:'sourcemapper',          fingerprint:'ffa12c44e8b6', when:'8m ago' },
+  { kind:'secret', sev:'high',     label:'slack_webhook — https://hooks.slack.com/services/T8***',  host:'app.bundle.js', tool:'sourcemapper', fingerprint:'7b34acef019d', when:'9m ago' },
+  { kind:'secret', sev:'critical', label:'gcp_api_key — AIza***bcde',      host:'public/firebase.js',              tool:'sourcemapper',          fingerprint:'c198de7400ad', when:'10m ago' },
+  { kind:'secret', sev:'high',     label:'jwt — eyJ***.eyJ***.sig',         host:'response: GET /api/v1/me',        tool:'httpx',                 fingerprint:'46a91c2c0bf3', when:'12m ago' },
+  { kind:'secret', sev:'critical', label:'stripe_secret_key — sk_live_***', host:'payments-svc/.env',               tool:'snallygaster',          fingerprint:'33aa12d44e88', when:'14m ago' },
+  { kind:'secret', sev:'critical', label:'anthropic_key — sk-ant-***',      host:'ai-svc.acme.com/static/env.js',   tool:'sourcemapper',          fingerprint:'89cd14a14b71', when:'15m ago' },
+  { kind:'file',   sev:'critical', label:'env_file — /.env.production',    host:'payments-svc.acme.com',           tool:'snallygaster',          fingerprint:'envprod',       when:'15m ago' },
+  { kind:'file',   sev:'critical', label:'terraform_state — /terraform.tfstate.backup', host:'infra.acme.com',     tool:'snallygaster',          fingerprint:'tfstate',       when:'18m ago' },
+  { kind:'file',   sev:'critical', label:'aws_credentials — /.aws/credentials', host:'old-build.acme.com',         tool:'git_dumper',            fingerprint:'awscreds',      when:'22m ago' },
+  { kind:'file',   sev:'high',     label:'git_metadata — /.git/config',    host:'api.acme.com',                    tool:'snallygaster',          fingerprint:'gitconf',       when:'24m ago' },
+  { kind:'file',   sev:'high',     label:'source_map — /static/app.bundle.js.map', host:'app.acme.com',            tool:'katana',                fingerprint:'sourcemap',     when:'28m ago' },
+  { kind:'file',   sev:'critical', label:'database_dump — /backup/2025-01-prod.sql.gz', host:'backups.acme.com',   tool:'feroxbuster',           fingerprint:'sqldump',       when:'32m ago' },
+];
+const sevColor = (s) => s==='critical'||s==='high' ? 'bad' : s==='medium' ? 'active' : 'passive';
+document.getElementById('loot-rows').innerHTML = LOOT.map(l => `
+  <div class="loot-card">
+    <div class="kind ${l.kind}">${l.kind}</div>
+    <span class="badge ${sevColor(l.sev)}">${l.sev}</span>
+    <div>
+      <div class="label">${l.label}</div>
+      <div class="host">${l.host}</div>
+      <div class="meta-strip">
+        <span class="meta-pill">tool: ${l.tool}</span>
+        <span class="meta-pill">fp: ${l.fingerprint}</span>
+        <span class="meta-pill">${l.when}</span>
+      </div>
+    </div>
+    <button class="btn">Open</button>
+  </div>
+`).join('');
+</script>
+</body>
+</html>

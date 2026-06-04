@@ -1,0 +1,36 @@
+id: octosuite
+name: OctoSuite
+category: osint
+description: GitHub OSINT framework for org, user and repo intelligence gathering.
+binary: octosuite
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - octosuite
+  - --org
+  - '{{target}}'
+  - --json
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- osint
+- github
+- ci_cd
+install:
+  method: pipx
+  package: octosuite
+dry_run_output:
+- '{"name":"example","public_repos":42,"members":17}'

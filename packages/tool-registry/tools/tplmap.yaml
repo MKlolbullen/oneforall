@@ -1,0 +1,37 @@
+id: tplmap
+name: tplmap
+category: vulnerability
+description: epinna tplmap automatic server-side template injection detection and exploitation.
+binary: tplmap
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - tplmap
+  - --url
+  - https://{{target}}
+  - --level
+  - '1'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- ssti
+- template-injection
+- vulnerability
+install:
+  method: manual
+  package: epinna/tplmap
+dry_run_output:
+- '[+] Jinja2 SSTI detected on parameter name'

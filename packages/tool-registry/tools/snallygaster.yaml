@@ -1,0 +1,35 @@
+id: snallygaster
+name: snallygaster
+category: content_discovery
+description: hannob snallygaster scans for sensitive files exposed on web servers.
+binary: snallygaster
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - snallygaster
+  - --json
+  - https://{{target}}
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- content
+- exposure
+- recon
+install:
+  method: pipx
+  package: snallygaster
+dry_run_output:
+- '{"test":"git_dir","url":"https://www.example.com/.git/HEAD"}'
