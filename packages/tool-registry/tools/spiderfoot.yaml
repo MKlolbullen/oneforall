@@ -1,0 +1,38 @@
+id: spiderfoot
+name: SpiderFoot
+category: osint
+description: SpiderFoot automated OSINT aggregator across 200+ modules and threat feeds.
+binary: sf
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - sf
+  - -s
+  - '{{target}}'
+  - -o
+  - json
+  - -q
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- osint
+- aggregation
+- passive
+install:
+  method: manual
+  package: smicallef/spiderfoot
+dry_run_output:
+- '{"type":"DOMAIN_NAME","data":"example.com","module":"sfp_dnsresolve"}'

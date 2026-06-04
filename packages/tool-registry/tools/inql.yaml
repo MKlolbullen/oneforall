@@ -1,0 +1,37 @@
+id: inql
+name: InQL
+category: api
+description: Doyensec InQL GraphQL introspection and audit utility.
+binary: inql
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - inql
+  - -t
+  - https://{{target}}/graphql
+  - -o
+  - /artifacts/output
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- graphql
+- api
+- introspection
+install:
+  method: pipx
+  package: inql
+dry_run_output:
+- 'Introspection enabled on https://api.example.com/graphql'

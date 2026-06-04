@@ -1,0 +1,37 @@
+id: radamsa
+name: Radamsa
+category: fuzzing
+description: aoh Radamsa generation-based black-box fuzzer for protocol and file payload mutation.
+binary: radamsa
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: artifacts
+  type: artifact_list
+command:
+  argv:
+  - radamsa
+  - -n
+  - '100'
+  - -o
+  - /artifacts/output/fuzz-%n
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: artifact
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- fuzzing
+- mutation
+install:
+  method: manual
+  package: aoh/radamsa
+dry_run_output:
+- 'Generated 100 mutated samples in /artifacts/output'

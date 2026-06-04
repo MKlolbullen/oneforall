@@ -1,0 +1,37 @@
+id: httprobe_https
+name: httprobe (HTTPS-only)
+category: fingerprinting
+description: tomnomnom httprobe filtered to HTTPS-only probing for TLS endpoints.
+binary: httprobe
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - httprobe
+  - -s
+  - -p
+  - https:443
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- http
+- tls
+- probing
+install:
+  method: go_install
+  package: github.com/tomnomnom/httprobe@latest
+dry_run_output:
+- 'https://www.example.com'
+- 'https://api.example.com'

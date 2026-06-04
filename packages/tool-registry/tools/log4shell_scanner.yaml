@@ -1,0 +1,36 @@
+id: log4shell_scanner
+name: Log4Shell Scanner
+category: vulnerability
+description: fullhunt log4j-scan CVE-2021-44228 detection across HTTP endpoints.
+binary: log4j-scan
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - log4j-scan
+  - -u
+  - https://{{target}}
+  - --run-all-tests
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- log4shell
+- cve-2021-44228
+- vulnerability
+install:
+  method: manual
+  package: fullhunt/log4j-scan
+dry_run_output:
+- '[!] Target https://www.example.com may be vulnerable to CVE-2021-44228'

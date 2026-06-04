@@ -1,0 +1,39 @@
+id: semgrep
+name: Semgrep
+category: secrets
+description: Semgrep multi-language SAST engine with security and secret rule packs.
+binary: semgrep
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - semgrep
+  - scan
+  - --config
+  - auto
+  - --json
+  - --quiet
+  - '{{target}}'
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- sast
+- secrets
+- supply-chain
+install:
+  method: pipx
+  package: semgrep
+dry_run_output:
+- '{"results":[{"check_id":"generic.secrets.security.detected-generic-api-key","path":"src/config.js","start":{"line":42}}]}'

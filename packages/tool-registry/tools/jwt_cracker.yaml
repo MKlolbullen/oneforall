@@ -1,0 +1,37 @@
+id: jwt_cracker
+name: jwt-cracker
+category: jwt
+description: lmammino jwt-cracker offline brute-force of HMAC-signed JWTs against a wordlist.
+binary: jwt-cracker
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - jwt-cracker
+  - -t
+  - '{{target}}'
+  - -d
+  - /usr/share/wordlists/rockyou.txt
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- jwt
+- crypto
+- offline
+install:
+  method: npm
+  package: jwt-cracker
+dry_run_output:
+- 'SECRET FOUND: hunter2'

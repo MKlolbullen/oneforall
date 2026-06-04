@@ -1,0 +1,36 @@
+id: slither
+name: Slither
+category: web3
+description: Trail of Bits Slither static analyzer for Solidity smart contracts.
+binary: slither
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - slither
+  - '{{target}}'
+  - --json
+  - /artifacts/slither.json
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- web3
+- solidity
+- sast
+install:
+  method: pipx
+  package: slither-analyzer
+dry_run_output:
+- '{"results":{"detectors":[{"check":"reentrancy-eth","impact":"High","description":"Reentrancy in withdraw()"}]}}'

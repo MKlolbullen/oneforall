@@ -1,0 +1,36 @@
+id: githound
+name: GitHound
+category: secrets
+description: tillson GitHound surfaces sensitive data across all of GitHub (not just one org).
+binary: git-hound
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - git-hound
+  - --subdomain-file
+  - /artifacts/input.txt
+  - --json
+parser:
+  type: json
+  entity: secret
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- secrets
+- github
+- osint
+install:
+  method: go_install
+  package: github.com/tillson/git-hound@latest
+dry_run_output:
+- '{"repo":"someone/leak","file":"config.js","keyword":"example.com","secret":"AKIA..."}'

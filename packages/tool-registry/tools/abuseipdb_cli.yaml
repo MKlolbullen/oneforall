@@ -1,0 +1,36 @@
+id: abuseipdb_cli
+name: AbuseIPDB CLI
+category: osint
+description: AbuseIPDB reputation lookups for IP addresses and ranges.
+binary: abuseipdb
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: ip
+  required: true
+outputs:
+- name: reputation
+  type: finding_list
+command:
+  argv:
+  - abuseipdb
+  - check
+  - '{{target}}'
+  - --json
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- osint
+- reputation
+- threat-intel
+install:
+  method: pipx
+  package: abuseipdb-cli
+dry_run_output:
+- '{"ipAddress":"93.184.216.34","abuseConfidenceScore":0,"countryCode":"US"}'

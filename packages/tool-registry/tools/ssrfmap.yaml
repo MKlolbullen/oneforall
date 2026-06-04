@@ -1,0 +1,38 @@
+id: ssrfmap
+name: SSRFmap
+category: vulnerability
+description: swisskyrepo SSRFmap automatic SSRF exploitation framework.
+binary: ssrfmap
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - ssrfmap
+  - -r
+  - /artifacts/request.txt
+  - -p
+  - url
+  - -m
+  - readfiles
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- ssrf
+- vulnerability
+install:
+  method: manual
+  package: swisskyrepo/SSRFmap
+dry_run_output:
+- '[+] Tested SSRF vector on https://www.example.com/fetch?url= (readfiles module)'

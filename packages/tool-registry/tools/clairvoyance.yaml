@@ -1,0 +1,36 @@
+id: clairvoyance
+name: Clairvoyance
+category: api
+description: Nikita Stupin Clairvoyance reconstructs GraphQL schema when introspection is disabled.
+binary: clairvoyance
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url
+  required: true
+outputs:
+- name: schema
+  type: text
+command:
+  argv:
+  - clairvoyance
+  - https://{{target}}/graphql
+  - -o
+  - /artifacts/schema.json
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- graphql
+- api
+- recon
+install:
+  method: pipx
+  package: clairvoyance
+dry_run_output:
+- 'Reconstructed schema with 42 types'

@@ -1,0 +1,39 @@
+id: cdncheck
+name: cdncheck
+category: fingerprinting
+description: ProjectDiscovery CDN/WAF/Cloud provider detection for IPs and domains.
+binary: cdncheck
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: cdn_findings
+  type: finding_list
+command:
+  argv:
+  - cdncheck
+  - -silent
+  - -resp
+  - -i
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- projectdiscovery
+- cdn
+- waf
+- cloud
+install:
+  method: go_install
+  package: github.com/projectdiscovery/cdncheck/cmd/cdncheck@latest
+dry_run_output:
+- 'www.example.com [cloudflare] [cdn]'
+- 'api.example.com [aws] [cloud]'

@@ -1,0 +1,37 @@
+id: kube_hunter
+name: kube-hunter
+category: cloud
+description: Aqua kube-hunter scanner for Kubernetes cluster weaknesses.
+binary: kube-hunter
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - kube-hunter
+  - --remote
+  - '{{target}}'
+  - --report
+  - json
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- kubernetes
+- cloud
+- aqua
+install:
+  method: pipx
+  package: kube-hunter
+dry_run_output:
+- '{"vulnerabilities":[{"location":"10.0.0.1:10250","category":"Information Disclosure","severity":"medium"}]}'

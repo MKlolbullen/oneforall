@@ -1,0 +1,38 @@
+id: scilla
+name: scilla
+category: active_recon
+description: edoardottt scilla all-in-one DNS, subdomain, directory and port reconnaissance.
+binary: scilla
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - scilla
+  - subdomain
+  - -target
+  - '{{target}}'
+  - -plain
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- recon
+- subdomain
+- port
+install:
+  method: go_install
+  package: github.com/edoardottt/scilla/cmd/scilla@latest
+dry_run_output:
+- 'api.example.com'
+- 'dev.example.com'

@@ -1,0 +1,36 @@
+id: zizmor
+name: zizmor
+category: ci_cd
+description: William Woodruff zizmor static analyzer for GitHub Actions workflow security issues.
+binary: zizmor
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - zizmor
+  - --format
+  - json
+  - '{{target}}'
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- ci_cd
+- github-actions
+- sast
+install:
+  method: pipx
+  package: zizmor
+dry_run_output:
+- '[{"ident":"template-injection","desc":"GitHub Actions expression injection","level":"error","file":".github/workflows/ci.yml"}]'

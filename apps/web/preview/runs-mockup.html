@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ReconForge — Runs</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.run-table-row { cursor: pointer; }
+.run-table-row.selected { background: rgba(8,145,178,.12); }
+.console {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11.5px; line-height: 1.5;
+  background: rgba(2,6,23,.7); border: 1px solid #1f2937;
+  border-radius: 6px; padding: 10px 12px; color: #cbd5e1;
+  max-height: 320px; overflow-y: auto;
+}
+.console-line.info { color: #94a3b8; }
+.console-line.warn { color: #fcd34d; }
+.console-line.error { color: #fca5a5; }
+.console-line.ok { color: #4ade80; }
+.tab-row {
+  display: flex; gap: 6px; flex-wrap: wrap; padding-bottom: 8px;
+  border-bottom: 1px solid #1f2937;
+}
+.tab-btn {
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  padding: 5px 12px; color: #94a3b8; cursor: pointer; font-size: 12.5px;
+}
+.tab-btn.active { color: #22d3ee; border-color: #164e63; background: rgba(8,145,178,.10); }
+.tab-btn .count {
+  margin-left: 6px; padding: 0 6px; border-radius: 4px;
+  background: rgba(148,163,184,.15); font-size: 11px;
+}
+.artifact-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 110px 80px;
+  gap: 10px; align-items: center;
+  padding: 8px 10px; border-bottom: 1px solid #1f2937;
+  font-size: 12px;
+}
+.artifact-row:hover { background: rgba(8,145,178,.06); }
+.artifact-row .name { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.artifact-type {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 10.5px; letter-spacing: .03em;
+  background: rgba(148,163,184,.10); color: #cbd5e1;
+  border: 1px solid #1f2937;
+}
+.artifact-type.text { background: rgba(148,163,184,.12); }
+.artifact-type.secret { background: rgba(220,38,38,.15); color: #fca5a5; border-color: rgba(220,38,38,.5); }
+.artifact-type.file_inventory { background: rgba(252,211,77,.12); color: #fcd34d; border-color: rgba(252,211,77,.4); }
+.artifact-type.binary { background: rgba(34,211,238,.12); color: #67e8f9; border-color: rgba(34,211,238,.4); }
+.metadata-strip {
+  display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px;
+  color: #94a3b8; margin-top: 4px;
+}
+.metadata-strip .pill {
+  border: 1px solid #1f2937; border-radius: 4px; padding: 1px 6px;
+  background: rgba(2,6,23,.6);
+}
+</style>
+</head>
+<body>
+
+<div class="note">
+  <strong>Mockup — Runs page.</strong> Run console split into Console / Steps /
+  Network / Artifacts / Loot / Advisor tabs. The Artifacts tab now shows the
+  new typed artifacts: a <code class="artifact-type secret">secret</code> JSON
+  per tool with secret-shaped tokens in stdout, and a
+  <code class="artifact-type file_inventory">file_inventory</code> JSON per
+  tool with classified file URLs. Existing <code class="artifact-type text">text</code>
+  stdout/stderr stays.
+  &nbsp;<a href="index.html">← back to index</a>
+</div>
+
+<div class="shell">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="topbar"></div>
+
+    <div class="content">
+
+      <div class="grid cols-2" style="grid-template-columns: 0.7fr 1.3fr;">
+
+        <!-- ===== Runs list ===== -->
+        <div class="card">
+          <div class="row space">
+            <h3>Runs</h3>
+            <div class="row" style="gap:8px;">
+              <span class="muted small">12 of 128</span>
+              <select class="input" style="max-width: 180px;">
+                <option>acme-pentest-q2</option>
+                <option>All workspaces</option>
+              </select>
+            </div>
+          </div>
+          <table class="table compact">
+            <thead><tr><th>ID</th><th>Profile</th><th>Status</th><th>Risk</th></tr></thead>
+            <tbody id="runs-rows"></tbody>
+          </table>
+        </div>
+
+        <!-- ===== Run console ===== -->
+        <div class="card">
+          <div class="row space">
+            <div class="row">
+              <span class="badge active">running</span>
+              <span class="mono muted small">7a3f8e21-1c5d-4b2a-9e87-acbd13af0001</span>
+            </div>
+            <div class="row">
+              <a class="btn" href="#">Report</a>
+              <a class="btn" href="#">JSON</a>
+              <a class="btn" href="#">MD</a>
+              <button class="btn">Re-run</button>
+              <button class="btn danger">Cancel run</button>
+            </div>
+          </div>
+
+          <div class="tab-row">
+            <button class="tab-btn">Console</button>
+            <button class="tab-btn">Steps <span class="count">8</span></button>
+            <button class="tab-btn">Network</button>
+            <button class="tab-btn active">Artifacts <span class="count">14</span></button>
+            <button class="tab-btn">Loot <span class="count">23</span></button>
+            <button class="tab-btn">Advisor</button>
+          </div>
+
+          <div class="row space" style="margin-top:8px;">
+            <strong>Artifacts</strong>
+            <span class="muted small">14 files · 3 secret · 2 file_inventory</span>
+          </div>
+
+          <div id="artifact-list"></div>
+
+          <div class="card" style="margin-top:12px; background: rgba(220,38,38,.06); border-color: rgba(220,38,38,.4);">
+            <div class="row space">
+              <strong style="color:#fca5a5;">📄 trufflehog_filesystem.secrets.json</strong>
+              <span class="badge bad">3 matches</span>
+            </div>
+            <div class="metadata-strip">
+              <span class="pill">kinds: aws_access_key, github_token, private_key_pem</span>
+              <span class="pill">tool: trufflehog_filesystem</span>
+              <span class="pill">227 bytes</span>
+            </div>
+            <pre style="background:rgba(2,6,23,.7); border-radius:6px; padding:10px 12px; margin-top:8px; font-size:11px; color:#cbd5e1; overflow-x:auto;">{
+  "tool_id": "trufflehog_filesystem",
+  "match_count": 3,
+  "matches": [
+    {
+      "kind": "aws_access_key",
+      "severity": "critical",
+      "rationale": "AWS access key id — pair with secret key grants programmatic AWS access.",
+      "fingerprint": "1a5d44a2dca1",
+      "redacted": "AKIA***MPLE (20 chars)",
+      "context": "…leaked in config.js: AKIAIOSFODNN7EXAMPLE on line 42…"
+    },
+    {
+      "kind": "github_token",
+      "severity": "critical",
+      "fingerprint": "8c91def204a3",
+      "redacted": "ghp_***xyz9 (40 chars)"
+    },
+    {
+      "kind": "private_key_pem",
+      "severity": "critical",
+      "fingerprint": "ffa12c44e8b6",
+      "redacted": "----***KEY-- (1843 chars)"
+    }
+  ]
+}</pre>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="_chrome.js"></script>
+<script>
+renderChrome('runs');
+
+const RUNS = [
+  { id: '7a3f8e21', profile: 'web_active',     status: 'running',   risk: 'medium', selected: true  },
+  { id: 'b91d7a44', profile: 'passive_recon',  status: 'running',   risk: 'low'    },
+  { id: 'c5e2c089', profile: 'cloud_enum',     status: 'queued',    risk: 'low'    },
+  { id: '4d8f1ab3', profile: 'web_active',     status: 'completed', risk: 'medium' },
+  { id: 'e21c7b58', profile: 'ports_services', status: 'completed', risk: 'medium' },
+  { id: '9a4d3e90', profile: 'js_secrets',     status: 'failed',    risk: 'low'    },
+  { id: '2b6c1f47', profile: 'web_quick',      status: 'cancelled', risk: 'low'    },
+  { id: 'fc8e2d11', profile: 'cloud_audit',    status: 'completed', risk: 'medium' },
+];
+const statusBadge = (s) => {
+  if (s === 'completed') return 'ok';
+  if (s === 'failed' || s === 'cancelled') return 'bad';
+  if (s === 'running') return 'active';
+  return 'passive';
+};
+document.getElementById('runs-rows').innerHTML = RUNS.map(r => `
+  <tr class="run-table-row ${r.selected ? 'selected' : ''}">
+    <td class="mono small">${r.id}…</td>
+    <td>${r.profile}</td>
+    <td><span class="badge ${statusBadge(r.status)}">${r.status}</span></td>
+    <td>${r.risk}</td>
+  </tr>
+`).join('');
+
+const ARTIFACTS = [
+  ['subfinder.stdout.txt',                 'text',           '2.1 KB',  '12s ago'],
+  ['subfinder.files.json',                 'file_inventory', '684 B',   '12s ago'],
+  ['dnsx.stdout.txt',                      'text',           '5.4 KB',  '11s ago'],
+  ['httpx.stdout.txt',                     'text',           '18 KB',   '9s ago'],
+  ['httpx.files.json',                     'file_inventory', '1.2 KB',  '9s ago'],
+  ['nuclei.stdout.txt',                    'text',           '12 KB',   '6s ago'],
+  ['nuclei.stderr.txt',                    'text',           '420 B',   '6s ago'],
+  ['katana.stdout.txt',                    'text',           '34 KB',   '4s ago'],
+  ['katana.files.json',                    'file_inventory', '2.4 KB',  '4s ago'],
+  ['sourcemapper.stdout.txt',              'text',           '8 KB',    '3s ago'],
+  ['sourcemapper.secrets.json',            'secret',         '512 B',   '3s ago'],
+  ['trufflehog_filesystem.stdout.txt',     'text',           '6 KB',    '2s ago'],
+  ['trufflehog_filesystem.secrets.json',   'secret',         '227 B',   '2s ago'],
+  ['gitleaks_history.secrets.json',        'secret',         '438 B',   '1s ago'],
+];
+document.getElementById('artifact-list').innerHTML =
+  '<div style="border:1px solid #1f2937; border-radius:8px; margin-top:8px;">' +
+  ARTIFACTS.map(([name, type, size, when]) =>
+    `<div class="artifact-row">
+       <span class="artifact-type ${type}">${type}</span>
+       <span class="name">${name}</span>
+       <span class="muted small">${size}</span>
+       <span class="muted small">${when}</span>
+     </div>`
+  ).join('') +
+  '</div>';
+</script>
+</body>
+</html>

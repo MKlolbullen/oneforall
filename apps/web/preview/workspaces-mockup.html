@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ReconForge — Workspaces</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.ws-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.ws-card {
+  border: 1px solid #1f2937; border-radius: 10px;
+  background: rgba(2,6,23,.4); padding: 14px 16px;
+  display: grid; gap: 8px; cursor: pointer;
+}
+.ws-card:hover { border-color: #164e63; }
+.ws-card.active { border-color: #22d3ee; background: linear-gradient(180deg, rgba(34,211,238,.06), rgba(2,6,23,.4)); }
+.ws-card .ws-name { font-weight: 700; font-size: 14px; color: #e2e8f0; }
+.ws-card .ws-desc { color: #94a3b8; font-size: 12px; line-height: 1.4; }
+.ws-card .stats {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 6px; margin-top: 4px;
+}
+.ws-card .stat {
+  text-align: center; padding: 4px 0;
+  border-radius: 4px; background: rgba(2,6,23,.5);
+  border: 1px solid #1f2937;
+}
+.ws-card .stat strong { font-size: 14px; font-family: 'JetBrains Mono', ui-monospace, monospace; color: #e2e8f0; }
+.ws-card .stat .label { display: block; font-size: 10px; text-transform: uppercase; color: #94a3b8; letter-spacing: .05em; }
+.ws-card .ws-meta {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  font-size: 11px; color: #94a3b8;
+}
+.ws-card .pill {
+  background: rgba(148,163,184,.10); border: 1px solid #1f2937;
+  padding: 1px 6px; border-radius: 4px;
+}
+.ws-card .actions { display: flex; gap: 4px; }
+.ws-create {
+  border: 1px dashed #1f2937; border-radius: 10px;
+  background: transparent; padding: 14px 16px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 180px; color: #94a3b8; cursor: pointer;
+}
+.ws-create:hover { border-color: #22d3ee; color: #22d3ee; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <strong>Mockup — Workspaces page.</strong> Workspace cards as the primary
+  scoping unit. Each card shows targets / runs / findings / loot counts and
+  links into the rest of the app filtered to that workspace.
+  &nbsp;<a href="index.html">← back to index</a>
+</div>
+
+<div class="shell">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="topbar"></div>
+
+    <div class="content">
+
+      <div class="row space">
+        <div class="row">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+          <strong>Workspaces</strong>
+          <span class="muted">an engagement / customer / asset boundary</span>
+        </div>
+        <div class="row">
+          <button class="btn">↻ Refresh</button>
+          <button class="btn" style="border-color:#164e63; background:rgba(8,145,178,.15); color:#67e8f9;">+ New workspace</button>
+        </div>
+      </div>
+
+      <div class="ws-grid" id="ws-rows"></div>
+
+    </div>
+  </main>
+</div>
+
+<script src="_chrome.js"></script>
+<script>
+renderChrome('workspaces');
+
+const WORKSPACES = [
+  { name:'acme-pentest-q2', desc:'Authorized Q2 pentest engagement for Acme Corp. Wide scope incl. *.acme.com + 203.0.113.0/24.', tgt:47, runs:128, fnd:86, loot:23, active:true,  tags:['active','engagement'] },
+  { name:'bbounty-globex',  desc:'Public bug-bounty for globex.io — subdomains + responsible-disclosure only.', tgt:182, runs:412, fnd:301, loot:74, active:false, tags:['bug-bounty','public'] },
+  { name:'internal-ci-baseline', desc:'Continuous baseline scans of internal staging. Cron-driven.', tgt:9, runs:1248, fnd:54, loot:2, active:false, tags:['cron','internal'] },
+  { name:'eng-asm-discovery', desc:'Read-only ASM enumeration to seed targets for other workspaces.', tgt:3214, runs:62, fnd:0, loot:0, active:false, tags:['passive','seed'] },
+  { name:'demo-sandbox', desc:'Dry-run sandbox for showing the platform off — no live targets.', tgt:1, runs:14, fnd:7, loot:1, active:false, tags:['demo'] },
+];
+
+document.getElementById('ws-rows').innerHTML = WORKSPACES.map(w => `
+  <div class="ws-card ${w.active ? 'active' : ''}">
+    <div class="row space">
+      <span class="ws-name">${w.name}</span>
+      ${w.active ? '<span class="badge ok" style="font-size:10px;">active</span>' : ''}
+    </div>
+    <div class="ws-desc">${w.desc}</div>
+    <div class="stats">
+      <div class="stat"><strong>${w.tgt}</strong><span class="label">targets</span></div>
+      <div class="stat"><strong>${w.runs}</strong><span class="label">runs</span></div>
+      <div class="stat"><strong>${w.fnd}</strong><span class="label">findings</span></div>
+      <div class="stat"><strong>${w.loot}</strong><span class="label">loot</span></div>
+    </div>
+    <div class="ws-meta">${w.tags.map(t => `<span class="pill">${t}</span>`).join('')}</div>
+    <div class="actions">
+      <button class="btn" style="flex:1;">Open targets</button>
+      <button class="btn" style="flex:1;">Recent runs</button>
+    </div>
+  </div>
+`).join('') + `
+  <div class="ws-create">
+    <span style="font-size: 24px;">+</span>
+    <span>New workspace</span>
+  </div>
+`;
+</script>
+</body>
+</html>

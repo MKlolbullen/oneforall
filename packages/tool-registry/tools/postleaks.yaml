@@ -1,0 +1,36 @@
+id: postleaks
+name: Postleaks
+category: secrets
+description: cosad3s Postleaks searches public Postman workspaces for exposed secrets and endpoints.
+binary: postleaks
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - postleaks
+  - -k
+  - '{{target}}'
+  - --no-color
+parser:
+  type: line_based
+  entity: secret
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- secrets
+- postman
+- api
+install:
+  method: pipx
+  package: postleaks
+dry_run_output:
+- '[+] Workspace example-api leaked AWS key (AKIA...)'

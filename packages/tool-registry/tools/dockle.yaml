@@ -1,0 +1,37 @@
+id: dockle
+name: Dockle
+category: container
+description: Container image linter and CIS benchmark checker for Docker images.
+binary: dockle
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: image
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - dockle
+  - --no-color
+  - -f
+  - json
+  - '{{target}}'
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- container
+- cis
+- linter
+install:
+  method: manual
+  package: goodwithtech/dockle
+dry_run_output:
+- '{"summary":{"fatal":0,"warn":2,"info":3},"details":[{"code":"CIS-DI-0001","title":"Create a user for the container"}]}'

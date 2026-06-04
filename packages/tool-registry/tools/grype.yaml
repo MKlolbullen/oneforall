@@ -1,0 +1,37 @@
+id: grype
+name: Grype
+category: supply-chain
+description: Anchore container/filesystem vulnerability scanner using SBOM or image inputs.
+binary: grype
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: image
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - grype
+  - '{{target}}'
+  - -o
+  - json
+  - -q
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- container
+- vulnerability
+- cve
+install:
+  method: manual
+  package: anchore/grype
+dry_run_output:
+- '{"matches":[{"vulnerability":{"id":"CVE-2023-1234","severity":"High"},"artifact":{"name":"openssl"}}]}'

@@ -1,0 +1,39 @@
+id: censys_cli
+name: Censys CLI
+category: osint
+description: Official Censys CLI for passive host, certificate and ASN intelligence.
+binary: censys
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: hosts
+  type: finding_list
+command:
+  argv:
+  - censys
+  - search
+  - '{{target}}'
+  - --index-type
+  - hosts
+  - -o
+  - json
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- osint
+- censys
+- passive
+install:
+  method: pipx
+  package: censys
+dry_run_output:
+- '{"ip":"93.184.216.34","services":[{"port":443,"service_name":"HTTP"}]}'

@@ -1,0 +1,39 @@
+id: trivy_image
+name: Trivy (container image)
+category: container
+description: Aqua Trivy scanner for container images covering OS packages, libraries and secrets.
+binary: trivy
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: image
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - trivy
+  - image
+  - --quiet
+  - --format
+  - json
+  - '{{target}}'
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- container
+- image
+- cve
+- aqua
+install:
+  method: manual
+  package: aquasecurity/trivy
+dry_run_output:
+- '{"Results":[{"Target":"alpine:3.18","Vulnerabilities":[{"VulnerabilityID":"CVE-2023-5678","Severity":"MEDIUM"}]}]}'

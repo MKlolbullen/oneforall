@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ReconForge — mockup index</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.gallery {
+  max-width: 1100px; margin: 40px auto; padding: 0 24px;
+}
+.title {
+  display: flex; align-items: baseline; gap: 16px;
+  border-bottom: 1px solid #1f2937; padding-bottom: 14px; margin-bottom: 24px;
+}
+.title h1 { margin: 0; font-size: 22px; }
+.mockup-card {
+  display: grid; grid-template-columns: 1fr 2fr;
+  gap: 16px; padding: 16px; margin-bottom: 14px;
+  border: 1px solid #1f2937; border-radius: 10px;
+  background: rgba(2,6,23,.4); text-decoration: none; color: inherit;
+}
+.mockup-card:hover { border-color: #22d3ee; }
+.mockup-card .preview {
+  background: linear-gradient(135deg, rgba(34,211,238,.06), rgba(13,17,23,.6));
+  border: 1px solid #1f2937; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px; color: #94a3b8; min-height: 110px; padding: 12px;
+  white-space: pre-line; text-align: center;
+}
+.mockup-card .meta h3 { margin: 0 0 6px; font-size: 16px; }
+.mockup-card .meta p { margin: 0; color: #94a3b8; font-size: 12.5px; line-height: 1.55; }
+.mockup-card .meta .tag-row { margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap; }
+.pill {
+  font-size: 10.5px; padding: 1px 8px; border-radius: 4px;
+  background: rgba(148,163,184,.08); color: #94a3b8; border: 1px solid #1f2937;
+}
+.pill.new { background: rgba(34,211,238,.10); color: #67e8f9; border-color: rgba(34,211,238,.4); }
+</style>
+</head>
+<body>
+
+<div class="gallery">
+  <div class="title">
+    <h1>ReconForge UI snapshots</h1>
+    <span class="muted">static mock-ups · open any card to inspect a page</span>
+  </div>
+
+  <a class="mockup-card" href="dashboard-mockup.html">
+    <div class="preview">[ Sidebar ▾ ] | [ KPI strip ]
+[ ROE policy ] [ Webhook health ]
+[ Severity bar ] [ Run status ]
+[ Active-runs banner ]
+[ Recent runs · findings · audit ]</div>
+    <div class="meta">
+      <h3>Dashboard</h3>
+      <p>The operator's landing page. KPI strip, ROE policy + webhook health
+         platform-row, severity / run-status pair, active-runs banner, and three
+         recent feeds. This is the first snapshot we shipped.</p>
+      <div class="tag-row">
+        <span class="pill">pass 1</span>
+        <span class="pill">pass 2</span>
+        <span class="pill">pass 3</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="mockup-card" href="runs-mockup.html">
+    <div class="preview">[ Runs list ] | [ Run console ]
+                     · Console · Steps · Network ·
+                     · Artifacts · Loot · Advisor ·
+                     [ typed artifacts ] secret 🔴
+                                          file_inventory 🟡
+                                          text ⚪</div>
+    <div class="meta">
+      <h3>Runs</h3>
+      <p>The run-table + console split-view. Artifacts tab now surfaces the
+         new typed artifacts written by the runner: <code>secret</code> JSON
+         from the end-of-step secret sweep, <code>file_inventory</code> JSON
+         from the file-classification sweep, alongside the existing text
+         stdout / stderr.</p>
+      <div class="tag-row">
+        <span class="pill new">secret artifacts</span>
+        <span class="pill new">file artifacts</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="mockup-card" href="results-mockup.html">
+    <div class="preview">[ Severity bar ] critical: 3, high: 12, …
+[ Filter chips ] severity / status / tool / q
+[ Findings table ] — incl. secret-exposed category
+[ Inline detail ] fingerprint, redacted secret,
+                  AI explanation</div>
+    <div class="meta">
+      <h3>Results</h3>
+      <p>Workspace-wide findings table. Severity bar, filter chips, finding
+         rows with category badges (including the new <code>secret-exposed</code>
+         category from the secrets extractor) and inline expansion showing
+         redacted credentials + an AI explanation.</p>
+      <div class="tag-row">
+        <span class="pill new">secret-exposed category</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="mockup-card" href="loot-mockup.html">
+    <div class="preview">[ Kind tiles ] secret · file · subdomain · …
+[ Loot cards ] kind · severity · label · host · tool
+                fingerprint · timestamp · open</div>
+    <div class="meta">
+      <h3>Loot</h3>
+      <p>Curated, deduplicated findings worth keeping. Kind tiles up top
+         (now including <em>secret</em> and <em>file</em> derived from the
+         new artifact pipeline) and a flat list of loot cards with kind,
+         severity, label, source tool, and fingerprint.</p>
+      <div class="tag-row">
+        <span class="pill new">secret kind</span>
+        <span class="pill new">file kind</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="mockup-card" href="scope-mockup.html">
+    <div class="preview">[ Form / YAML / Diff tabs ]
+[ allowed: domains / cidrs / ports ]
+[ denied: domains / methods ]
+[ approval.require_for_tools ]
+[ Preflight tester ] decision + trace</div>
+    <div class="meta">
+      <h3>Scope (ROE)</h3>
+      <p>Visual policy editor for <code>config/roe.yaml</code>. Form / YAML
+         toggle, structured sections (allowed / denied / approval), and a
+         live preflight tester that returns an allow / deny / approval-required
+         decision with the full trace.</p>
+      <div class="tag-row">
+        <span class="pill">admin only</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="mockup-card" href="workflow-mockup.html">
+    <div class="preview">[ Tool palette ] passive / resolve / crawl /
+                  secrets / active
+[ Canvas ] DAG of nodes + edges
+[ Inspector ] step config: argv / timeout / scope</div>
+    <div class="meta">
+      <h3>Workflow Builder</h3>
+      <p>React-Flow style DAG editor for building reusable profiles. Left:
+         tool palette grouped by category with risk dots. Centre: canvas with
+         selectable nodes + connecting edges. Right: inspector for the
+         selected step with a live scope preview.</p>
+      <div class="tag-row">
+        <span class="pill">react-flow</span>
+        <span class="pill">227 tools</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="mockup-card" href="tools-mockup.html">
+    <div class="preview">[ Metrics ] 227 registered · 198 available
+[ Filters ] category · risk · availability
+[ Categories ] container · iac · graphql ·
+               mobile · osint · …</div>
+    <div class="meta">
+      <h3>Tool Catalog</h3>
+      <p>The expanded registry — <strong>227 tools</strong> (was 172). The new
+         55 cover container/SBOM (syft, grype, trivy_image, dockle, hadolint),
+         IaC (checkov, tfsec, terrascan, kics), Kubernetes, mobile (mobsfscan,
+         qark, apkid), GraphQL, CI/CD posture, OSINT/threat-intel,
+         git-history mining, SSRF, fuzzing, and Web3.</p>
+      <div class="tag-row">
+        <span class="pill new">+55 tools</span>
+      </div>
+    </div>
+  </a>
+
+  <a class="mockup-card" href="workspaces-mockup.html">
+    <div class="preview">[ Workspace cards ]
+   acme-pentest-q2 · bbounty-globex · …
+   [ targets · runs · findings · loot ]
+[ + New workspace ]</div>
+    <div class="meta">
+      <h3>Workspaces</h3>
+      <p>The engagement / customer / asset boundary. Workspace cards show
+         targets / runs / findings / loot counts and link into the rest of
+         the app filtered to that workspace. The topbar selector is the
+         single source of truth.</p>
+    </div>
+  </a>
+
+  <div class="muted small" style="margin: 30px 0; padding: 14px; border: 1px dashed #1f2937; border-radius: 8px;">
+    <strong style="color: #94a3b8;">How these were built.</strong> Each page is
+    a static HTML file under <code>apps/web/preview/</code>. They share the
+    sidebar / topbar via <code>_chrome.js</code> and the visual primitives via
+    <code>_shared.css</code> — so the sidebar grouping, badges, cards, tables
+    and severity colours stay in sync across pages. None of these files are
+    part of the Vite build; open them directly with <code>file://</code> or
+    serve the directory with any static file server.
+  </div>
+
+</div>
+
+</body>
+</html>

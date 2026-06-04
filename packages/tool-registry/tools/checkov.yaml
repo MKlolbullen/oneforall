@@ -1,0 +1,39 @@
+id: checkov
+name: Checkov
+category: infrastructure_as_code
+description: Bridgecrew Checkov static analysis for Terraform, CloudFormation, Kubernetes and Dockerfile.
+binary: checkov
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - checkov
+  - -d
+  - '{{target}}'
+  - -o
+  - json
+  - --quiet
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- iac
+- terraform
+- cloudformation
+- kubernetes
+install:
+  method: pipx
+  package: checkov
+dry_run_output:
+- '{"check_type":"terraform","results":{"failed_checks":[{"check_id":"CKV_AWS_20","check_name":"S3 Bucket has public access"}]}}'

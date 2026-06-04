@@ -1,0 +1,36 @@
+id: mobsfscan
+name: mobsfscan
+category: mobile
+description: MobSF static analyzer for Android, iOS and Hybrid app source code.
+binary: mobsfscan
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - mobsfscan
+  - --json
+  - '{{target}}'
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- mobile
+- android
+- ios
+- sast
+install:
+  method: pipx
+  package: mobsfscan
+dry_run_output:
+- '{"results":{"android_certificate_pinning":{"severity":"WARNING","metadata":{"description":"Certificate pinning not implemented"}}}}'

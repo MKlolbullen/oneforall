@@ -1,0 +1,35 @@
+id: apkid
+name: APKiD
+category: mobile
+description: RedNaga APKiD packer, obfuscator and anti-debug detection for Android APKs.
+binary: apkid
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: apk
+  required: true
+outputs:
+- name: fingerprints
+  type: finding_list
+command:
+  argv:
+  - apkid
+  - --json
+  - '{{target}}'
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- mobile
+- android
+- fingerprint
+install:
+  method: pipx
+  package: apkid
+dry_run_output:
+- '{"files":[{"filename":"app.apk","matches":{"packer":["Bangcle"],"compiler":["dx"]}}]}'

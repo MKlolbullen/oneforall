@@ -1,0 +1,37 @@
+id: swaggerhole
+name: SwaggerHole
+category: api
+description: Liodeus SwaggerHole searches SwaggerHub for exposed Swagger/OpenAPI files containing secrets.
+binary: swaggerhole
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - swaggerhole
+  - -s
+  - '{{target}}'
+  - --no-color
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- api
+- swagger
+- openapi
+- secrets
+install:
+  method: pipx
+  package: swaggerhole
+dry_run_output:
+- '[+] https://app.swaggerhub.com/apis/example/payments/1.0 exposed admin secret'

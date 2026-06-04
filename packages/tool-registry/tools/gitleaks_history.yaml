@@ -1,0 +1,42 @@
+id: gitleaks_history
+name: Gitleaks (history)
+category: secrets
+description: Gitleaks deep history scan across all commits and branches in a git repository.
+binary: gitleaks
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - gitleaks
+  - detect
+  - --source
+  - '{{target}}'
+  - --report-format
+  - json
+  - --report-path
+  - /artifacts/gitleaks.json
+  - --log-opts
+  - --all
+parser:
+  type: json
+  entity: secret
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- secrets
+- git
+- history
+install:
+  method: manual
+  package: gitleaks/gitleaks
+dry_run_output:
+- '[{"Description":"Generic API Key","StartLine":42,"Commit":"abc123","File":"src/config.js"}]'

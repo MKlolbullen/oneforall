@@ -1,0 +1,40 @@
+id: wfuzz
+name: wfuzz
+category: fuzzing
+description: xmendez wfuzz HTTP fuzzer for parameters, headers, paths and POST bodies.
+binary: wfuzz
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - wfuzz
+  - -c
+  - -z
+  - file,/usr/share/wordlists/common.txt
+  - --hc
+  - '404'
+  - -o
+  - json
+  - https://{{target}}/FUZZ
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- fuzzing
+- http
+install:
+  method: pipx
+  package: wfuzz
+dry_run_output:
+- '{"url":"https://www.example.com/admin","code":200,"chars":1234}'
