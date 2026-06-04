@@ -14,9 +14,30 @@ button { cursor: pointer; }
 .sidebar { border-right: 1px solid #1f2937; background: rgba(13,17,23,.92); padding: 18px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .04em; margin-bottom: 24px; }
 .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #22d3ee; border-radius: 10px; color: #22d3ee; box-shadow: 0 0 18px rgba(34,211,238,.22); }
-.nav { display: grid; gap: 8px; }
+.nav { display: grid; gap: 4px; }
 .nav button { text-align: left; border: 1px solid transparent; color: #94a3b8; background: transparent; border-radius: 10px; padding: 10px 12px; }
 .nav button.active, .nav button:hover { color: #e5e7eb; border-color: #164e63; background: rgba(8,145,178,.10); }
+
+/* Sidebar section headers + collapsible groups. Section headers are quieter
+ * than nav items (no hover background, uppercase label, smaller chevron) so
+ * they read as structure rather than action targets. */
+.nav-section { display: grid; gap: 4px; margin-top: 12px; }
+.nav-section:first-child { margin-top: 0; }
+.nav-section-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 8px !important; margin: 0 2px;
+  color: #64748b !important; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+  border-radius: 4px !important; cursor: pointer;
+  border-color: transparent !important; background: transparent !important;
+}
+.nav-section-header:hover { color: #94a3b8 !important; background: rgba(148,163,184,.06) !important; }
+.nav-section-label { font-weight: 600; }
+.nav-section-list { display: grid; gap: 4px; }
+.nav-section.collapsed .nav-section-list { display: none; }
+.nav-badge { margin-left: auto; }
+
+[data-theme="pd-cloud"] .nav-section-header { color: var(--pd-text-muted) !important; }
+[data-theme="pd-cloud"] .nav-section-header:hover { background: var(--pd-cyan-soft) !important; color: var(--pd-text) !important; }
 .main { min-width: 0; }
 .topbar { height: 58px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1f2937; padding: 0 20px; background: rgba(7,11,16,.75); backdrop-filter: blur(14px); }
 .content { padding: 20px; }

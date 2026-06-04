@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Activity, Bell, Boxes, ChevronDown, Coins, Crosshair, FileSearch, FileText, History, LayoutDashboard, LogOut, MessageSquare, Network, Palette, RefreshCw, Search, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, User as UserIcon, Users as UsersIcon, Wrench } from 'lucide-react';
+import { Activity, Bell, Boxes, ChevronDown, ChevronRight, Coins, Crosshair, FileSearch, FileText, History, LayoutDashboard, LogOut, MessageSquare, Network, Palette, RefreshCw, Search, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, User as UserIcon, Users as UsersIcon, Wrench } from 'lucide-react';
 import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
 import { classifyArtifact } from './lib/artifactKind';
@@ -32,23 +32,62 @@ import { useConfirm } from './lib/Confirm';
 import { applyTheme, loadTheme, persistTheme, THEMES, type Theme } from './lib/theme';
 import type { Artifact, GrepPatternPack, LootItem, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunEvent, RunStep, Target, Tool, ToolAvailability, WordlistInfo, Workspace } from './types';
 
-const pages: { id: Page; label: string; icon: ReactNode }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
-  { id: 'workspaces', label: 'Workspaces', icon: <Boxes size={16} /> },
-  { id: 'targets', label: 'Targets', icon: <Crosshair size={16} /> },
-  { id: 'templates', label: 'Templates', icon: <FileText size={16} /> },
-  { id: 'runs', label: 'Runs', icon: <TerminalSquare size={16} /> },
-  { id: 'results', label: 'Results', icon: <FileSearch size={16} /> },
-  { id: 'loot', label: 'Loot', icon: <Coins size={16} /> },
-  { id: 'network', label: 'Network Graph', icon: <Share2 size={16} /> },
-  { id: 'tools', label: 'Tool Catalog', icon: <Wrench size={16} /> },
-  { id: 'workflow', label: 'Workflow Builder', icon: <Network size={16} /> },
-  { id: 'users', label: 'Users', icon: <UsersIcon size={16} /> },
-  { id: 'webhooks', label: 'Webhooks', icon: <Bell size={16} /> },
-  { id: 'scope', label: 'Scope (ROE)', icon: <ShieldAlert size={16} /> },
-  { id: 'audit', label: 'Audit Log', icon: <History size={16} /> },
-  { id: 'settings', label: 'Settings Pack', icon: <SettingsIcon size={16} /> },
+/**
+ * Single source of truth for page metadata. Kept as an array so render order
+ * within a group stays deterministic — and the keyboard-shortcut handler can
+ * still validate a target page id with `pageMeta[target]`.
+ */
+const pageMeta: Record<Page, { label: string; icon: ReactNode }> = {
+  dashboard: { label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
+  workspaces: { label: 'Workspaces', icon: <Boxes size={16} /> },
+  targets: { label: 'Targets', icon: <Crosshair size={16} /> },
+  runs: { label: 'Runs', icon: <TerminalSquare size={16} /> },
+  results: { label: 'Results', icon: <FileSearch size={16} /> },
+  loot: { label: 'Loot', icon: <Coins size={16} /> },
+  network: { label: 'Network Graph', icon: <Share2 size={16} /> },
+  templates: { label: 'Templates', icon: <FileText size={16} /> },
+  workflow: { label: 'Workflow Builder', icon: <Network size={16} /> },
+  tools: { label: 'Tool Catalog', icon: <Wrench size={16} /> },
+  users: { label: 'Users', icon: <UsersIcon size={16} /> },
+  webhooks: { label: 'Webhooks', icon: <Bell size={16} /> },
+  scope: { label: 'Scope (ROE)', icon: <ShieldAlert size={16} /> },
+  audit: { label: 'Audit Log', icon: <History size={16} /> },
+  settings: { label: 'Settings Pack', icon: <SettingsIcon size={16} /> },
+};
+
+/**
+ * Sidebar groups. Operations is the daily flow (most operators stay here);
+ * Builders is configuration-of-tooling work; Admin is privileged surface area
+ * (users / webhooks / ROE policy); System is read-mostly bookkeeping. Order
+ * here is the render order. Each group's collapsed state is persisted to
+ * localStorage — but the group that contains the active page is force-shown
+ * so the operator never loses their bearings after a deeplink jump.
+ */
+type SidebarGroup = { id: string; label: string; pages: Page[] };
+const sidebarGroups: SidebarGroup[] = [
+  { id: 'ops', label: 'Operations', pages: ['dashboard', 'workspaces', 'targets', 'runs', 'results', 'loot', 'network'] },
+  { id: 'builders', label: 'Builders', pages: ['templates', 'workflow', 'tools'] },
+  { id: 'admin', label: 'Admin', pages: ['users', 'webhooks', 'scope'] },
+  { id: 'system', label: 'System', pages: ['audit', 'settings'] },
 ];
+
+const SIDEBAR_COLLAPSE_KEY = 'reconforge:sidebar-collapsed:v1';
+
+function loadCollapsedGroups(): Record<string, boolean> {
+  try {
+    const raw = window.localStorage.getItem(SIDEBAR_COLLAPSE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, boolean>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistCollapsedGroups(state: Record<string, boolean>) {
+  try { window.localStorage.setItem(SIDEBAR_COLLAPSE_KEY, JSON.stringify(state)); }
+  catch { /* quota / private mode — sidebar still works, state just won't survive */ }
+}
 
 function availabilityClass(check?: ToolAvailability | ProfileAvailability) {
   if (!check) return 'badge passive';
@@ -71,9 +110,22 @@ export function App() {
   // Shortcuts expects (page: string) => void; cast through Page since our nav
   // accepts NavParams too but the shortcuts only need page-by-name.
   const navForShortcuts = useCallback((target: string) => {
-    if (pages.some((p) => p.id === target)) navigate(target as Page);
+    if (target in pageMeta) navigate(target as Page);
   }, [navigate]);
   const { showCheat, setShowCheat, pendingG } = useShortcuts(navForShortcuts);
+
+  // Sidebar collapse state per group. Persisted to localStorage so the operator
+  // returns to the same shape after a refresh; the group containing the active
+  // page is always shown regardless so deeplinks don't strand a user in a
+  // collapsed section.
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups);
+  const toggleGroup = useCallback((id: string) => {
+    setCollapsedGroups((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      persistCollapsedGroups(next);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     api.health().then(setHealth).catch(console.error);
@@ -106,23 +158,52 @@ export function App() {
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark">RF</span><span>ReconForge</span></div>
         <nav className="nav">
-          {pages.map((item) => (
-            <button key={item.id} className={page === item.id ? 'active' : ''} onClick={() => navigate(item.id)}>
-              <span className="row">
-                {item.icon}
-                {item.label}
-                {item.id === 'runs' && activeRuns > 0 && (
-                  <span className="nav-badge active" title={`${activeRuns} active run(s)`}>
-                    {activeRuns}
-                  </span>
+          {sidebarGroups.map((group) => {
+            const containsActive = group.pages.includes(page);
+            // Force-show the group containing the active page even if the user
+            // had it collapsed — otherwise a deeplink could land them with no
+            // visible navigation context.
+            const collapsed = !containsActive && Boolean(collapsedGroups[group.id]);
+            return (
+              <div key={group.id} className={`nav-section ${collapsed ? 'collapsed' : ''}`}>
+                <button
+                  type="button"
+                  className="nav-section-header"
+                  onClick={() => toggleGroup(group.id)}
+                  aria-expanded={!collapsed}
+                  title={collapsed ? `Expand ${group.label}` : `Collapse ${group.label}`}
+                >
+                  {collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+                  <span className="nav-section-label">{group.label}</span>
+                </button>
+                {!collapsed && (
+                  <div className="nav-section-list">
+                    {group.pages.map((id) => {
+                      const meta = pageMeta[id];
+                      return (
+                        <button
+                          key={id}
+                          className={page === id ? 'active' : ''}
+                          onClick={() => navigate(id)}
+                          type="button"
+                        >
+                          <span className="row">
+                            {meta.icon}
+                            {meta.label}
+                            {id === 'runs' && activeRuns > 0 && (
+                              <span className="nav-badge active" title={`${activeRuns} active run(s)`}>
+                                {activeRuns}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-                {item.id === 'runs' && activeRuns === 0 && page !== 'runs' && (
-                  /* keep the row stable by reserving width — but invisible */
-                  <span style={{ marginLeft: 'auto' }} />
-                )}
-              </span>
-            </button>
-          ))}
+              </div>
+            );
+          })}
         </nav>
       </aside>
       <main className="main">
