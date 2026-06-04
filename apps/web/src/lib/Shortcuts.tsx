@@ -18,6 +18,7 @@ const NAV_KEYS: Record<string, string> = {
   w: 'workflow',
   u: 'users',
   b: 'webhooks',
+  p: 'scope',
   a: 'audit',
   s: 'settings',
 };
@@ -39,6 +40,7 @@ const SHORTCUTS = [
   { keys: ['g w'],   label: 'Go to Workflow Builder' },
   { keys: ['g u'],   label: 'Go to Users' },
   { keys: ['g b'],   label: 'Go to Webhooks' },
+  { keys: ['g p'],   label: 'Go to Scope (ROE policy)' },
   { keys: ['g a'],   label: 'Go to Audit Log' },
   { keys: ['g s'],   label: 'Go to Settings' },
 ];

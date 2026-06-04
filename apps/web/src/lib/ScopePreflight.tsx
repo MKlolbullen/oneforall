@@ -20,10 +20,22 @@ import type { ScopeDecision, ScopeEvaluateRequest, ScopeEvaluateResponse } from 
  * doesn't hammer the backend.
  */
 
-// A union with the pending-loading state. The optional fields are listed
-// so callers can read `state.reason` without TypeScript narrowing each
-// time — they'll be `undefined` while the request is in flight.
-export type DecisionState = ScopeEvaluateResponse | { decision: 'pending'; reason?: undefined; matched_rule?: undefined } | null;
+// A union with the pending-loading state. All the engine-response fields
+// are listed as `undefined` so callers can read `state.reason`,
+// `state.matched_rule`, `state.trace`, etc. without TypeScript narrowing
+// each time — they'll be `undefined` while the request is in flight.
+export type DecisionState =
+  | ScopeEvaluateResponse
+  | {
+      decision: 'pending';
+      reason?: undefined;
+      matched_rule?: undefined;
+      normalized_target?: undefined;
+      risk?: undefined;
+      trace?: undefined;
+      effective_limits?: undefined;
+    }
+  | null;
 
 export function isLaunchBlocked(state: DecisionState): boolean {
   if (!state || state.decision === 'pending') return false;

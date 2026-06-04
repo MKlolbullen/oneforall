@@ -22,6 +22,7 @@ import { EmptyState } from './lib/EmptyState';
 import { Dashboard } from './lib/Dashboard';
 import { NetworkGraph } from './lib/NetworkGraph';
 import { Results } from './lib/Results';
+import { Scope } from './lib/Scope';
 import { SearchPalette } from './lib/SearchPalette';
 import { PendingGHint, ShortcutsCheatsheet, useShortcuts } from './lib/Shortcuts';
 import { useToast } from './lib/Toast';
@@ -42,6 +43,7 @@ const pages: { id: Page; label: string; icon: ReactNode }[] = [
   { id: 'workflow', label: 'Workflow Builder', icon: <Network size={16} /> },
   { id: 'users', label: 'Users', icon: <UsersIcon size={16} /> },
   { id: 'webhooks', label: 'Webhooks', icon: <Bell size={16} /> },
+  { id: 'scope', label: 'Scope (ROE)', icon: <ShieldAlert size={16} /> },
   { id: 'audit', label: 'Audit Log', icon: <History size={16} /> },
   { id: 'settings', label: 'Settings Pack', icon: <SettingsIcon size={16} /> },
 ];
@@ -164,6 +166,7 @@ export function App() {
           {page === 'workflow' && <WorkflowBuilder />}
           {page === 'users' && <UsersPage />}
           {page === 'webhooks' && <WebhooksPage />}
+          {page === 'scope' && <Scope />}
           {page === 'audit' && <AuditLog />}
           {page === 'settings' && <SettingsPack />}
         </div>

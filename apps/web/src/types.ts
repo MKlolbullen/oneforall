@@ -463,6 +463,13 @@ export type ScopeEvaluateResponse = {
   effective_limits?: Record<string, unknown>;
 };
 
+export type ScopePolicyResponse = {
+  enabled: boolean;
+  path: string;
+  yaml: string;
+  parsed: Record<string, unknown>;
+};
+
 export type SearchResults = {
   q: string;
   workspaces: SearchWorkspaceHit[];

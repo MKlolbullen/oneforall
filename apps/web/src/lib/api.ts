@@ -1,4 +1,4 @@
-import type { AdHocRunCreate, Advice, APIKeyPublic, Artifact, Asset, AuditPage, CreatedAPIKey, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, SavedWorkflow, ScopeEvaluateRequest, ScopeEvaluateResponse, SearchResults, Target, TargetSummary, TargetTech, Tool, ToolAvailability, UserPublic, Webhook, WebhookCreate, WebhookTestResult, WebhookUpdate, WhoAmI, WordlistInfo, WorkflowCreate, WorkflowUpdate, Workspace } from '../types';
+import type { AdHocRunCreate, Advice, APIKeyPublic, Artifact, Asset, AuditPage, CreatedAPIKey, DashboardDetailed, DashboardStats, Finding, FindingPage, GraphPayload, GrepPatternPack, HttpExchangeDetail, LootPage, NetworkPage, PlatformConfig, PluginToggle, Profile, ProfileAvailability, Run, RunBrief, RunEvent, RunStep, SavedWorkflow, ScopeEvaluateRequest, ScopeEvaluateResponse, ScopePolicyResponse, SearchResults, Target, TargetSummary, TargetTech, Tool, ToolAvailability, UserPublic, Webhook, WebhookCreate, WebhookTestResult, WebhookUpdate, WhoAmI, WordlistInfo, WorkflowCreate, WorkflowUpdate, Workspace } from '../types';
 
 import { getApiBaseUrl, getWsBaseUrl } from './runtimeConfig';
 
@@ -316,5 +316,12 @@ export const api = {
   scopeEvaluate: (payload: ScopeEvaluateRequest) =>
     request<ScopeEvaluateResponse>('/api/scope/evaluate', {
       method: 'POST', body: JSON.stringify(payload),
+    }),
+  // ROE policy CRUD. GET is open to any authenticated user; PUT is admin
+  // only (enforced server-side). Sending `yaml: ""` deletes the file.
+  scopePolicy: () => request<ScopePolicyResponse>('/api/scope/policy'),
+  scopePolicyWrite: (yamlText: string) =>
+    request<ScopePolicyResponse>('/api/scope/policy', {
+      method: 'PUT', body: JSON.stringify({ yaml: yamlText }),
     }),
 };

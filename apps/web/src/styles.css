@@ -806,6 +806,35 @@ body.advisor-docked .content { max-width: 100%; }
 .wf-cloud-actions .btn { flex: 1; justify-content: center; }
 .btn.small.danger { color: #fca5a5; border-color: #7f1d1d; }
 
+/* Scope / ROE policy editor ============================================ */
+.scope-policy-editor {
+  font-family: ui-monospace, 'Cascadia Code', Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 360px;
+  resize: vertical;
+  white-space: pre;
+  tab-size: 2;
+}
+.scope-hints {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: #fbbf24;
+  font-size: 12px;
+}
+.scope-hints li { padding: 2px 0; }
+.scope-tester-result {
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  background: rgba(2,6,23,.45);
+  display: grid;
+  gap: 4px;
+}
+.scope-trace { margin: 4px 0 0; padding-left: 16px; }
+.scope-trace li { padding: 1px 0; color: #cbd5e1; }
+
 /* Tool detail modal ==================================================== */
 .tool-modal { width: min(700px, calc(100vw - 36px)); max-height: calc(100vh - 60px); overflow: auto; display: grid; gap: 10px; }
 .tool-section { display: grid; gap: 4px; padding-top: 6px; border-top: 1px solid #1f2937; }
