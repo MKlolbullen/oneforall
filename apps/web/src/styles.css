@@ -150,10 +150,48 @@ button { cursor: pointer; }
 .tool-bar-fill { height: 100%; background: linear-gradient(90deg, rgba(34,211,238,.85), rgba(34,211,238,.35)); }
 .small { font-size: 11.5px; }
 
+/* Dashboard platform-health cards (ROE + webhooks). They sit between the
+ * KPI strip and the severity/run-status row so the operator can see
+ * defence-in-depth + lifecycle plumbing without leaving the landing page. */
+.dashboard-platform-row { gap: 14px; }
+.dashboard-roe-card, .dashboard-webhook-card { padding: 14px 16px; }
+.dashboard-roe-grid, .dashboard-webhook-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px; margin: 8px 0 6px;
+}
+.dashboard-webhook-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) {
+  .dashboard-roe-grid { grid-template-columns: repeat(2, 1fr); }
+  .dashboard-webhook-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.dashboard-count-tile {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 8px 6px; border: 1px solid rgba(31,41,55,.6); border-radius: 6px;
+  background: rgba(2,6,23,.35); gap: 2px;
+}
+.dashboard-count-tile strong { font-size: 18px; font-family: 'JetBrains Mono', ui-monospace, monospace; color: #e2e8f0; }
+.dashboard-count-tile.ok { border-color: rgba(34,197,94,.5); background: rgba(34,197,94,.06); }
+.dashboard-count-tile.bad { border-color: rgba(220,38,38,.55); background: rgba(220,38,38,.08); }
+.dashboard-count-tile.ok strong { color: #4ade80; }
+.dashboard-count-tile.bad strong { color: #fca5a5; }
+.dashboard-failing-hooks { margin-top: 8px; display: grid; gap: 4px; }
+.dashboard-failing-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 4px 6px; border-radius: 4px; background: rgba(220,38,38,.06);
+  border: 1px solid rgba(220,38,38,.25); font-size: 11.5px;
+}
+.dashboard-failing-row .ellipsis-cell { flex: 1; min-width: 0; }
+
 [data-theme="pd-cloud"] .kpi-card.highlight { border-color: #ef4444; background: linear-gradient(180deg, rgba(252,165,165,.08), var(--pd-surface)); }
 [data-theme="pd-cloud"] .active-runs { border-color: var(--pd-pink); background: linear-gradient(180deg, var(--pd-pink-soft), var(--pd-surface)); }
 [data-theme="pd-cloud"] .dot-blink { background: var(--pd-pink); box-shadow: 0 0 6px rgba(236,72,153,.8); }
 [data-theme="pd-cloud"] .tool-bar-fill { background: linear-gradient(90deg, var(--pd-pink), var(--pd-cyan)); }
+[data-theme="pd-cloud"] .dashboard-count-tile { background: var(--pd-surface); border-color: var(--pd-border); }
+[data-theme="pd-cloud"] .dashboard-count-tile strong { color: var(--pd-text); }
+[data-theme="pd-cloud"] .dashboard-count-tile.ok { border-color: rgba(34,197,94,.6); background: rgba(34,197,94,.08); }
+[data-theme="pd-cloud"] .dashboard-count-tile.bad { border-color: var(--pd-pink); background: var(--pd-pink-soft); }
+[data-theme="pd-cloud"] .dashboard-count-tile.bad strong { color: var(--pd-pink); }
+[data-theme="pd-cloud"] .dashboard-failing-row { background: var(--pd-pink-soft); border-color: var(--pd-pink); }
 
 /* Results page */
 .results-filter-grid { display: grid; grid-template-columns: 1.2fr .9fr .9fr 1fr 2fr; gap: 10px; margin-top: 8px; }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Activity, AlertTriangle, Boxes, Crosshair, FileText, History, RefreshCw, ShieldAlert, Sparkles, TerminalSquare, Wrench } from 'lucide-react';
 import { api } from './api';
 import { RunBriefView } from './RunBriefView';
+import { RoePolicyCard, WebhookHealthCard } from './DashboardCards';
 import type { DashboardDetailed, DashboardFindingBrief, DashboardRunBrief } from '../types';
 
 const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'] as const;
@@ -81,6 +82,12 @@ export function Dashboard() {
         <KpiCard label="Assets" value={kpis.assets} icon={<Boxes />} />
         <KpiCard label="Findings" value={kpis.findings} icon={<ShieldAlert />} />
         <KpiCard label="Open" value={kpis.open_findings} icon={<AlertTriangle />} highlight />
+      </div>
+
+      {/* Platform health strip: ROE policy + webhook health */}
+      <div className="grid cols-2 dashboard-platform-row">
+        <RoePolicyCard />
+        <WebhookHealthCard />
       </div>
 
       {/* Two-column row: severity breakdown + run status */}
