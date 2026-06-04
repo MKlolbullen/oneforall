@@ -1,0 +1,39 @@
+id: webanalyze
+name: webanalyze
+category: fingerprinting
+description: Rverton webanalyze is a Go port of Wappalyzer for web technology fingerprinting.
+binary: webanalyze
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: technologies
+  type: finding_list
+command:
+  argv:
+  - webanalyze
+  - -host
+  - https://{{target}}
+  - -output
+  - json
+  - -silent
+parser:
+  type: jsonl
+  entity: finding
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- fingerprinting
+- wappalyzer
+- tech
+install:
+  method: go_install
+  package: github.com/rverton/webanalyze/cmd/webanalyze@latest
+dry_run_output:
+- '{"hostname":"www.example.com","matches":[{"app_name":"nginx","categories":["Web Servers"]}]}'
+- '{"hostname":"www.example.com","matches":[{"app_name":"React","categories":["JavaScript Frameworks"]}]}'

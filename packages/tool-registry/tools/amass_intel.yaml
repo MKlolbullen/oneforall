@@ -1,0 +1,39 @@
+id: amass_intel
+name: Amass Intel
+category: passive_recon
+description: OWASP Amass intelligence gathering via WHOIS, ASN, and organisation lookups.
+binary: amass
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: domains
+  type: domain_list
+command:
+  argv:
+  - amass
+  - intel
+  - -whois
+  - -d
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- owasp
+- whois
+- asn
+- intel
+install:
+  method: go_install
+  package: github.com/owasp-amass/amass/v4/...@master
+dry_run_output:
+- example.com
+- example.org

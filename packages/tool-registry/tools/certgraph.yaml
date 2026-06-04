@@ -1,0 +1,38 @@
+id: certgraph
+name: CertGraph
+category: passive_recon
+description: Crawl certificate chains to build a graph of SAN relationships between domains.
+binary: certgraph
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: domains
+  type: domain_list
+command:
+  argv:
+  - certgraph
+  - -depth
+  - '3'
+  - -ct
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- certificates
+- graph
+- recon
+install:
+  method: go_install
+  package: github.com/lanrat/certgraph@latest
+dry_run_output:
+- example.com -> www.example.com
+- example.com -> api.example.com

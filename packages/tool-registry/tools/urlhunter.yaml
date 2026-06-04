@@ -1,0 +1,38 @@
+id: urlhunter
+name: URLHunter
+category: osint
+description: Search shortened URL archives (URLTeam) for keyword and domain hits.
+binary: urlhunter
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: urls
+  type: url_list
+command:
+  argv:
+  - urlhunter
+  - -keywords
+  - '{{target}}'
+  - -date
+  - latest
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- osint
+- urls
+- archive
+install:
+  method: go_install
+  package: github.com/utkusen/urlhunter@latest
+dry_run_output:
+- https://bit.ly/abc123 -> https://example.com/admin
+- https://t.co/xyz -> https://example.com/login

@@ -1,0 +1,37 @@
+id: dnsenum
+name: dnsenum
+category: resolution
+description: Classic Perl DNS enumeration script for records, brute-force and zone transfers.
+binary: dnsenum
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: dns_records
+  type: text
+command:
+  argv:
+  - dnsenum
+  - --noreverse
+  - --nocolor
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- dns
+- enumeration
+- zone-transfer
+install:
+  method: apt
+  package: dnsenum
+dry_run_output:
+- 'Host''s addresses: example.com 86400 IN A 93.184.216.34'
+- 'Name Servers: ns1.example.com'

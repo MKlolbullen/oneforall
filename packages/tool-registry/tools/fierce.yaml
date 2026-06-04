@@ -1,0 +1,36 @@
+id: fierce
+name: Fierce
+category: resolution
+description: DNS recon scanner that locates non-contiguous IP space and hostnames.
+binary: fierce
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: dns_records
+  type: text
+command:
+  argv:
+  - fierce
+  - --domain
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- dns
+- recon
+- bruteforce
+install:
+  method: pipx
+  package: fierce
+dry_run_output:
+- 'Found: mail.example.com (93.184.216.34)'
+- 'NS: ns1.example.com'
