@@ -257,6 +257,186 @@ def test_engine_denies_target_outside_allowed_domains(stack, monkeypatch):
 # Re-run path: tightening the policy AFTER the original run denies the rerun.
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# V4 — argv extractor + engine: allowed.ports actually enforced.
+# ---------------------------------------------------------------------------
+
+def test_explicit_port_outside_allowlist_denies_adhoc_run(stack, monkeypatch):
+    """An ad-hoc step that names port 22 via `-p 22` argv_extra is denied
+    when the policy allowlists only 80/443. Demonstrates V4 enforcement
+    at run-creation time without needing an HTTP-capture middleware."""
+    client, headers, tmp_path = stack
+    _set_policy(monkeypatch, _write_policy(tmp_path, """
+        allowed:
+          domains: ["*.example.com", "example.com"]
+          ports: [80, 443]
+    """))
+    ws_id, target = _seed_workspace_target(client, headers)
+    r = client.post("/api/runs/adhoc", headers=headers, json={
+        "workspace_id": ws_id, "target_id": target["id"],
+        "name": "port 22 attempt",
+        "steps": [{"tool": "subfinder", "argv_extra": ["-p", "22"]}],
+    })
+    assert r.status_code == 403, r.text
+    detail = r.json()["detail"]
+    assert detail["decision"] == "deny"
+    assert detail["matched_rule"] == "allowed.ports"
+
+
+def test_explicit_port_in_allowlist_runs_clean(stack, monkeypatch):
+    """Same policy + explicit port 443 → engine allows. Inverse of the
+    previous test, so a regression that broke the parser would surface
+    as both flipping."""
+    client, headers, tmp_path = stack
+    _set_policy(monkeypatch, _write_policy(tmp_path, """
+        allowed:
+          domains: ["*.example.com", "example.com"]
+          ports: [80, 443]
+    """))
+    ws_id, target = _seed_workspace_target(client, headers)
+    r = client.post("/api/runs/adhoc", headers=headers, json={
+        "workspace_id": ws_id, "target_id": target["id"],
+        "name": "port 443 OK",
+        "steps": [{"tool": "subfinder", "argv_extra": ["-p", "443"]}],
+    })
+    assert r.status_code == 201, r.text
+
+
+def test_broad_port_scan_denied_when_ports_allowlist_set(stack, monkeypatch):
+    """A profile step using `--top-ports 1000` doesn't name specific
+    ports; the parser flags it as a broad scan and the guard probes port
+    22 against the policy. Operators that allowlist 80/443 see the broad
+    scan refused — closes the V4 gap for tools whose defaults span SSH /
+    RDP / etc."""
+    client, headers, tmp_path = stack
+    _set_policy(monkeypatch, _write_policy(tmp_path, """
+        allowed:
+          domains: ["*.example.com", "example.com"]
+          ports: [80, 443]
+    """))
+    ws_id, target = _seed_workspace_target(client, headers)
+    r = client.post("/api/runs/adhoc", headers=headers, json={
+        "workspace_id": ws_id, "target_id": target["id"],
+        "name": "broad scan",
+        "steps": [{"tool": "subfinder", "argv_extra": ["--top-ports", "1000"]}],
+    })
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"]["decision"] == "deny"
+
+
+# ---------------------------------------------------------------------------
+# V5 — argv extractor + engine: denied.methods actually enforced.
+# ---------------------------------------------------------------------------
+
+def test_denied_method_in_argv_denies_run(stack, monkeypatch):
+    """`-X DELETE` in argv now sends `method=DELETE` to the engine; a
+    policy that denies DELETE refuses the run at creation."""
+    client, headers, tmp_path = stack
+    _set_policy(monkeypatch, _write_policy(tmp_path, """
+        allowed:
+          domains: ["*.example.com", "example.com"]
+        denied:
+          methods: ["DELETE", "TRACE"]
+    """))
+    ws_id, target = _seed_workspace_target(client, headers)
+    r = client.post("/api/runs/adhoc", headers=headers, json={
+        "workspace_id": ws_id, "target_id": target["id"],
+        "name": "DELETE attempt",
+        "steps": [{"tool": "subfinder", "argv_extra": ["-X", "DELETE"]}],
+    })
+    assert r.status_code == 403, r.text
+    detail = r.json()["detail"]
+    assert detail["decision"] == "deny"
+    assert detail["matched_rule"].startswith("denied.methods")
+
+
+def test_safe_method_in_argv_runs_clean(stack, monkeypatch):
+    """Same policy + a method NOT in the deny list → engine allows."""
+    client, headers, tmp_path = stack
+    _set_policy(monkeypatch, _write_policy(tmp_path, """
+        allowed:
+          domains: ["*.example.com", "example.com"]
+        denied:
+          methods: ["DELETE", "TRACE"]
+    """))
+    ws_id, target = _seed_workspace_target(client, headers)
+    r = client.post("/api/runs/adhoc", headers=headers, json={
+        "workspace_id": ws_id, "target_id": target["id"],
+        "name": "GET is fine",
+        "steps": [{"tool": "subfinder", "argv_extra": ["-X", "GET"]}],
+    })
+    assert r.status_code == 201, r.text
+
+
+# ---------------------------------------------------------------------------
+# V6 — argv extractor + engine: limits.max_rps actually enforced.
+# ---------------------------------------------------------------------------
+
+def test_argv_rps_over_max_denies_run(stack, monkeypatch):
+    """`-rate-limit 50` in argv when max_rps=5 → 403. This is the one
+    place the engine's rate_limit decision is elevated to a deny — the
+    operator's argv explicitly asks for a rate the policy refuses."""
+    client, headers, tmp_path = stack
+    _set_policy(monkeypatch, _write_policy(tmp_path, """
+        allowed:
+          domains: ["*.example.com", "example.com"]
+        limits:
+          max_rps: 5
+    """))
+    ws_id, target = _seed_workspace_target(client, headers)
+    r = client.post("/api/runs/adhoc", headers=headers, json={
+        "workspace_id": ws_id, "target_id": target["id"],
+        "name": "too fast",
+        "steps": [{"tool": "subfinder", "argv_extra": ["-rate-limit", "50"]}],
+    })
+    assert r.status_code == 403, r.text
+    detail = r.json()["detail"]
+    assert detail["decision"] == "rate_limit"
+    assert detail["matched_rule"] == "limits.max_rps"
+    # effective_limits carries the configured ceiling so the operator
+    # knows what to dial argv back to.
+    assert detail["effective_limits"]["max_rps"] == 5
+
+
+def test_argv_rps_within_max_runs_clean(stack, monkeypatch):
+    """rate within the policy's limit clears the engine."""
+    client, headers, tmp_path = stack
+    _set_policy(monkeypatch, _write_policy(tmp_path, """
+        allowed:
+          domains: ["*.example.com", "example.com"]
+        limits:
+          max_rps: 50
+    """))
+    ws_id, target = _seed_workspace_target(client, headers)
+    r = client.post("/api/runs/adhoc", headers=headers, json={
+        "workspace_id": ws_id, "target_id": target["id"],
+        "name": "polite rate",
+        "steps": [{"tool": "subfinder", "argv_extra": ["-rate-limit", "5"]}],
+    })
+    assert r.status_code == 201, r.text
+
+
+def test_named_profile_default_argv_evaluated(stack, monkeypatch):
+    """The argv extractor also reads the tool registry's default argv,
+    not just step overrides. `naabu` defaults to `-top-ports 1000` — if
+    the policy allowlists only 80/443, the engine refuses the run even
+    though the operator never explicitly named a port."""
+    client, headers, tmp_path = stack
+    _set_policy(monkeypatch, _write_policy(tmp_path, """
+        allowed:
+          domains: ["*.example.com", "example.com"]
+          ports: [80, 443]
+    """))
+    ws_id, target = _seed_workspace_target(client, headers)
+    r = client.post("/api/runs/adhoc", headers=headers, json={
+        "workspace_id": ws_id, "target_id": target["id"],
+        "name": "naabu defaults",
+        "steps": [{"tool": "naabu"}],  # uses the tool's default -top-ports 1000
+    })
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"]["decision"] == "deny"
+
+
 def test_rerun_respects_policy_tightened_after_original_run(stack, monkeypatch):
     """An operator runs `passive_recon` against prod.example.com when no
     policy is active. The platform's policy is then tightened to lab-only.

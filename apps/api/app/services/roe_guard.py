@@ -17,21 +17,30 @@ Two important behavioural choices:
      than silently let them through.
 
 The engine evaluates one `ScopeAction` at a time. At run-creation we know
-target / risk / per-step tool ids; we don't yet know per-request port,
-method, path, or actual RPS. Those gates remain available for any future
-enforcement point (HTTP-capture middleware, tool argv parser) that has
-the data — calling `evaluate_run` with them works exactly the same.
+target / risk / per-step tool ids; the argv extractor pulls explicit
+port / method / rate-limit values out of each step's effective argv so
+the engine's `allowed.ports`, `denied.methods`, `limits.max_rps` gates
+become effective without an HTTP-capture middleware. The engine still
+exposes per-path enforcement for future callers (`scope/evaluate` etc.)
+that can supply a URL path.
 """
 from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from fastapi import HTTPException
 
 from app.core.config import get_settings
+from app.services.argv_extractor import (
+    BROAD_PROBE_PORT,
+    ArgvSignals,
+    effective_argv,
+    extract,
+)
 from app.services.scope_engine import ScopeAction, ScopeDecisionResult, ScopeEngine
+from app.services.tool_registry import get_registry
 
 
 @lru_cache(maxsize=1)
@@ -92,47 +101,126 @@ def _raise_for_decision(decision: ScopeDecisionResult) -> None:
     )
 
 
+def _resolve_signals(step: dict[str, Any]) -> tuple[str, ArgvSignals]:
+    """Look up the step's tool in the registry, resolve its effective
+    argv (honouring step.argv_replace / step.argv_extra), and extract the
+    policy-relevant signals. Returns (tool_id, signals).
+
+    Unknown tools surface as empty signals so the engine's other gates
+    (allowed.domains, approval.require_for_tools by name) still fire."""
+    tool_id = step.get("tool", "") if isinstance(step, dict) else ""
+    if not tool_id:
+        return tool_id, ArgvSignals()
+    try:
+        tool = get_registry().get_tool(tool_id)
+    except KeyError:
+        return tool_id, ArgvSignals()
+    default_argv = list((tool.command or {}).get("argv") or [])
+    resolved = effective_argv(default_argv, step)
+    return tool_id, extract(resolved)
+
+
 def enforce_profile_run(
     *,
     target: str,
     risk: str,
-    tools: Iterable[str] = (),
+    steps: Iterable[dict[str, Any]],
     manual_approval: bool = False,
 ) -> ScopeDecisionResult | None:
     """Evaluate the engine for a whole run.
 
-    Two passes:
-      1. Target + risk (tool-independent) — catches denied domains/CIDRs
-         and risk-level approval requirements.
-      2. Per-tool — `approval.require_for_tools` fires on the first step
+    Three layers of checks for each step:
+
+      1. Target + risk (tool-independent). Catches denied domains/CIDRs,
+         risk-level approval requirements, and time-window violations.
+
+      2. Per-tool. `approval.require_for_tools` fires on the first step
          whose tool id is in the policy's per-tool approval list. This is
          the gate the legacy code lacks: a profile that's only
-         medium_active can still contain a sqlmap step, and the engine
-         now refuses it without fresh consent.
+         medium_active can still contain a sqlmap step and the engine
+         refuses it without fresh consent.
+
+      3. Per-step argv signals. For every step we parse its effective
+         argv (honouring argv_replace / argv_extra) and feed each
+         extracted port, method, and rate-limit value into the engine.
+         A broad-port-scan signal (e.g. `--top-ports 1000`) is probed
+         against port 22 so a policy that allowlists only 80/443 refuses
+         broad scans.
 
     Raises HTTPException(403, decision=...) on deny / require_approval.
-    Returns the decision object on allow / rate_limit / no-engine; the
-    rate_limit case is non-fatal here because requested_rps isn't known
-    at run-creation. Future enforcement points (tool argv parser, http
-    capture) can call `evaluate_run` directly with the live values.
+    Returns the decision on allow / rate_limit / no-engine; rate_limit
+    is non-fatal here because the operator may still want the run to
+    proceed at the engine's effective_limits.max_rps. Callers that
+    need a strict cap can re-check the returned decision themselves.
     """
     decision = evaluate_run(target=target, tool_id=None, risk=risk,
                              manual_approval=manual_approval)
     if decision is None:
+        # Engine disabled — short-circuit so the call sites stay clean.
         return None
     if decision.decision in {"deny", "require_approval"}:
         _raise_for_decision(decision)
 
-    for tool_id in tools:
+    materialised = list(steps)
+
+    # Layer 2: per-tool approval.
+    for step in materialised:
+        tool_id = step.get("tool") if isinstance(step, dict) else None
         if not tool_id:
             continue
         per_tool = evaluate_run(
             target=target, tool_id=tool_id, risk=risk,
             manual_approval=manual_approval,
         )
-        if per_tool is None:
-            continue
-        if per_tool.decision in {"deny", "require_approval"}:
+        if per_tool and per_tool.decision in {"deny", "require_approval"}:
             _raise_for_decision(per_tool)
+
+    # Layer 3: per-step argv signals (port / method / rps / broad scan).
+    for step in materialised:
+        if not isinstance(step, dict):
+            continue
+        tool_id, signals = _resolve_signals(step)
+        if signals.is_empty():
+            continue
+
+        # Each explicit port is one action. The first denial wins.
+        for port in sorted(signals.ports):
+            d = evaluate_run(
+                target=target, tool_id=tool_id, risk=risk,
+                manual_approval=manual_approval, port=port,
+            )
+            if d and d.decision in {"deny", "require_approval"}:
+                _raise_for_decision(d)
+
+        # Broad-port-scan signal: probe a representative high-impact
+        # port. An operator that allowlists 80/443 then sees broad
+        # scans denied at this layer with the right matched_rule.
+        if signals.broad_port_scan:
+            d = evaluate_run(
+                target=target, tool_id=tool_id, risk=risk,
+                manual_approval=manual_approval, port=BROAD_PROBE_PORT,
+            )
+            if d and d.decision in {"deny", "require_approval"}:
+                _raise_for_decision(d)
+
+        for method in sorted(signals.methods):
+            d = evaluate_run(
+                target=target, tool_id=tool_id, risk=risk,
+                manual_approval=manual_approval, method=method,
+            )
+            if d and d.decision in {"deny", "require_approval"}:
+                _raise_for_decision(d)
+
+        if signals.rps is not None:
+            d = evaluate_run(
+                target=target, tool_id=tool_id, risk=risk,
+                manual_approval=manual_approval, requested_rps=signals.rps,
+            )
+            # An argv-derived rps that exceeds the policy's max_rps is
+            # treated as fatal — the operator set the rate explicitly
+            # in the step spec; the run should not proceed at that rate.
+            # This is the one place we elevate rate_limit to a deny.
+            if d and d.decision in {"deny", "require_approval", "rate_limit"}:
+                _raise_for_decision(d)
 
     return decision

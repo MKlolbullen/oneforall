@@ -395,12 +395,12 @@ async def launch_workflow(
     except ScopeError as exc:
         raise HTTPException(403, str(exc)) from exc
 
-    # ROE engine — same per-tool / domain / risk evaluation as the other
-    # run-creation paths. Workflow steps already validated above.
+    # ROE engine — same per-tool + argv-derived port/method/rps evaluation
+    # as the other run-creation paths. Workflow steps already validated.
     enforce_profile_run(
         target=target.value,
         risk=risk.value if hasattr(risk, "value") else str(risk),
-        tools=[s.get("tool") for s in raw_steps if isinstance(s, dict)],
+        steps=[s for s in raw_steps if isinstance(s, dict)],
         manual_approval=manual_approval,
     )
 

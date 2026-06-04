@@ -60,11 +60,12 @@ async def create_run(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     # ROE engine — opt-in via packages/platform-config/roe.yaml. No-ops
-    # silently when the policy file is absent.
+    # silently when the policy file is absent. Passes the full step
+    # records so the argv extractor sees argv_replace / argv_extra.
     enforce_profile_run(
         target=target.value,
         risk=risk.value if hasattr(risk, "value") else str(risk),
-        tools=[s.get("tool") for s in (profile.get("steps") or []) if isinstance(s, dict)],
+        steps=[s for s in (profile.get("steps") or []) if isinstance(s, dict)],
         manual_approval=manual_approval,
     )
 
@@ -163,11 +164,12 @@ async def create_adhoc_run(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     # ROE engine — same per-step iteration as create_run; covers per-tool
-    # approval requirements even for ad-hoc workflows.
+    # approval requirements + argv-derived port/method/rps for ad-hoc
+    # workflows. Ad-hoc steps already validated above via AdHocStep.
     enforce_profile_run(
         target=target.value,
         risk=risk.value if hasattr(risk, "value") else str(risk),
-        tools=[step.tool for step in payload.steps],
+        steps=[step.model_dump(exclude_none=True) for step in payload.steps],
         manual_approval=manual_approval,
     )
 
@@ -347,12 +349,11 @@ async def rerun_run(
 
     # ROE engine — re-evaluates the policy on every rerun, so a policy
     # tightened since the original run (new per-tool approval entry, a
-    # CIDR moved to denied, etc.) catches the rerun even if the source
-    # was originally allowed.
+    # CIDR moved to denied, ports changed, etc.) catches the rerun.
     enforce_profile_run(
         target=target.value,
         risk=risk.value if hasattr(risk, "value") else str(risk),
-        tools=[s.get("tool") for s in (profile.get("steps") or []) if isinstance(s, dict)],
+        steps=[s for s in (profile.get("steps") or []) if isinstance(s, dict)],
         manual_approval=manual_approval,
     )
 

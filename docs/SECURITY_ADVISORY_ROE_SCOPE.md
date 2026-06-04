@@ -3,14 +3,18 @@
 **Status:**
   - V1, V2, V3 — fixed in `apps/api/app/services/scope.py`.
   - V7, V8 — fixed in `apps/api/app/api/routes/runs.py:rerun_run`.
-  - V4, V5, V6 — ROE engine wired into every run-creation path via
-    `apps/api/app/services/roe_guard.py:enforce_profile_run`. The
-    engine-layer gates (per-tool approval, time window, allowed-domain /
-    -CIDR, denied domains/CIDRs) are effective when the operator drops
-    `packages/platform-config/roe.yaml` in (opt-in). Per-port / per-
-    method / per-path / per-RPS gates remain wired in the engine — they
-    fire wherever the caller passes those values to it (HTTP-capture
-    middleware or per-tool argv parser are the natural future points).
+  - V4, V5, V6 — fixed. The engine is wired into every run-creation
+    path via `apps/api/app/services/roe_guard.py:enforce_profile_run`,
+    and `apps/api/app/services/argv_extractor.py` reads each step's
+    effective argv to feed concrete `port` / `method` / `requested_rps`
+    values into the engine. `allowed.ports`, `denied.methods`, and
+    `limits.max_rps` are now effective at run-creation time across
+    POST /api/runs, POST /api/runs/adhoc, POST /api/runs/{id}/rerun, and
+    POST /api/workflows/{id}/launch — without any HTTP-capture
+    middleware. Broad-scan flags (`--top-ports`, `-p-`) are probed
+    against port 22 so a policy allowlisting 80/443 refuses them too.
+    Per-URL-path enforcement remains available via the engine and the
+    `/api/scope/evaluate` route for callers that have a path to test.
 **Scope:** `apps/api/app/services/scope.py`, `apps/api/app/api/routes/runs.py`,
 `packages/platform-config/sniper-inspired.yaml`.
 **Regression suite:**
