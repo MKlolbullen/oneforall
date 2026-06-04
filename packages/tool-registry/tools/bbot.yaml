@@ -18,7 +18,7 @@ command:
   - "--target"
   - "{{target}}"
   - "--preset"
-  - "subdomain-enum"
+  - "kitchen-sink"
 parser:
   type: line_based
   entity: raw
