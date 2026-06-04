@@ -1,0 +1,41 @@
+id: certipy_find
+name: Certipy Find
+category: active_directory
+description: Ly4k Certipy enumerates AD Certificate Services to discover misconfigured templates and CAs.
+binary: certipy
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - certipy
+  - find
+  - -u
+  - user@{{target}}
+  - -dc-ip
+  - '{{target}}'
+  - -vulnerable
+  - -stdout
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1800
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- active-directory
+- adcs
+- certificate-services
+install:
+  method: pipx
+  package: certipy-ad
+dry_run_output:
+- '[!] Vulnerable: ESC1 - Template "User" allows enrollee to supply subject'
+- '[+] Saved BloodHound data to /artifacts/certipy.zip'

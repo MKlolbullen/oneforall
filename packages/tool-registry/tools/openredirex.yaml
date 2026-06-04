@@ -1,0 +1,39 @@
+id: openredirex
+name: OpenRedireX
+category: vulnerability
+description: Devanshbatham OpenRedireX fuzzes URL parameters with open-redirect payloads to find unvalidated redirects.
+binary: openredirex
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - openredirex
+  - -l
+  - '{{target}}'
+  - -p
+  - /usr/share/openredirex/payloads.txt
+  - -k
+  - FUZZ
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- vulnerability
+- open-redirect
+- fuzzing
+install:
+  method: manual
+  package: devanshbatham/OpenRedireX
+dry_run_output:
+- '[VULN] https://www.example.com/redirect?url=//evil.com'

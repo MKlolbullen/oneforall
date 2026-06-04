@@ -1,0 +1,37 @@
+id: peirates
+name: Peirates
+category: kubernetes
+description: InGuardians Peirates is a Kubernetes penetration testing toolkit for in-cluster post-exploitation.
+binary: peirates
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - peirates
+  - -m
+  - '1'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 3600
+max_retries: 0
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- kubernetes
+- k8s
+- offensive
+- high-risk
+install:
+  method: go_install
+  package: github.com/inguardians/peirates@latest
+dry_run_output:
+- '[+] Service account token found at /var/run/secrets/kubernetes.io/serviceaccount/token'
+- '[+] Listed 12 pods in namespace default'

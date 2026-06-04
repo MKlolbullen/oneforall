@@ -1,0 +1,44 @@
+id: hydra
+name: Hydra
+category: brute_force
+description: THC Hydra is a parallelized network login brute-forcer supporting SSH, FTP, HTTP, SMB and many more protocols.
+binary: hydra
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: ip
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - hydra
+  - -L
+  - /wordlists/users.txt
+  - -P
+  - /wordlists/passwords.txt
+  - -t
+  - '4'
+  - -o
+  - /artifacts/hydra.txt
+  - '{{target}}'
+  - ssh
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 3600
+max_retries: 0
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- brute-force
+- credential-audit
+- high-risk
+install:
+  method: apt
+  package: hydra
+dry_run_output:
+- '[22][ssh] host: 10.0.0.5  login: admin  password: P@ssw0rd!'
+- '1 of 1 target successfully completed, 1 valid password found'

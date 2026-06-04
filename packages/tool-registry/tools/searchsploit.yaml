@@ -1,0 +1,35 @@
+id: searchsploit
+name: searchsploit
+category: exploitation
+description: Offensive-Security searchsploit queries a local copy of the Exploit-DB for matching exploits.
+binary: searchsploit
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - searchsploit
+  - --json
+  - '{{target}}'
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 300
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- exploitation
+- exploit-db
+- cve
+install:
+  method: apt
+  package: exploitdb
+dry_run_output:
+- '{"RESULTS_EXPLOIT":[{"Title":"Apache 2.4.49 - Path Traversal","EDB-ID":"50383","Path":"linux/webapps/50383.py"}]}'

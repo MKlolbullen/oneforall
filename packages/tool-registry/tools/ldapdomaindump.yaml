@@ -1,0 +1,37 @@
+id: ldapdomaindump
+name: ldapdomaindump
+category: active_directory
+description: Dirkjanm ldapdomaindump dumps Active Directory information (users, groups, computers, policies) over LDAP.
+binary: ldapdomaindump
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: ip
+  required: true
+outputs:
+- name: results
+  type: finding_list
+command:
+  argv:
+  - ldapdomaindump
+  - -o
+  - /artifacts/ldapdump
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- active-directory
+- ldap
+- enumeration
+install:
+  method: pipx
+  package: ldapdomaindump
+dry_run_output:
+- '[+] Connecting to host...'
+- '[+] Dumped 245 users, 38 groups, 17 computers to /artifacts/ldapdump'

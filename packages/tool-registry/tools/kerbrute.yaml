@@ -1,0 +1,40 @@
+id: kerbrute
+name: kerbrute
+category: active_directory
+description: Ropnop kerbrute performs Kerberos pre-authentication username enumeration and password spraying.
+binary: kerbrute
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: results
+  type: finding_list
+command:
+  argv:
+  - kerbrute
+  - userenum
+  - --dc
+  - '{{target}}'
+  - -d
+  - '{{target}}'
+  - /wordlists/usernames.txt
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- kerberos
+- active-directory
+- enumeration
+install:
+  method: go_install
+  package: github.com/ropnop/kerbrute@latest
+dry_run_output:
+- '[+] VALID USERNAME: administrator@example.com'
+- '[+] VALID USERNAME: jsmith@example.com'

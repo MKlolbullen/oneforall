@@ -1,0 +1,41 @@
+id: gobuster_dns
+name: Gobuster DNS
+category: active_recon
+description: Gobuster DNS mode brute-forces subdomains for a target domain using a wordlist.
+binary: gobuster
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - gobuster
+  - dns
+  - -q
+  - -d
+  - '{{target}}'
+  - -w
+  - /wordlists/dns/subdomains-top1million-5000.txt
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- dns
+- subdomain
+- wordlist
+- active
+install:
+  method: apt
+  package: gobuster
+dry_run_output:
+- 'Found: api.example.com'
+- 'Found: dev.example.com'

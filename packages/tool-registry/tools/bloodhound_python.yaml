@@ -1,0 +1,41 @@
+id: bloodhound_python
+name: BloodHound.py
+category: active_directory
+description: Dirkjanm BloodHound.py is a Python-based ingestor that collects Active Directory data via LDAP.
+binary: bloodhound-python
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: results
+  type: finding_list
+command:
+  argv:
+  - bloodhound-python
+  - -d
+  - '{{target}}'
+  - -c
+  - All
+  - --zip
+  - -ns
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- active-directory
+- bloodhound
+- ldap
+install:
+  method: pipx
+  package: bloodhound
+dry_run_output:
+- 'INFO: Found 12 users, 4 groups, 2 computers'
+- 'INFO: Compressing output into 20240101_bloodhound.zip'
