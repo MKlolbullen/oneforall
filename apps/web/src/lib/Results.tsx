@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNav } from './nav';
+import { useWorkspace } from './WorkspaceContext';
 import { ChevronDown, ChevronRight, Download, Filter, RefreshCw, Search, ShieldAlert, X } from 'lucide-react';
 import { api } from './api';
 import { AdvicePanel } from './AdvicePanel';
 import { EmptyState } from './EmptyState';
 import { useToast } from './Toast';
-import type { Finding, FindingPage, Workspace } from '../types';
+import type { Finding, FindingPage } from '../types';
 
 const SEVERITY_RANK: Record<string, number> = {
   critical: 0, high: 1, medium: 2, low: 3, info: 4, unknown: 5,
@@ -28,8 +29,9 @@ function statusBadgeClass(s: string): string {
 
 export function Results() {
   const toast = useToast();
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [workspaceId, setWorkspaceId] = useState('');
+  // Workspace comes from the global topbar selector. `null` means
+  // "all workspaces"; `findings` happily accepts that as no filter.
+  const { workspaces, activeWorkspaceId, setActiveWorkspaceId } = useWorkspace();
   const [page, setPage] = useState<FindingPage | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,28 +60,20 @@ export function Results() {
   const limit = 50;
   const { consume } = useNav();
 
-  // Initial: load workspaces. A deeplink with workspaceId wins over the
-  // default-to-first behaviour so opening Results from a Workspace card
-  // lands in the right place.
+  // Deeplink consume: a Workspaces card click with workspaceId snaps the
+  // global selector to that workspace. The provider's list is already
+  // loaded.
   useEffect(() => {
     const params = consume();
-    api.workspaces().then((ws) => {
-      setWorkspaces(ws);
-      if (params.workspaceId && ws.some((w) => w.id === params.workspaceId)) {
-        setWorkspaceId(params.workspaceId);
-      } else if (ws[0]) {
-        setWorkspaceId(ws[0].id);
-      }
-    }).catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    if (params.workspaceId) setActiveWorkspaceId(params.workspaceId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const reload = async () => {
-    if (!workspaceId) return;
     setLoading(true); setError(null);
     try {
       const result = await api.findings({
-        workspace_id: workspaceId,
+        workspace_id: activeWorkspaceId ?? undefined,
         severity: severity || undefined,
         status: status || undefined,
         tool: tool || undefined,
@@ -96,7 +90,7 @@ export function Results() {
 
   // Reload on filter / page / workspace change
   useEffect(() => { reload(); /* eslint-disable-next-line */ },
-    [workspaceId, severity, status, tool, q, offset]);
+    [activeWorkspaceId, severity, status, tool, q, offset]);
 
   const totalPages = page ? Math.max(1, Math.ceil(page.total / limit)) : 1;
   const currentPage = Math.floor(offset / limit) + 1;
@@ -133,7 +127,7 @@ export function Results() {
           <a
             className="btn small"
             href={api.findingsExportUrl({
-              workspace_id: workspaceId,
+              workspace_id: activeWorkspaceId ?? undefined,
               severity: severity || undefined,
               status: status || undefined,
               tool: tool || undefined,
@@ -147,7 +141,7 @@ export function Results() {
           <a
             className="btn small"
             href={api.findingsExportUrl({
-              workspace_id: workspaceId,
+              workspace_id: activeWorkspaceId ?? undefined,
               severity: severity || undefined,
               status: status || undefined,
               tool: tool || undefined,
@@ -161,7 +155,7 @@ export function Results() {
           <a
             className="btn small"
             href={api.findingsExportUrl({
-              workspace_id: workspaceId,
+              workspace_id: activeWorkspaceId ?? undefined,
               severity: severity || undefined,
               status: status || undefined,
               tool: tool || undefined,
@@ -181,9 +175,9 @@ export function Results() {
           <span className="muted">{page ? `${page.total} matches` : '—'}</span>
         </div>
         <div className="results-filter-grid">
-          <select className="input" value={workspaceId} onChange={(e) => { setWorkspaceId(e.target.value); setOffset(0); }}>
-            {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select>
+          <span className="muted small results-workspace-note">
+            scope: <strong>{activeWorkspaceId ? (workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? '—') : 'all workspaces'}</strong>
+          </span>
           <select className="input" value={severity} onChange={(e) => { setSeverity(e.target.value); setOffset(0); }}>
             <option value="">all severities</option>
             {(page?.facets?.severities ?? []).map((s) => <option key={s} value={s}>{s}</option>)}

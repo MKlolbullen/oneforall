@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Activity, Bell, Boxes, Coins, Crosshair, FileSearch, FileText, History, LayoutDashboard, MessageSquare, Network, RefreshCw, Search, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, Users as UsersIcon, Wrench } from 'lucide-react';
+import { Activity, Bell, Boxes, ChevronDown, Coins, Crosshair, FileSearch, FileText, History, LayoutDashboard, LogOut, MessageSquare, Network, Palette, RefreshCw, Search, Settings as SettingsIcon, Share2, ShieldAlert, TerminalSquare, User as UserIcon, Users as UsersIcon, Wrench } from 'lucide-react';
 import { api } from './lib/api';
 import { ArtifactExplorer } from './lib/ArtifactExplorer';
 import { classifyArtifact } from './lib/artifactKind';
@@ -16,6 +16,8 @@ import { Webhooks as WebhooksPage } from './lib/Webhooks';
 import { WorkflowBuilder } from './lib/WorkflowBuilder';
 import { Workspaces as WorkspacesPage } from './lib/Workspaces';
 import { useNav, type Page } from './lib/nav';
+import { useWorkspace } from './lib/WorkspaceContext';
+import type { WhoAmI } from './types';
 import { NetworkTab } from './lib/NetworkTab';
 import { CopyButton } from './lib/CopyButton';
 import { EmptyState } from './lib/EmptyState';
@@ -125,7 +127,11 @@ export function App() {
       </aside>
       <main className="main">
         <div className="topbar">
-          <div className="row"><ShieldAlert size={18} color="#22d3ee" /> Authorized Security Control Plane</div>
+          <div className="row">
+            <ShieldAlert size={18} color="#22d3ee" />
+            <strong className="topbar-brand">Authorized Security Control Plane</strong>
+            <WorkspaceSelector />
+          </div>
           <div className="row">
             <span className="badge passive">{String(health.execution_mode ?? 'unknown')} mode</span>
             {health.live_execution_enabled === true ? <span className="badge active">live execution</span> : <span className="badge passive">dry-run safe</span>}
@@ -145,12 +151,7 @@ export function App() {
             >
               <MessageSquare size={14} /> Advisor
             </button>
-            <label className="theme-toggle muted" title="Switch UI theme">
-              theme
-              <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
-                {THEMES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-              </select>
-            </label>
+            <UserMenu theme={theme} setTheme={setTheme} />
           </div>
         </div>
         <div className="content">
@@ -177,6 +178,131 @@ export function App() {
       <AdvisorChat />
       <SearchPalette />
     </AdvisorProvider>
+  );
+}
+
+
+/**
+ * Topbar workspace selector — bound to the global WorkspaceContext so the
+ * choice persists across pages and survives a refresh. Pages that previously
+ * mounted their own dropdown can read `useWorkspace().activeWorkspaceId`.
+ */
+function WorkspaceSelector() {
+  const { workspaces, activeWorkspaceId, setActiveWorkspaceId, loading } = useWorkspace();
+  if (loading && workspaces.length === 0) {
+    return <span className="muted small">…</span>;
+  }
+  return (
+    <label className="workspace-selector" title="Currently focused workspace — pages filter to it where supported">
+      <Boxes size={13} color="#94a3b8" />
+      <select
+        className="input"
+        value={activeWorkspaceId ?? ''}
+        onChange={(e) => setActiveWorkspaceId(e.target.value || null)}
+      >
+        <option value="">All workspaces</option>
+        {workspaces.map((w) => (
+          <option key={w.id} value={w.id}>{w.name}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/**
+ * Topbar user menu — collapses the previous bare theme dropdown into a
+ * single avatar button. Shows the current user role, theme switcher, and
+ * a deep-link to the Users page for API-key management. We don't render
+ * a Logout because the platform's auth is bearer-token-based and the
+ * frontend doesn't carry a token in test-bypass mode; production
+ * deployments add a real login flow on top.
+ */
+function UserMenu({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
+  const { navigate } = useNav();
+  const [me, setMe] = useState<WhoAmI | null>(null);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    api.me().then(setMe).catch(() => setMe(null));
+  }, []);
+
+  // Click-outside to close
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener('mousedown', onClick);
+    return () => window.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  // Initials for the avatar — single letter is enough for the topbar's
+  // 28px circle.
+  const initial = me?.username ? me.username[0].toUpperCase() : '?';
+  const roleClass = me?.role === 'admin' ? 'bad' : me?.role === 'operator' ? 'active' : 'passive';
+
+  return (
+    <div className="user-menu-wrap" ref={ref}>
+      <button
+        type="button"
+        className="user-menu-trigger"
+        onClick={() => setOpen((v) => !v)}
+        title={me ? `${me.username} (${me.role})` : 'User menu'}
+        aria-expanded={open}
+      >
+        <span className="user-menu-avatar">{initial}</span>
+        <ChevronDown size={11} color="#94a3b8" />
+      </button>
+      {open && (
+        <div className="user-menu" role="menu">
+          <div className="user-menu-header">
+            <strong>{me?.username ?? '—'}</strong>
+            <span className={`badge ${roleClass}`}>{me?.role ?? 'unknown'}</span>
+          </div>
+          <div className="user-menu-section">
+            <Palette size={12} color="#94a3b8" />
+            <span className="muted small">Theme</span>
+            <select
+              className="input"
+              value={theme}
+              onChange={(e) => setTheme(e.target.value as Theme)}
+            >
+              {THEMES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </div>
+          <button
+            type="button"
+            className="user-menu-item"
+            onClick={() => { setOpen(false); navigate('users'); }}
+            role="menuitem"
+          >
+            <UserIcon size={12} /> Your API keys & roster
+          </button>
+          <button
+            type="button"
+            className="user-menu-item"
+            onClick={() => { setOpen(false); navigate('settings'); }}
+            role="menuitem"
+          >
+            <SettingsIcon size={12} /> Settings pack
+          </button>
+          {me?.role === 'admin' && (
+            <button
+              type="button"
+              className="user-menu-item"
+              onClick={() => { setOpen(false); navigate('scope'); }}
+              role="menuitem"
+            >
+              <ShieldAlert size={12} /> ROE policy
+            </button>
+          )}
+          <div className="user-menu-item muted small" style={{ borderTop: '1px solid #1f2937', cursor: 'default' }}>
+            <LogOut size={12} /> Session is bearer-token based — clear the token at the API layer to log out.
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

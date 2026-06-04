@@ -5,8 +5,9 @@ import { api } from './api';
 import { CopyButton } from './CopyButton';
 import { EmptyState } from './EmptyState';
 import { useNav } from './nav';
+import { useWorkspace } from './WorkspaceContext';
 import { useToast } from './Toast';
-import type { Finding, LootItem, LootPage, Run, Workspace } from '../types';
+import type { Finding, LootItem, LootPage, Run } from '../types';
 
 type ExportFormat = 'csv' | 'json' | 'md';
 
@@ -32,9 +33,11 @@ function severityBadge(sev: string) {
 export function Loot() {
   const toast = useToast();
   const { consume, navigate } = useNav();
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  // The workspace lives in the global topbar context now. A deeplink with
+  // workspaceId (e.g. from a Workspaces card click) sets the global
+  // selector — same code path as the operator picking it manually.
+  const { workspaces, activeWorkspaceId, setActiveWorkspaceId } = useWorkspace();
   const [runs, setRuns] = useState<Run[]>([]);
-  const [workspaceId, setWorkspaceId] = useState('');
   const [runId, setRunId] = useState('');
   const [kind, setKind] = useState('');
   const [severity, setSeverity] = useState('');
@@ -48,7 +51,7 @@ export function Loot() {
   // One-time deeplink consume on mount.
   useEffect(() => {
     const params = consume();
-    if (params.workspaceId) setWorkspaceId(params.workspaceId);
+    if (params.workspaceId) setActiveWorkspaceId(params.workspaceId);
     if (params.runId) setRunId(params.runId);
     if (params.lootKind) setKind(params.lootKind);
     if (params.lootSeverity) setSeverity(params.lootSeverity);
@@ -56,22 +59,16 @@ export function Loot() {
   }, []);
 
   useEffect(() => {
-    Promise.all([api.workspaces(), api.runs()])
-      .then(([ws, rs]) => {
-        setWorkspaces(ws);
-        setRuns(rs);
-        if (!workspaceId && ws[0]) setWorkspaceId(ws[0].id);
-      })
+    api.runs()
+      .then(setRuns)
       .catch((e) => setError(String(e)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const reload = useCallback(() => {
-    if (!workspaceId) return;
     setLoading(true);
     setError(null);
     api.loot({
-      workspace_id: workspaceId,
+      workspace_id: activeWorkspaceId ?? undefined,
       run_id: runId || undefined,
       kind: kind || undefined,
       severity: severity || undefined,
@@ -81,7 +78,7 @@ export function Loot() {
       .then(setPage)
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
-  }, [workspaceId, runId, kind, severity, host]);
+  }, [activeWorkspaceId, runId, kind, severity, host]);
 
   useEffect(() => { reload(); }, [reload]);
 
@@ -104,7 +101,7 @@ export function Loot() {
 
   const exportLink = (format: ExportFormat) =>
     api.lootExportUrl({
-      workspace_id: workspaceId || undefined,
+      workspace_id: activeWorkspaceId ?? undefined,
       run_id: runId || undefined,
       kind: kind || undefined,
       severity: severity || undefined,
@@ -114,9 +111,11 @@ export function Loot() {
 
   // Workspace-scoped run options so the dropdown doesn't show foreign runs.
   const runOptions = useMemo(
-    () => runs.filter((r) => !workspaceId || r.workspace_id === workspaceId),
-    [runs, workspaceId],
+    () => runs.filter((r) => !activeWorkspaceId || r.workspace_id === activeWorkspaceId),
+    [runs, activeWorkspaceId],
   );
+
+  const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
 
   const kindFacets = page?.facets.kinds ?? [];
   const sevFacets = (page?.facets.severities ?? []).slice().sort(
@@ -140,13 +139,11 @@ export function Loot() {
         <div className="row space">
           <h3><Coins size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} /> Loot</h3>
           <span className="muted">
+            {activeWorkspace ? `Workspace: ${activeWorkspace.name}` : 'All workspaces'} ·
             Curated high-signal output derived from findings. Secrets, takeovers, critical vulns — not raw scanner noise.
           </span>
         </div>
         <div className="toolbar availability-toolbar">
-          <select className="input" value={workspaceId} onChange={(e) => setWorkspaceId(e.target.value)}>
-            {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select>
           <select className="input" value={runId} onChange={(e) => setRunId(e.target.value)}>
             <option value="">All runs</option>
             {runOptions.map((r) => <option key={r.id} value={r.id}>{r.profile_id} · {r.id.slice(0, 14)}</option>)}

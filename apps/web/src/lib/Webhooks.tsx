@@ -4,7 +4,8 @@ import { api } from './api';
 import { EmptyState } from './EmptyState';
 import { useConfirm } from './Confirm';
 import { useToast } from './Toast';
-import type { Webhook, Workspace } from '../types';
+import { useWorkspace } from './WorkspaceContext';
+import type { Webhook } from '../types';
 
 /** Operator-friendly UI for DB-backed outbound webhooks. Workspace-scoped:
  *  every engagement can wire its own Slack / Discord / generic JSON receiver
@@ -24,8 +25,10 @@ function relTime(iso: string | null | undefined): string {
 export function Webhooks() {
   const toast = useToast();
   const confirm = useConfirm();
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [workspaceId, setWorkspaceId] = useState<string>('');
+  // Workspace comes from the global topbar selector; the create form
+  // posts to whichever workspace the operator has active. `null` means
+  // "All workspaces" and the create form falls back to the first one.
+  const { workspaces, activeWorkspaceId } = useWorkspace();
   const [hooks, setHooks] = useState<Webhook[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
@@ -38,19 +41,16 @@ export function Webhooks() {
 
   const reload = useCallback(async () => {
     try {
-      const rows = await api.webhooks(workspaceId || undefined);
+      const rows = await api.webhooks(activeWorkspaceId ?? undefined);
       setHooks(rows);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [workspaceId]);
+  }, [activeWorkspaceId]);
 
   useEffect(() => {
-    api.workspaces().then((ws) => {
-      setWorkspaces(ws);
-      if (ws[0] && !workspaceId) setWorkspaceId(ws[0].id);
-    }).catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    // No-op — workspaces are loaded by the context provider.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -62,10 +62,16 @@ export function Webhooks() {
     );
   };
 
+  // The webhook is created in the workspace the topbar has active.
+  // If the operator chose "All workspaces" we fall back to the first
+  // workspace so the form can still post; ambiguity here would mean
+  // creating without scope, which the backend rejects with 404.
+  const createInWorkspaceId = activeWorkspaceId ?? workspaces[0]?.id ?? null;
+
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!workspaceId) {
-      toast.warn('Pick a workspace', 'Webhooks are workspace-scoped.');
+    if (!createInWorkspaceId) {
+      toast.warn('No workspace', 'Open the Workspaces page and create one first.');
       return;
     }
     if (events.length === 0) {
@@ -79,7 +85,7 @@ export function Webhooks() {
     setCreating(true);
     try {
       await api.createWebhook({
-        workspace_id: workspaceId, name: name.trim(), url: url.trim(),
+        workspace_id: createInWorkspaceId, name: name.trim(), url: url.trim(),
         events, is_active: true,
       });
       toast.success('Webhook created', `${name} → ${events.length} event${events.length === 1 ? '' : 's'}`);
@@ -150,9 +156,10 @@ export function Webhooks() {
           </span>
         </div>
         <div className="toolbar availability-toolbar">
-          <select className="input" value={workspaceId} onChange={(e) => setWorkspaceId(e.target.value)}>
-            {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select>
+          <span className="muted small">
+            scope: <strong>{activeWorkspaceId ? (workspaces.find((w) => w.id === activeWorkspaceId)?.name ?? '—') : 'all workspaces'}</strong>
+            <span className="muted" style={{ marginLeft: 4 }}>(change in the topbar)</span>
+          </span>
           <button className="btn small" type="button" onClick={() => reload()} title="Refresh"><RefreshCw size={14} /> Refresh</button>
           <span className="muted small" style={{ marginLeft: 'auto' }}>
             {hooks.length} total · {counts.active} active · {counts.ok} healthy · {counts.failing} failing
@@ -187,7 +194,7 @@ export function Webhooks() {
           <span className="muted small">
             The receiver gets a single <code>{`{ "text": "…" }`}</code> POST with the run id, profile, target, and (on failure) the error.
           </span>
-          <button className="btn" type="submit" disabled={creating || !name.trim() || !url.trim() || !workspaceId}>
+          <button className="btn" type="submit" disabled={creating || !name.trim() || !url.trim() || !createInWorkspaceId}>
             <Plus size={14} /> {creating ? 'Creating…' : 'Add webhook'}
           </button>
         </div>
