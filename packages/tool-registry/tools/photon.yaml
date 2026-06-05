@@ -10,8 +10,8 @@ inputs:
   type: url
   required: true
 outputs:
-- name: findings
-  type: finding_list
+- name: urls
+  type: url_list
 command:
   argv:
   - photon

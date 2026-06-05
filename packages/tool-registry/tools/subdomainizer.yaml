@@ -12,8 +12,6 @@ inputs:
 outputs:
 - name: subdomains
   type: domain_list
-- name: findings
-  type: finding_list
 command:
   argv:
   - subdomainizer
@@ -36,4 +34,4 @@ install:
   package: subdomainizer
 dry_run_output:
 - api.example.com
-- '[secret] AWS_ACCESS_KEY found in main.js'
+- staging.example.com

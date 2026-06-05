@@ -21,8 +21,6 @@ command:
   - /wordlists/passwords.txt
   - -t
   - '4'
-  - -o
-  - /artifacts/hydra.txt
   - '{{target}}'
   - ssh
 parser:

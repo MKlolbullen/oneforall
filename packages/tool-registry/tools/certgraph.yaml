@@ -38,5 +38,6 @@ install:
   method: go_install
   package: github.com/lanrat/certgraph@v0.6.3
 dry_run_output:
-- example.com -> www.example.com
-- example.com -> api.example.com
+- example.com
+- www.example.com
+- api.example.com

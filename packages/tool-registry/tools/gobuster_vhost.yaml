@@ -42,5 +42,5 @@ install:
   method: apt
   package: gobuster
 dry_run_output:
-- 'Found: admin.example.com Status: 200 [Size: 4567]'
-- 'Found: staging.example.com Status: 200 [Size: 2345]'
+- admin.example.com
+- staging.example.com
