@@ -1,0 +1,36 @@
+id: subwiz
+name: Subwiz
+category: passive_recon
+description: AI-driven subdomain generator using transformer model for permutation.
+binary: subwiz
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - subwiz
+  - -i
+  - '{{target}}'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- subdomain
+- ai
+- recon
+install:
+  method: pipx
+  package: subwiz
+dry_run_output:
+- staging-api.example.com
+- internal-vpn.example.com

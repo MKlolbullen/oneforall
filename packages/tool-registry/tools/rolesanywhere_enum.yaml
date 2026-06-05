@@ -1,0 +1,39 @@
+id: rolesanywhere_enum
+name: rolesanywhere-enum
+category: cloud
+description: Enumerate AWS IAM Roles Anywhere trust anchors, profiles and bindings reachable from a credential.
+binary: rolesanywhere-enum
+risk: low_active
+requires_authorization: true
+inputs:
+- name: region
+  type: string
+  required: false
+  default: us-east-1
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - rolesanywhere-enum
+  - --region
+  - '{{region}}'
+  - --output
+  - json
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- cloud
+- aws
+- iam
+- roles-anywhere
+install:
+  method: manual
+  package: rolesanywhere-enum
+dry_run_output:
+- '{"trustAnchors":[{"name":"corp-anchor","arn":"arn:aws:rolesanywhere:us-east-1:000000000000:trust-anchor/abc"}]}'

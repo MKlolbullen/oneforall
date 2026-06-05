@@ -1,0 +1,39 @@
+id: kubeaudit
+name: kubeaudit
+category: kubernetes
+description: Shopify kubeaudit audits Kubernetes clusters and manifests for common security misconfigurations.
+binary: kubeaudit
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - kubeaudit
+  - all
+  - -f
+  - '{{target}}'
+  - --format
+  - json
+parser:
+  type: jsonl
+  entity: finding
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- kubernetes
+- k8s
+- audit
+install:
+  method: go_install
+  package: github.com/Shopify/kubeaudit@latest
+dry_run_output:
+- '{"level":"error","msg":"ReadOnlyRootFilesystem not set to true","AuditResultName":"ReadOnlyRootFilesystemNil"}'
+- '{"level":"warning","msg":"runAsNonRoot is nil","AuditResultName":"RunAsNonRootCSCNil"}'

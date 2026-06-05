@@ -1,0 +1,37 @@
+id: rakkess
+name: rakkess
+category: kubernetes
+description: Corneliusweig rakkess prints the Kubernetes RBAC access matrix for the current context.
+binary: rakkess
+risk: passive
+requires_authorization: true
+inputs:
+- name: target
+  type: file_path
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - rakkess
+  - --output
+  - json
+  - --kubeconfig
+  - '{{target}}'
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- kubernetes
+- k8s
+- rbac
+install:
+  method: go_install
+  package: github.com/corneliusweig/rakkess@latest
+dry_run_output:
+- '{"resource":"pods","verbs":{"get":true,"list":true,"create":false,"update":false,"delete":false}}'

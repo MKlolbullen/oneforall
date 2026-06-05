@@ -1,0 +1,40 @@
+id: wapiti
+name: Wapiti
+category: vulnerability
+description: Wapiti is a black-box web application vulnerability scanner that detects XSS, SQLi, SSRF and more.
+binary: wapiti
+risk: medium_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - wapiti
+  - -u
+  - '{{target}}'
+  - -f
+  - json
+  - -o
+  - /artifacts/wapiti.json
+  - --flush-session
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 2400
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- vulnerability
+- scanner
+- web
+install:
+  method: pipx
+  package: wapiti3
+dry_run_output:
+- '{"vulnerabilities":{"Cross Site Scripting":[{"method":"GET","path":"/search","parameter":"q","info":"XSS payload reflected"}]}}'

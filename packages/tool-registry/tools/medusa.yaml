@@ -1,0 +1,45 @@
+id: medusa
+name: Medusa
+category: brute_force
+description: Foofus Medusa is a speedy, massively parallel, modular network login brute-forcer.
+binary: medusa
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: ip
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - medusa
+  - -h
+  - '{{target}}'
+  - -U
+  - /wordlists/users.txt
+  - -P
+  - /wordlists/passwords.txt
+  - -M
+  - ssh
+  - -t
+  - '4'
+  - -O
+  - /artifacts/medusa.log
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 3600
+max_retries: 0
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- brute-force
+- credential-audit
+- high-risk
+install:
+  method: apt
+  package: medusa
+dry_run_output:
+- 'ACCOUNT FOUND: [ssh] Host: 10.0.0.5 User: admin Password: P@ssw0rd! [SUCCESS]'

@@ -1,0 +1,40 @@
+id: pacu
+name: Pacu
+category: cloud
+description: RhinoSecurityLabs Pacu is an AWS exploitation framework with modules for privilege escalation and persistence.
+binary: pacu
+risk: high_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - pacu
+  - --session
+  - oneforall
+  - --module-name
+  - iam__enum_users_roles_policies_groups
+  - --exec
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 3600
+max_retries: 0
+retry_backoff_seconds: 2.0
+continue_on_error: false
+tags:
+- cloud
+- aws
+- offensive
+- high-risk
+install:
+  method: pipx
+  package: pacu
+dry_run_output:
+- '[iam__enum_users_roles_policies_groups] Found 12 users, 8 roles, 23 policies, 4 groups'
+- '[+] Session data saved to ~/.local/share/pacu/oneforall'

@@ -1,0 +1,46 @@
+id: gobuster_vhost
+name: Gobuster Vhost
+category: active_recon
+description: Gobuster vhost mode discovers virtual hosts on a target web server by brute-forcing the Host header.
+binary: gobuster
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url
+  required: true
+- name: wordlist
+  type: file_path
+  required: false
+  default: /wordlists/dns/subdomains-top1million-5000.txt
+outputs:
+- name: vhosts
+  type: domain_list
+command:
+  argv:
+  - gobuster
+  - vhost
+  - -q
+  - -u
+  - '{{target}}'
+  - -w
+  - '{{wordlist}}'
+  - --append-domain
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 30.0
+continue_on_error: false
+tags:
+- vhost
+- virtual-host
+- wordlist
+- active
+install:
+  method: apt
+  package: gobuster
+dry_run_output:
+- admin.example.com
+- staging.example.com

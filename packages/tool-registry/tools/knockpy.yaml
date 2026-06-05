@@ -1,0 +1,38 @@
+id: knockpy
+name: Knockpy
+category: active_recon
+description: Python subdomain bruteforce scanner with wildcard detection.
+binary: knockpy
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - knockpy
+  - -d
+  - '{{target}}'
+  - --no-http-code
+  - '404'
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 30.0
+continue_on_error: false
+tags:
+- subdomain
+- bruteforce
+- recon
+install:
+  method: pipx
+  package: knockpy
+dry_run_output:
+- api.example.com
+- mail.example.com

@@ -1,0 +1,38 @@
+id: trufflehog_github
+name: TruffleHog GitHub
+category: secrets
+description: TruffleHog scans an entire GitHub organisation or user account for secrets across all repositories.
+binary: trufflehog
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - trufflehog
+  - github
+  - --org
+  - '{{target}}'
+  - --json
+  - --no-update
+parser:
+  type: jsonl
+  entity: secret
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- secrets
+- github
+- org-scan
+install:
+  method: go_install
+  package: github.com/trufflesecurity/trufflehog/v3@latest
+dry_run_output:
+- '{"SourceMetadata":{"Data":{"Github":{"repository":"https://github.com/example/leak","file":"config.js"}}},"DetectorName":"Slack","Verified":true}'

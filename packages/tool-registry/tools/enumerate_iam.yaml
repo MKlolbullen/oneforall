@@ -1,0 +1,43 @@
+id: enumerate_iam
+name: enumerate-iam
+category: cloud
+description: Andresriancho enumerate-iam probes a set of AWS API calls to discover what permissions a credential has.
+binary: enumerate-iam
+risk: low_active
+requires_authorization: true
+inputs:
+- name: AWS_ACCESS_KEY_ID
+  type: string
+  required: true
+  source: env
+- name: AWS_SECRET_ACCESS_KEY
+  type: string
+  required: true
+  source: env
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - enumerate-iam
+  - --access-key
+  - $AWS_ACCESS_KEY_ID
+  - --secret-key
+  - $AWS_SECRET_ACCESS_KEY
+parser:
+  type: line_based
+  entity: finding
+default_timeout_seconds: 1200
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- cloud
+- aws
+- iam
+install:
+  method: manual
+  package: andresriancho/enumerate-iam
+dry_run_output:
+- '-- iam.list_users() worked!'
+- '-- s3.list_buckets() worked!'

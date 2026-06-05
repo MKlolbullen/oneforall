@@ -1,0 +1,37 @@
+id: getjs
+name: getJS
+category: javascript
+description: 003random getJS extracts JavaScript file URLs from a target page or domain.
+binary: getJS
+risk: low_active
+requires_authorization: true
+inputs:
+- name: target
+  type: url
+  required: true
+outputs:
+- name: js_urls
+  type: url_list
+command:
+  argv:
+  - getJS
+  - --url
+  - '{{target}}'
+  - --complete
+parser:
+  type: line_based
+  entity: url
+default_timeout_seconds: 900
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- javascript
+- recon
+- urls
+install:
+  method: go_install
+  package: github.com/003random/getJS@latest
+dry_run_output:
+- https://www.example.com/static/js/app.js
+- https://cdn.example.com/vendor/jquery.min.js

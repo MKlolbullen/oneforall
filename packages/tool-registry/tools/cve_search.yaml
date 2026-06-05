@@ -1,0 +1,37 @@
+id: cve_search
+name: cve-search
+category: exploitation
+description: cve-search-tool queries a local cve-search database for CVEs matching a product, vendor or CPE.
+binary: search.py
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - search.py
+  - -p
+  - '{{target}}'
+  - -o
+  - json
+parser:
+  type: json
+  entity: finding
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- exploitation
+- cve
+- vulnerability
+install:
+  method: manual
+  package: cve-search/cve-search
+dry_run_output:
+- '{"id":"CVE-2021-44228","summary":"Apache Log4j2 JNDI features used in configuration","cvss":10.0}'

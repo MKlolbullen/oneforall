@@ -1,0 +1,37 @@
+id: trufflehog_git
+name: TruffleHog Git
+category: secrets
+description: TruffleHog scans a git repository's full commit history for verified and unverified secrets.
+binary: trufflehog
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: git_repo
+  required: true
+outputs:
+- name: findings
+  type: finding_list
+command:
+  argv:
+  - trufflehog
+  - git
+  - '{{target}}'
+  - --json
+  - --no-update
+parser:
+  type: jsonl
+  entity: secret
+default_timeout_seconds: 3600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- secrets
+- git
+- history
+install:
+  method: go_install
+  package: github.com/trufflesecurity/trufflehog/v3@latest
+dry_run_output:
+- '{"SourceMetadata":{"Data":{"Git":{"commit":"abc123","file":"config.py","repository":"https://github.com/example/repo"}}},"DetectorName":"AWS","Verified":true}'

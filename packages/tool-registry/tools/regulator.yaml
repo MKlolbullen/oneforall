@@ -1,0 +1,40 @@
+id: regulator
+name: Regulator
+category: passive_recon
+description: Pattern-based subdomain inference from existing known subdomains.
+binary: regulator
+risk: passive
+requires_authorization: false
+inputs:
+- name: target
+  type: domain
+  required: true
+outputs:
+- name: subdomains
+  type: domain_list
+command:
+  argv:
+  - regulator
+  - -t
+  - '{{target}}'
+  - -f
+  - /artifacts/input/subs.txt
+  - -o
+  - /artifacts/output/regulator.txt
+parser:
+  type: line_based
+  entity: domain
+default_timeout_seconds: 600
+max_retries: 1
+retry_backoff_seconds: 1.0
+continue_on_error: false
+tags:
+- subdomain
+- permutation
+- recon
+install:
+  method: manual
+  package: cramppet/regulator
+dry_run_output:
+- api-staging.example.com
+- dev-api.example.com
