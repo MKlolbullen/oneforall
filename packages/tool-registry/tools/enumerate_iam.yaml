@@ -6,9 +6,8 @@ binary: enumerate-iam
 risk: low_active
 requires_authorization: true
 inputs:
-- name: target
-  type: domain
-  required: true
+requires_authorization: true
+outputs:
 outputs:
 - name: findings
   type: finding_list
