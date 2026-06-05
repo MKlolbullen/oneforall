@@ -2,7 +2,7 @@ id: cve_search
 name: cve-search
 category: exploitation
 description: cve-search-tool queries a local cve-search database for CVEs matching a product, vendor or CPE.
-binary: search_xls
+binary: search.py
 risk: passive
 requires_authorization: false
 inputs:

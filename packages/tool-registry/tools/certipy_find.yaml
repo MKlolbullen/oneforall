@@ -9,6 +9,14 @@ inputs:
 - name: target
   type: domain
   required: true
+- name: username
+  type: string
+  required: false
+  default: Administrator
+- name: password
+  type: string
+  required: true
+  sensitive: true
 outputs:
 - name: findings
   type: finding_list
@@ -17,7 +25,9 @@ command:
   - certipy
   - find
   - -u
-  - user@{{target}}
+  - '{{username}}@{{target}}'
+  - -p
+  - '{{password}}'
   - -dc-ip
   - '{{target}}'
   - -vulnerable

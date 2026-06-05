@@ -6,8 +6,14 @@ binary: enumerate-iam
 risk: low_active
 requires_authorization: true
 inputs:
-requires_authorization: true
-outputs:
+- name: AWS_ACCESS_KEY_ID
+  type: string
+  required: true
+  source: env
+- name: AWS_SECRET_ACCESS_KEY
+  type: string
+  required: true
+  source: env
 outputs:
 - name: findings
   type: finding_list

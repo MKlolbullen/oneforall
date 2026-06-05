@@ -5,10 +5,7 @@ description: InGuardians Peirates is a Kubernetes penetration testing toolkit fo
 binary: peirates
 risk: high_active
 requires_authorization: true
-inputs:
-- name: target
-  type: domain
-  required: true
+inputs: []
 outputs:
 - name: findings
   type: finding_list

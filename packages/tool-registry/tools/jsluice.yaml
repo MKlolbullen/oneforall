@@ -18,7 +18,7 @@ command:
   - urls
   - '{{target}}'
 parser:
-  type: json_lines
+  type: jsonl
   entity: url
 default_timeout_seconds: 600
 max_retries: 1

@@ -16,7 +16,7 @@ command:
   argv:
   - getJS
   - --url
-  - https://{{target}}
+  - '{{target}}'
   - --complete
 parser:
   type: line_based

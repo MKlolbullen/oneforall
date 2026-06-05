@@ -9,12 +9,23 @@ inputs:
 - name: target
   type: ip
   required: true
+- name: username
+  type: string
+  required: true
+- name: password
+  type: string
+  required: true
+  sensitive: true
 outputs:
 - name: results
   type: finding_list
 command:
   argv:
   - ldapdomaindump
+  - -u
+  - '{{username}}'
+  - -p
+  - '{{password}}'
   - -o
   - /artifacts/ldapdump
   - '{{target}}'

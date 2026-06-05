@@ -4,7 +4,7 @@ category: kubernetes
 description: Corneliusweig rakkess prints the Kubernetes RBAC access matrix for the current context.
 binary: rakkess
 risk: passive
-requires_authorization: false
+requires_authorization: true
 inputs:
 - name: target
   type: file_path

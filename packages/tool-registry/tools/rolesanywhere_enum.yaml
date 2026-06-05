@@ -6,9 +6,10 @@ binary: rolesanywhere-enum
 risk: low_active
 requires_authorization: true
 inputs:
-- name: target
-  type: domain
-  required: true
+- name: region
+  type: string
+  required: false
+  default: us-east-1
 outputs:
 - name: findings
   type: finding_list
@@ -16,7 +17,7 @@ command:
   argv:
   - rolesanywhere-enum
   - --region
-  - us-east-1
+  - '{{region}}'
   - --output
   - json
 parser:
@@ -34,6 +35,5 @@ tags:
 install:
   method: manual
   package: rolesanywhere-enum
-  notes: TODO confirm exact upstream package name and CLI flags.
 dry_run_output:
 - '{"trustAnchors":[{"name":"corp-anchor","arn":"arn:aws:rolesanywhere:us-east-1:000000000000:trust-anchor/abc"}]}'

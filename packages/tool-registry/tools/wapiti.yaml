@@ -16,7 +16,7 @@ command:
   argv:
   - wapiti
   - -u
-  - https://{{target}}
+  - '{{target}}'
   - -f
   - json
   - -o
