@@ -1,0 +1,31 @@
+{
+  "name": "To-Do List Application",
+  "description": "A modern to-do list app with local storage functionality, task filtering, and statistics",
+  "version": "1.0.0",
+  "author": "Todo App Team",
+  "license": "MIT",
+  "keywords": [
+    "todo",
+    "task management",
+    "local storage",
+    "productivity"
+  ],
+  "features": [
+    "Add, complete, and delete tasks",
+    "Filter by status (all, active, completed)",
+    "View task statistics",
+    "Automatic local storage saving",
+    "Responsive mobile design",
+    "Beautiful UI with animations"
+  ],
+  "technologies": [
+    "HTML5",
+    "CSS3",
+    "JavaScript (Vanilla)",
+    "Local Storage API"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/todo-app"
+  }
+}
