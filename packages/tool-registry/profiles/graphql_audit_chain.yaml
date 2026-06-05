@@ -1,0 +1,35 @@
+id: graphql_audit_chain
+name: GraphQL Audit Chain
+risk: medium_active
+description: |
+  GraphQL-specific audit. Start with graphw00f to identify the engine
+  (Apollo / Hasura / WPGraphQL / etc.), then graphql_cop for posture
+  fingerprints (introspection enabled, batch queries permitted,
+  field-suggestions exposed). inql + clairvoyance build a schema either via
+  introspection or by inference. batchql probes batching/alias overloading
+  — which can cross DoS lines, so it's risk: medium_active and gated by
+  approval.
+mitre:
+  - T1190
+  - T1059.007
+chains_into:
+  - api_security_recon
+steps:
+  - tool: graphw00f
+    timeout_seconds: 600
+    max_retries: 1
+  - tool: graphql_cop
+    timeout_seconds: 900
+    max_retries: 1
+  - tool: inql
+    timeout_seconds: 1200
+    max_retries: 1
+    continue_on_error: true
+  - tool: clairvoyance
+    timeout_seconds: 1800
+    max_retries: 1
+    continue_on_error: true
+  - tool: batchql
+    timeout_seconds: 1200
+    max_retries: 0
+    continue_on_error: true

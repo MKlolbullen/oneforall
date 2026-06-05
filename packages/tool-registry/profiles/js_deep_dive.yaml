@@ -1,0 +1,44 @@
+id: js_deep_dive
+name: JavaScript Deep-Dive
+risk: low_active
+description: |
+  Pull every JS bundle a SPA loads, extract endpoints + secrets, walk source
+  maps back to original TypeScript when available. Feeds the secrets +
+  endpoint findings into the rest of the bug-bounty chain.
+
+  katana crawls and collects URLs (including JS); getjs filters those down
+  to actual .js files; jsluice + linkfinder + secretfinder + cariddi extract
+  endpoints + secrets in parallel; sourcemapper recovers original sources
+  when .map files leak.
+mitre:
+  - T1213.003
+  - T1552.001
+chains_into:
+  - bug_bounty_full_v2
+  - secrets_supply_chain
+steps:
+  - tool: katana
+    timeout_seconds: 1800
+    max_retries: 1
+  - tool: getjs
+    timeout_seconds: 900
+    max_retries: 1
+  - tool: jsluice
+    timeout_seconds: 1200
+    max_retries: 1
+  - tool: linkfinder
+    timeout_seconds: 900
+    max_retries: 1
+    continue_on_error: true
+  - tool: secretfinder
+    timeout_seconds: 900
+    max_retries: 1
+    continue_on_error: true
+  - tool: cariddi
+    timeout_seconds: 1200
+    max_retries: 1
+    continue_on_error: true
+  - tool: sourcemapper
+    timeout_seconds: 900
+    max_retries: 1
+    continue_on_error: true

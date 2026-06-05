@@ -1,0 +1,292 @@
+id: attack_techniques
+name: MITRE ATT&CK techniques relevant to ReconForge tooling
+version: v15
+description: |
+  Inverted index from MITRE ATT&CK technique id to the platform's tools,
+  payloads and chains that exercise the technique. Lets the UI tag a
+  Finding with technique IDs based on the tool it came from, and lets the
+  Advisor reason about coverage gaps ("you have nothing for T1136 —
+  account creation").
+techniques:
+
+  # ---------------- Reconnaissance ----------------
+
+  - id: T1595
+    name: Active Scanning
+    tactic: reconnaissance
+    description: Probing victim infrastructure for vulnerabilities.
+    sub:
+      - id: T1595.001
+        name: Scanning IP Blocks
+        tools: [masscan_top, naabu, rustscan, smap, nmap_top, scilla]
+      - id: T1595.002
+        name: Vulnerability Scanning
+        tools: [nuclei, nuclei_cves, nessus_scan, openvas_scan, wapiti, jaeles, nikto]
+    tools: [nuclei, masscan_top, naabu, rustscan]
+    payloads: []
+    chains: [bug_bounty_full_v2, port_service, ports_services_deep]
+
+  - id: T1590
+    name: Gather Victim Network Information
+    tactic: reconnaissance
+    description: DNS, IP space, network topology recon.
+    sub:
+      - id: T1590.002
+        name: DNS
+        tools: [dnsx, dnsrecon, dnsenum, fierce, puredns_resolve, shuffledns_resolve, massdns]
+      - id: T1590.004
+        name: Network Topology
+        tools: [asnmap, mapcidr, certgraph]
+    tools: [dnsx, asnmap, dnsdumpster]
+    payloads: []
+    chains: [passive_recon, dns_permutation_resolution]
+
+  - id: T1593
+    name: Search Open Websites/Domains
+    tactic: reconnaissance
+    sub:
+      - id: T1593.002
+        name: Search Engines / Code Repos
+        tools: [github_search, gitdorker, postleaks, swaggerhole, urlhunter]
+    tools: [crtsh, censys_cli, shodan_cli, urlhaus_cli]
+    payloads: []
+    chains: [enterprise_passive_asm, sniper_ce_osint_plus]
+
+  - id: T1591
+    name: Gather Victim Org Information
+    tactic: reconnaissance
+    tools: [theharvester, holehe, sherlock, spiderfoot, hunterio, email_format, h8mail]
+    payloads: []
+    chains: [sniper_ce_osint_plus]
+
+  - id: T1592
+    name: Gather Victim Host Information
+    tactic: reconnaissance
+    sub:
+      - id: T1592.002
+        name: Software
+        tools: [whatweb, webanalyze, wig, webtech, favirecon, retirejs, cmseek, cmsmap]
+    tools: [httpx, whatweb, webanalyze]
+    payloads: []
+    chains: [web_surface_fingerprint, passive_recon]
+
+  - id: T1596
+    name: Search Open Technical Databases
+    tactic: reconnaissance
+    sub:
+      - id: T1596.001
+        name: DNS / Passive DNS
+        tools: [chaos, dnsdumpster, dnsrepo, hackertarget_hostsearch, intodns, rapiddns]
+      - id: T1596.005
+        name: Scan Databases
+        tools: [shodan_cli, censys_cli, uncover, uncover_shodan, uncover_censys, urlscanio]
+    tools: [chaos, shodan_cli, censys_cli]
+    payloads: []
+    chains: [enterprise_passive_asm]
+
+  # ---------------- Initial Access ----------------
+
+  - id: T1190
+    name: Exploit Public-Facing Application
+    tactic: initial_access
+    description: The bread and butter of web-app bug-bounty work.
+    tools: [nuclei, sqlmap_crawl, dalfox, xsstrike, jaeles, commix_basic, ssrfmap, tplmap, nosqlmap, log4shell_scanner, jexboss, wapiti]
+    payloads: [xss, sqli, ssrf, ssti, lfi, xxe, nosqli, command_injection, log4shell_jndi, deserialization]
+    chains: [bug_bounty_full_v2, web_deep, sniper_ce_web_plugins]
+
+  - id: T1133
+    name: External Remote Services
+    tactic: initial_access
+    description: Abuse of VPNs, RDP, SSH, etc.
+    tools: [ssh_audit, brutespray, hydra, medusa]
+    payloads: []
+    chains: [internal_pivot]
+
+  - id: T1078
+    name: Valid Accounts
+    tactic: initial_access
+    sub:
+      - id: T1078.004
+        name: Cloud Accounts
+        tools: [enumerate_iam, pacu, rolesanywhere_enum, prowler, scoutsuite, cloudfox]
+        payloads: [ssrf]
+    tools: [kerbrute, hydra, medusa]
+    payloads: []
+    chains: [cloud_audit, active_directory_recon]
+
+  # ---------------- Execution ----------------
+
+  - id: T1059
+    name: Command and Scripting Interpreter
+    tactic: execution
+    sub:
+      - id: T1059.007
+        name: JavaScript
+        payloads: [xss]
+      - id: T1059.001
+        name: PowerShell
+        payloads: [command_injection]
+      - id: T1059.004
+        name: Unix Shell
+        payloads: [command_injection]
+    tools: [commix_basic, sqlmap_crawl, dalfox]
+    payloads: [xss, command_injection, ssti, sqli]
+    chains: [bug_bounty_full_v2]
+
+  # ---------------- Credential Access ----------------
+
+  - id: T1552
+    name: Unsecured Credentials
+    tactic: credential_access
+    sub:
+      - id: T1552.001
+        name: Credentials in Files
+        tools: [trufflehog_filesystem, trufflehog_git, trufflehog_github, gitleaks_detect, gitleaks_history, noseyparker, secretfinder, jsluice, sourcemapper, apkleaks, githound, gf_secrets, snallygaster, git_dumper]
+      - id: T1552.004
+        name: Private Keys
+        tools: [trufflehog_filesystem, gitleaks_detect, noseyparker]
+      - id: T1552.005
+        name: Cloud Instance Metadata
+        payloads: [ssrf]
+      - id: T1552.006
+        name: Group Policy Preferences
+        tools: [bloodhound_python, ldapdomaindump]
+      - id: T1552.007
+        name: Container API
+        tools: [kube_hunter, peirates]
+    tools: [trufflehog_filesystem, gitleaks_detect, noseyparker]
+    payloads: [ssrf]
+    chains: [git_history_secret_hunt, secrets_supply_chain, js_deep_dive]
+
+  - id: T1110
+    name: Brute Force
+    tactic: credential_access
+    sub:
+      - id: T1110.001
+        name: Password Guessing
+        tools: [hydra, medusa, kerbrute, brutespray]
+      - id: T1110.003
+        name: Password Spraying
+        tools: [kerbrute, hydra]
+    tools: [hydra, medusa, kerbrute, brutespray]
+    payloads: []
+    chains: [active_directory_recon]
+
+  - id: T1558
+    name: Steal or Forge Kerberos Tickets
+    tactic: credential_access
+    sub:
+      - id: T1558.003
+        name: Kerberoasting
+        tools: [impacket_getuserspns]
+    tools: [impacket_getuserspns, kerbrute]
+    payloads: []
+    chains: [active_directory_recon]
+
+  # ---------------- Discovery ----------------
+
+  - id: T1087
+    name: Account Discovery
+    tactic: discovery
+    sub:
+      - id: T1087.002
+        name: Domain Account
+        tools: [ldapdomaindump, bloodhound_python, kerbrute]
+      - id: T1087.004
+        name: Cloud Account
+        tools: [enumerate_iam, prowler, scoutsuite]
+    tools: [ldapdomaindump, bloodhound_python]
+    payloads: []
+    chains: [active_directory_recon, cloud_audit]
+
+  - id: T1018
+    name: Remote System Discovery
+    tactic: discovery
+    tools: [smap, scilla, naabu, rustscan, masscan_top, nmap_top]
+    payloads: []
+    chains: [port_service, ports_services_deep]
+
+  - id: T1613
+    name: Container and Resource Discovery
+    tactic: discovery
+    tools: [kubeaudit, kube_bench, kube_score, kube_hunter, rakkess]
+    payloads: []
+    chains: [kubernetes_audit_chain]
+
+  - id: T1069
+    name: Permission Groups Discovery
+    tactic: discovery
+    sub:
+      - id: T1069.002
+        name: Domain Groups
+        tools: [bloodhound_python, ldapdomaindump]
+      - id: T1069.003
+        name: Cloud Groups
+        tools: [enumerate_iam, cloudfox]
+    payloads: []
+    chains: [active_directory_recon, cloud_audit]
+
+  # ---------------- Lateral Movement ----------------
+
+  - id: T1021
+    name: Remote Services
+    tactic: lateral_movement
+    sub:
+      - id: T1021.002
+        name: SMB/Windows Admin Shares
+        tools: [impacket_smbexec, impacket_psexec, smb_enum_safe]
+      - id: T1021.006
+        name: Windows Remote Management
+        tools: [impacket_wmiexec, netexec]
+    tools: [impacket_psexec, impacket_smbexec, impacket_wmiexec, netexec]
+    payloads: []
+    chains: [internal_pivot]
+
+  # ---------------- Collection ----------------
+
+  - id: T1213
+    name: Data from Information Repositories
+    tactic: collection
+    sub:
+      - id: T1213.003
+        name: Code Repositories
+        tools: [trufflehog_git, trufflehog_github, gitleaks_history, githound, git_dumper, gitdorker]
+    tools: [trufflehog_git, gitleaks_history]
+    payloads: []
+    chains: [git_history_secret_hunt]
+
+  # ---------------- Impact / Resource Hijacking ----------------
+
+  - id: T1583
+    name: Acquire Infrastructure
+    tactic: resource_development
+    sub:
+      - id: T1583.001
+        name: Domains (incl. subdomain takeover)
+        tools: [subjack, subzy, subover, nuclei_takeovers]
+    tools: [subjack, subzy, subover]
+    payloads: [subdomain_takeover_fingerprints]
+    chains: [subdomain_takeover_hunt]
+
+  # ---------------- Defense Evasion / WAF ----------------
+
+  - id: T1027
+    name: Obfuscated Files or Information
+    tactic: defense_evasion
+    description: WAF evasion via encoded payloads or polyglots.
+    tools: [byp4xx, dontgo403]
+    payloads: [waf_bypass, polyglots]
+    chains: [access_bypass]
+
+  # ---------------- Supply chain ----------------
+
+  - id: T1195
+    name: Supply Chain Compromise
+    tactic: initial_access
+    sub:
+      - id: T1195.002
+        name: Software Supply Chain
+        tools: [syft, grype, trivy_image, trivy_repo, osv_scanner, semgrep, dockle, hadolint]
+    tools: [syft, grype, trivy_image, trivy_repo, osv_scanner]
+    payloads: []
+    chains: [container_supply_chain]

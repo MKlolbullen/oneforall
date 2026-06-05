@@ -1,0 +1,36 @@
+id: kubernetes_audit_chain
+name: Kubernetes Audit Chain
+risk: passive
+description: |
+  Read-only Kubernetes posture audit. Runs against either a kubeconfig
+  (cluster-side audit) or a directory of manifests (CI-side audit). No
+  exploitation — peirates is intentionally NOT in this chain; it lives in
+  its own gated profile.
+mitre:
+  - T1613  # container and resource discovery
+  - T1078.004  # valid accounts: cloud accounts
+chains_into:
+  - cloud_audit
+steps:
+  - tool: kubeaudit
+    timeout_seconds: 1800
+    max_retries: 1
+  - tool: kube_bench
+    timeout_seconds: 1800
+    max_retries: 1
+    continue_on_error: true
+  - tool: kube_score
+    timeout_seconds: 900
+    max_retries: 1
+  - tool: kube_hunter
+    timeout_seconds: 1800
+    max_retries: 1
+    continue_on_error: true
+  - tool: rakkess
+    timeout_seconds: 600
+    max_retries: 1
+    continue_on_error: true
+  - tool: trivy_image
+    timeout_seconds: 1800
+    max_retries: 1
+    continue_on_error: true

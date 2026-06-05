@@ -1,0 +1,323 @@
+id: subdomain_takeover_fingerprints
+name: Subdomain Takeover Fingerprints
+version: 1.0.0
+category: recon
+description: |
+  Detection fingerprints for dangling DNS records that point at third-party
+  services where an attacker can register the previously-claimed resource. Each
+  "payload" here is a regex/substring + a CNAME hint indicating a candidate.
+  This file feeds nuclei / subjack / nuclei-templates / can-i-take-over-xyz.
+mitre:
+  - T1583.001
+owasp_top10:
+  - A05:2021
+references:
+  - https://github.com/EdOverflow/can-i-take-over-xyz
+  - https://github.com/projectdiscovery/nuclei-templates/tree/master/http/takeovers
+  - https://0xpatrik.com/subdomain-takeover-basics/
+related_tools:
+  - subjack
+  - subzy
+  - nuclei
+  - takeover
+chains:
+  - bug_bounty_full
+  - recon
+payloads:
+  - id: aws_s3
+    name: AWS S3 - NoSuchBucket
+    subcategory: detection
+    encoding: raw
+    tech_targets: [aws]
+    severity_when_works: high
+    payload: |
+      cname: s3.amazonaws.com
+      body_regex: NoSuchBucket|The specified bucket does not exist
+    notes: Vulnerable when bucket name unclaimed
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: aws_cloudfront
+    name: AWS CloudFront - Bad request
+    subcategory: detection
+    encoding: raw
+    tech_targets: [aws]
+    severity_when_works: medium
+    payload: |
+      cname: cloudfront.net
+      body_regex: Bad request|ERROR: The request could not be satisfied
+    notes: Often false positives; verify manually
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: aws_elasticbeanstalk
+    name: AWS Elastic Beanstalk
+    subcategory: detection
+    encoding: raw
+    tech_targets: [aws]
+    severity_when_works: high
+    payload: |
+      cname: elasticbeanstalk.com
+      body_regex: NXDOMAIN|Host not found
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: github_pages
+    name: GitHub Pages 404
+    subcategory: detection
+    encoding: raw
+    tech_targets: [github]
+    severity_when_works: high
+    payload: |
+      cname: github.io
+      body_regex: There isn['']t a GitHub Pages site here
+    notes: Claim by creating same-name repo + CNAME file
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: heroku
+    name: Heroku - No such app
+    subcategory: detection
+    encoding: raw
+    tech_targets: [heroku]
+    severity_when_works: high
+    payload: |
+      cname: herokuapp.com
+      body_regex: No such app|herokucdn.com/error-pages/no-such-app.html
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: azure_traffic_manager
+    name: Azure Traffic Manager
+    subcategory: detection
+    encoding: raw
+    tech_targets: [azure]
+    severity_when_works: high
+    payload: |
+      cname: trafficmanager.net
+      body_regex: This page is intentionally left blank|404 Not Found
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: azure_websites
+    name: Azure Websites
+    subcategory: detection
+    encoding: raw
+    tech_targets: [azure]
+    severity_when_works: high
+    payload: |
+      cname: azurewebsites.net
+      body_regex: 404 Web Site not found
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: azure_cloudapp
+    name: Azure CloudApp NXDOMAIN
+    subcategory: detection
+    encoding: raw
+    tech_targets: [azure]
+    severity_when_works: high
+    payload: |
+      cname: cloudapp.net|cloudapp.azure.com
+      dns: NXDOMAIN
+    notes: Detect via DNS, not HTTP
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: shopify
+    name: Shopify - sorry no store
+    subcategory: detection
+    encoding: raw
+    tech_targets: [shopify]
+    severity_when_works: medium
+    payload: |
+      cname: myshopify.com
+      body_regex: Sorry, this shop is currently unavailable
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: bitbucket
+    name: Bitbucket repo not found
+    subcategory: detection
+    encoding: raw
+    tech_targets: [bitbucket]
+    severity_when_works: high
+    payload: |
+      cname: bitbucket.io
+      body_regex: Repository not found
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: fastly
+    name: Fastly Fastly error
+    subcategory: detection
+    encoding: raw
+    tech_targets: [fastly]
+    severity_when_works: medium
+    payload: |
+      cname: fastly.net
+      body_regex: Fastly error: unknown domain
+    notes: Confirm with support before exploit
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: pantheon
+    name: Pantheon platform 404
+    subcategory: detection
+    encoding: raw
+    tech_targets: [pantheon]
+    severity_when_works: medium
+    payload: |
+      cname: pantheonsite.io
+      body_regex: The gods are wise|404 error unknown site!
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: tumblr
+    name: Tumblr blog not found
+    subcategory: detection
+    encoding: raw
+    tech_targets: [tumblr]
+    severity_when_works: medium
+    payload: |
+      cname: tumblr.com
+      body_regex: Whatever you were looking for doesn['']t currently exist at this address
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: zendesk
+    name: Zendesk help center
+    subcategory: detection
+    encoding: raw
+    tech_targets: [zendesk]
+    severity_when_works: medium
+    payload: |
+      cname: zendesk.com
+      body_regex: Help Center Closed
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: campaignmonitor
+    name: Campaign Monitor 404
+    subcategory: detection
+    encoding: raw
+    tech_targets: [campaignmonitor]
+    severity_when_works: medium
+    payload: |
+      cname: createsend.com
+      body_regex: Trying to access your account\?|Double check the URL
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: readme
+    name: Readme.io 404
+    subcategory: detection
+    encoding: raw
+    tech_targets: [readme]
+    severity_when_works: medium
+    payload: |
+      cname: readme.io
+      body_regex: Project doesnt exist... yet!
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: surge_sh
+    name: Surge.sh project not found
+    subcategory: detection
+    encoding: raw
+    tech_targets: [surge]
+    severity_when_works: high
+    payload: |
+      cname: surge.sh
+      body_regex: project not found
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: netlify
+    name: Netlify - Not Found
+    subcategory: detection
+    encoding: raw
+    tech_targets: [netlify]
+    severity_when_works: medium
+    payload: |
+      cname: netlify.com|netlify.app
+      body_regex: Not Found - Request ID
+    notes: Verify; many false positives
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: vercel
+    name: Vercel - The deployment could not be found
+    subcategory: detection
+    encoding: raw
+    tech_targets: [vercel]
+    severity_when_works: medium
+    payload: |
+      cname: vercel.app|now.sh
+      body_regex: The deployment could not be found
+    notes: null
+    source: common knowledge
+  - id: ghost_io
+    name: Ghost.io - Domain error
+    subcategory: detection
+    encoding: raw
+    tech_targets: [ghost]
+    severity_when_works: high
+    payload: |
+      cname: ghost.io
+      body_regex: Domain error|The thing is we don't even know what a Ghost is
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: helpjuice
+    name: Helpjuice no help center
+    subcategory: detection
+    encoding: raw
+    tech_targets: [helpjuice]
+    severity_when_works: medium
+    payload: |
+      cname: helpjuice.com
+      body_regex: We could not find what you're looking for
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: smugmug
+    name: SmugMug page not found
+    subcategory: detection
+    encoding: raw
+    tech_targets: [smugmug]
+    severity_when_works: low
+    payload: |
+      cname: smugmug.com
+      body_regex: Page Not Found
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: strikingly
+    name: Strikingly page-not-found
+    subcategory: detection
+    encoding: raw
+    tech_targets: [strikingly]
+    severity_when_works: medium
+    payload: |
+      cname: s.strikinglydns.com
+      body_regex: PAGE NOT FOUND
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: webflow
+    name: Webflow no site
+    subcategory: detection
+    encoding: raw
+    tech_targets: [webflow]
+    severity_when_works: medium
+    payload: |
+      cname: proxy.webflow.com|proxy-ssl.webflow.com
+      body_regex: The page you are looking for doesn't exist or has been moved
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: tilda
+    name: Tilda please renew subscription
+    subcategory: detection
+    encoding: raw
+    tech_targets: [tilda]
+    severity_when_works: medium
+    payload: |
+      cname: tilda.ws
+      body_regex: Please renew your subscription
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: unbouncepages
+    name: Unbounce - no domain
+    subcategory: detection
+    encoding: raw
+    tech_targets: [unbounce]
+    severity_when_works: medium
+    payload: |
+      cname: unbouncepages.com
+      body_regex: The requested URL was not found on this server
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz
+  - id: wordpress
+    name: WordPress.com no blog
+    subcategory: detection
+    encoding: raw
+    tech_targets: [wordpress]
+    severity_when_works: low
+    payload: |
+      cname: wordpress.com
+      body_regex: Do you want to register
+    notes: null
+    source: https://github.com/EdOverflow/can-i-take-over-xyz

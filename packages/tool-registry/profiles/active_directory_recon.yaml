@@ -1,0 +1,34 @@
+id: active_directory_recon
+name: Active Directory Recon Chain
+risk: medium_active
+description: |
+  Authenticated/unauthenticated AD recon chain. Use only against an in-scope
+  domain controller where the operator has written authorization. Kerbrute
+  is unauthenticated username enumeration; bloodhound-python + ldapdomaindump
+  need at least a low-priv domain account; certipy_find surfaces AD CS
+  misconfigurations (ESC1-ESC11) that often allow privilege escalation.
+
+  Every step is `medium_active` so the ROE engine enforces both
+  `active_allowed: true` on the target AND fresh manual approval if
+  `approval.require_for_tools` lists any of these.
+mitre:
+  - T1087.002  # account discovery: domain account
+  - T1018      # remote system discovery
+  - T1069.002  # group discovery: domain groups
+  - T1552.006  # group policy preferences
+chains_into:
+  - internal_pivot
+steps:
+  - tool: kerbrute
+    timeout_seconds: 1800
+    max_retries: 1
+  - tool: ldapdomaindump
+    timeout_seconds: 1800
+    max_retries: 1
+    continue_on_error: true
+  - tool: bloodhound_python
+    timeout_seconds: 3600
+    max_retries: 1
+  - tool: certipy_find
+    timeout_seconds: 1800
+    max_retries: 1

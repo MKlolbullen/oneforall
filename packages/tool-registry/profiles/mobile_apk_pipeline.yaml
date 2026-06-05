@@ -1,0 +1,33 @@
+id: mobile_apk_pipeline
+name: Mobile APK Audit Pipeline
+risk: passive
+description: |
+  Static analysis pipeline for an Android .apk (or .aab). Pull out
+  embedded secrets / API endpoints / hardcoded URLs (apkleaks), identify
+  the packer / obfuscator / anti-VM tricks the app uses (apkid), then run
+  two SAST tools side-by-side: qark covers the long-standing Android-
+  specific rules, mobsfscan applies MobSF's broader policy.
+
+  Input is a file_path to the .apk — the runner stages the file into the
+  worker container's /artifacts/input directory before each step.
+mitre:
+  - T1407  # download new code at runtime (when applicable)
+  - T1552
+chains_into:
+  - secrets_supply_chain
+steps:
+  - tool: apkleaks
+    timeout_seconds: 1800
+    max_retries: 1
+  - tool: apkid
+    timeout_seconds: 900
+    max_retries: 1
+    continue_on_error: true
+  - tool: qark
+    timeout_seconds: 2400
+    max_retries: 1
+    continue_on_error: true
+  - tool: mobsfscan
+    timeout_seconds: 1800
+    max_retries: 1
+    continue_on_error: true

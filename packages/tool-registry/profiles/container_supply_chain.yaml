@@ -1,0 +1,37 @@
+id: container_supply_chain
+name: Container Image Supply-Chain Audit
+risk: passive
+description: |
+  Build SBOM, scan for known vulns, audit Dockerfile + image hygiene, and
+  surface any embedded secrets. syft builds the SBOM that grype consumes;
+  trivy gives a second-opinion CVE pass; dockle + hadolint cover
+  best-practice posture; trufflehog_filesystem catches secrets baked
+  into the image.
+mitre:
+  - T1195.002  # supply chain compromise: software supply chain
+  - T1552.001
+chains_into:
+  - secrets_supply_chain
+steps:
+  - tool: syft
+    timeout_seconds: 1800
+    max_retries: 1
+  - tool: grype
+    timeout_seconds: 1800
+    max_retries: 1
+  - tool: trivy_image
+    timeout_seconds: 2400
+    max_retries: 1
+    continue_on_error: true
+  - tool: dockle
+    timeout_seconds: 900
+    max_retries: 1
+    continue_on_error: true
+  - tool: hadolint
+    timeout_seconds: 300
+    max_retries: 1
+    continue_on_error: true
+  - tool: trufflehog_filesystem
+    timeout_seconds: 1800
+    max_retries: 1
+    continue_on_error: true

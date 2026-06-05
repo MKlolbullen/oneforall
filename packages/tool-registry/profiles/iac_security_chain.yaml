@@ -1,0 +1,31 @@
+id: iac_security_chain
+name: Infrastructure-as-Code Security Chain
+risk: passive
+description: |
+  Static analysis across Terraform / CloudFormation / Kubernetes manifests /
+  ARM templates. Four scanners are run because each has a different policy
+  set — checkov is broad and noisy, tfsec focuses on Terraform-specific
+  rules, terrascan emphasises CIS benchmarks via OPA, kics covers the
+  long-tail of IaC formats. Overlapping findings raise confidence; unique
+  hits often reveal an issue one scanner missed.
+mitre:
+  - T1078.004
+  - T1190
+chains_into:
+  - cloud_audit
+steps:
+  - tool: checkov
+    timeout_seconds: 2400
+    max_retries: 1
+  - tool: tfsec
+    timeout_seconds: 1200
+    max_retries: 1
+    continue_on_error: true
+  - tool: terrascan
+    timeout_seconds: 1800
+    max_retries: 1
+    continue_on_error: true
+  - tool: kics
+    timeout_seconds: 2400
+    max_retries: 1
+    continue_on_error: true

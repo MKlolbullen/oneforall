@@ -1,0 +1,99 @@
+id: bug_bounty_full_v2
+name: Bug-Bounty Full Chain v2
+risk: low_active
+description: |
+  The "everything-but-the-kitchen-sink" bug-bounty profile. Composed of four
+  conceptual stages — recon → fingerprint → JS deep-dive → vuln-scan — flattened
+  into a single chain so the runner can fan out parallelisable steps and the
+  scope engine still gates each tool individually.
+
+  Heavy active steps (sqlmap_crawl, ssrfmap, dalfox, xsstrike) are gated by
+  approval.require_for_tools in the ROE policy; this profile fails-closed for
+  any of them unless the operator has approved.
+mitre:
+  - T1595  # active scanning
+  - T1590  # gather victim network info
+  - T1190
+  - T1552
+chains_into: []
+steps:
+  # ---- Recon stage ----
+  - tool: subfinder
+    timeout_seconds: 900
+    max_retries: 1
+  - tool: assetfinder
+    timeout_seconds: 600
+    max_retries: 1
+  - tool: amass_passive
+    timeout_seconds: 1800
+    max_retries: 1
+    continue_on_error: true
+  - tool: chaos
+    timeout_seconds: 600
+    max_retries: 1
+    continue_on_error: true
+  - tool: crtsh
+    timeout_seconds: 600
+    max_retries: 1
+  - tool: dnsx
+    timeout_seconds: 900
+    max_retries: 1
+  - tool: httpx
+    timeout_seconds: 1200
+    max_retries: 1
+
+  # ---- Fingerprint stage ----
+  - tool: webanalyze
+    timeout_seconds: 900
+    max_retries: 1
+    continue_on_error: true
+  - tool: wafw00f
+    timeout_seconds: 600
+    max_retries: 1
+    continue_on_error: true
+  - tool: cdncheck
+    timeout_seconds: 600
+    max_retries: 1
+    continue_on_error: true
+
+  # ---- JS deep-dive stage ----
+  - tool: katana
+    timeout_seconds: 1800
+    max_retries: 1
+  - tool: getjs
+    timeout_seconds: 900
+    max_retries: 1
+    continue_on_error: true
+  - tool: jsluice
+    timeout_seconds: 1200
+    max_retries: 1
+    continue_on_error: true
+  - tool: secretfinder
+    timeout_seconds: 900
+    max_retries: 1
+    continue_on_error: true
+  - tool: sourcemapper
+    timeout_seconds: 900
+    max_retries: 1
+    continue_on_error: true
+  - tool: cariddi
+    timeout_seconds: 1200
+    max_retries: 1
+    continue_on_error: true
+
+  # ---- Vuln stage ----
+  - tool: nuclei
+    timeout_seconds: 3600
+    max_retries: 1
+  - tool: nuclei_exposures
+    timeout_seconds: 1800
+    max_retries: 1
+    continue_on_error: true
+  - tool: nuclei_takeovers
+    timeout_seconds: 1800
+    max_retries: 1
+    continue_on_error: true
+  - tool: dalfox
+    timeout_seconds: 1800
+    max_retries: 1
+    continue_on_error: true
