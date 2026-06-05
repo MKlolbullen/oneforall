@@ -9,6 +9,10 @@ inputs:
 - name: target
   type: domain
   required: true
+- name: wordlist
+  type: file_path
+  required: false
+  default: /wordlists/usernames.txt
 outputs:
 - name: results
   type: finding_list
@@ -20,13 +24,13 @@ command:
   - '{{target}}'
   - -d
   - '{{target}}'
-  - /wordlists/usernames.txt
+  - '{{wordlist}}'
 parser:
   type: line_based
   entity: finding
 default_timeout_seconds: 2400
 max_retries: 1
-retry_backoff_seconds: 1.0
+retry_backoff_seconds: 30.0
 continue_on_error: false
 tags:
 - kerberos
@@ -34,7 +38,7 @@ tags:
 - enumeration
 install:
   method: go_install
-  package: github.com/ropnop/kerbrute@latest
+  package: github.com/ropnop/kerbrute@v1.0.3
 dry_run_output:
 - '[+] VALID USERNAME: administrator@example.com'
 - '[+] VALID USERNAME: jsmith@example.com'

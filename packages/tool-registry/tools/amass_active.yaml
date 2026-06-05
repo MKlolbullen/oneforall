@@ -25,7 +25,7 @@ parser:
   entity: domain
 default_timeout_seconds: 1800
 max_retries: 1
-retry_backoff_seconds: 1.0
+retry_backoff_seconds: 30.0
 continue_on_error: false
 tags:
 - owasp
@@ -33,7 +33,7 @@ tags:
 - active
 install:
   method: go_install
-  package: github.com/owasp-amass/amass/v4/...@master
+  package: github.com/owasp-amass/amass/v4/...@v4.2.1
 dry_run_output:
 - dev.example.com
 - staging.example.com

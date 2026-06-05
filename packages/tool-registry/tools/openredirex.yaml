@@ -17,10 +17,6 @@ command:
   - openredirex
   - -l
   - '{{target}}'
-  - -p
-  - /usr/share/openredirex/payloads.txt
-  - -k
-  - FUZZ
 parser:
   type: line_based
   entity: finding

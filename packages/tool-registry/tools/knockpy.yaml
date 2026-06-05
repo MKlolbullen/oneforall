@@ -24,7 +24,7 @@ parser:
   entity: domain
 default_timeout_seconds: 1200
 max_retries: 1
-retry_backoff_seconds: 1.0
+retry_backoff_seconds: 30.0
 continue_on_error: false
 tags:
 - subdomain
