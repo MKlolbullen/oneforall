@@ -115,30 +115,35 @@ def test_new_tool_has_dry_run_output(tool_id, tools_by_id):
 
 
 def test_no_existing_tool_argv_has_unresolved_templates(tools_by_id):
-    """Defensive sweep over the whole registry: any argv that uses a
-    {{placeholder}} which isn't 'target' (or one of our DAG tokens) should at
-    least be documented somewhere; flag any that wouldn't resolve under the
-    common single-target render."""
+    """Defensive sweep over the whole registry: any argv {{placeholder}} should
+    be *documented* — i.e. correspond to 'target', a declared tool input, or a
+    DAG token. Flag anything else (typically a typo) that would survive Pydantic
+    validation but never resolve at runtime."""
     from app.services.runner import render_argv
 
-    # Tokens we always provide at render time
-    common = {"target": "example.com"}
-    # Plus DAG tokens — these are populated at runtime per-step but valid
-    # references are: steps.<id>.stdout_path, previous.stdout_path,
-    # upstream.<output_type>.merged_path
+    # DAG tokens — populated at runtime per-step. Valid references are:
+    # steps.<id>.stdout_path, previous.stdout_path, upstream.<output_type>.merged_path
     dag_token = re.compile(r"\{\{(steps|previous|upstream)(\.[a-zA-Z0-9_]+)+\}\}")
 
     for tool in tools_by_id.values():
         argv = tool.command.get("argv") or []
         if not argv:
             continue
-        rendered = render_argv(argv, common)
+        # Provide a value for 'target' plus every declared input, so only
+        # genuinely undocumented placeholders remain. ToolInput carries no
+        # default in the schema, so a dummy value per input is enough — we only
+        # care that the placeholder is *known*, not what it renders to.
+        ctx = {"target": "example.com"}
+        for inp in tool.inputs:
+            ctx.setdefault(inp.name, f"<{inp.name}>")
+        rendered = render_argv(argv, ctx)
         for tok in rendered:
             for m in re.finditer(r"\{\{[^}]+\}\}", tok):
                 placeholder = m.group(0)
                 if dag_token.fullmatch(placeholder):
                     continue
                 pytest.fail(
-                    f"{tool.id} argv has unresolved placeholder {placeholder!r}; "
+                    f"{tool.id} argv has unresolved placeholder {placeholder!r} "
+                    f"(not 'target', a declared input, or a DAG token); "
                     f"argv after render: {rendered}"
                 )
