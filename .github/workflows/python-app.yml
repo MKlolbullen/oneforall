@@ -26,6 +26,8 @@ jobs:
       - name: Install legacy package
         working-directory: legacy
         run: |
+          python -m venv .
+          source bin/activate
           python -m pip install --upgrade pip
           pip install flake8 pytest
           pip install -r requirements.txt
@@ -55,7 +57,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
       - name: Install pytest deps
-        run: pip install pytest httpx ruff
+        run: pip install pytest httpx ruff httpx2
       - name: Ruff (touched paths only)
         # Limit to the modules + tests we own — pre-existing E402 lint
         # in services/runner.py is unrelated to anything new.
