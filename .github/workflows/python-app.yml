@@ -26,12 +26,14 @@ jobs:
       - name: Install legacy package
         working-directory: legacy
         run: |
-          python -m venv .
-          source bin/activate
+          # Install into the job's Python (already isolated by setup-python).
+          # A venv here doesn't help: each step runs in a fresh shell, so a
+          # `source bin/activate` in this step wouldn't carry over to the
+          # Flake8/pytest steps, leaving their binaries off PATH.
           python -m pip install --upgrade pip
-          pip install flake8 pytest
-          pip install -r requirements.txt
-          pip install -e .
+          python -m pip install flake8 pytest
+          python -m pip install -r requirements.txt
+          python -m pip install -e .
       - name: Flake8 (syntax / undefined-name only)
         working-directory: legacy
         run: |
