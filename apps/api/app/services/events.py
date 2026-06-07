@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import asyncio
 import json
-from collections import defaultdict
 from typing import Any, AsyncIterator
 
 from sqlalchemy import func
@@ -25,12 +23,10 @@ class RunEventBus:
       if Redis is unreachable, so a flaky Redis can't black-hole live events.
     - ``memory`` — the in-process broker. Used in embedded/in_process mode where
       publisher and subscriber share one loop; never touches Redis.
-    """
 
-    def __init__(self) -> None:
-        # Retained only as a safety net for the redis transport when a publish
-        # fails mid-flight; the memory transport uses the shared broker.
-        self._fallback_subscribers: dict[str, set[asyncio.Queue[dict[str, Any]]]] = defaultdict(set)
+    Both the memory transport and the Redis fallback route through the same
+    shared ``broker``, so there is only ever one in-process fan-out mechanism.
+    """
 
     def next_sequence(self, session: Session, run_id: str) -> int:
         last = session.exec(
@@ -62,17 +58,17 @@ class RunEventBus:
 
         body = self._event_to_body(event)
         settings = get_settings()
+        channel = settings.run_event_channel(run_id)
 
         if settings.resolved_event_transport == "memory":
-            await broker.publish(settings.run_event_channel(run_id), body)
+            await broker.publish(channel, body)
             return event
 
         raw = json.dumps(body, separators=(",", ":"), default=str)
         try:
-            await get_redis().publish(settings.run_event_channel(run_id), raw)
-        except Exception:  # noqa: BLE001 - Redis hiccup: keep live events flowing via the in-proc net
-            for queue in list(self._fallback_subscribers[run_id]):
-                await queue.put(body)
+            await get_redis().publish(channel, raw)
+        except Exception:  # noqa: BLE001 - Redis hiccup: keep live events flowing via the in-proc broker
+            await broker.publish(channel, body)
 
         return event
 
@@ -80,30 +76,28 @@ class RunEventBus:
         settings = get_settings()
         channel = settings.run_event_channel(run_id)
 
-        if settings.resolved_event_transport == "memory":
-            async for body in broker.subscribe(channel):
-                yield body
-            return
+        # Redis transport: stream from Pub/Sub. If Redis is unreachable, drop
+        # through to the shared in-process broker so live delivery still works.
+        if settings.resolved_event_transport != "memory":
+            try:
+                pubsub = get_redis().pubsub()
+                await pubsub.subscribe(channel)
+            except Exception:  # noqa: BLE001 - Redis down: use the in-proc broker below
+                pass
+            else:
+                try:
+                    async for message in pubsub.listen():
+                        if message.get("type") != "message":
+                            continue
+                        yield json.loads(message["data"])
+                finally:
+                    await pubsub.unsubscribe(channel)
+                    await pubsub.close()
+                return
 
-        try:
-            pubsub = get_redis().pubsub()
-            await pubsub.subscribe(channel)
-            try:
-                async for message in pubsub.listen():
-                    if message.get("type") != "message":
-                        continue
-                    yield json.loads(message["data"])
-            finally:
-                await pubsub.unsubscribe(channel)
-                await pubsub.close()
-        except Exception:  # noqa: BLE001 - fallback keeps no-Redis local debugging usable
-            queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=200)
-            self._fallback_subscribers[run_id].add(queue)
-            try:
-                while True:
-                    yield await queue.get()
-            finally:
-                self._fallback_subscribers[run_id].discard(queue)
+        # Memory transport, or the Redis fallback above.
+        async for body in broker.subscribe(channel):
+            yield body
 
     def history(self, session: Session, run_id: str) -> list[RunEvent]:
         return list(

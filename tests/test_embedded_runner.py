@@ -213,6 +213,10 @@ def test_cancel_sets_db_flag_without_redis(monkeypatch, tmp_path):
         assert body["status"] == "cancelled"
         assert body["cancel_requested_at"] is not None
 
+        # The in-memory cancel registry (the Redis-free fast path) is also set.
+        from app.services.memory_transport import run_queue
+        assert run_queue.is_cancel_requested(run_id)
+
         events = client.get(f"/api/runs/{run_id}/events", headers=headers).json()
         assert any(e["type"] == "run.cancel_requested" for e in events)
 
@@ -240,9 +244,14 @@ def test_memory_broker_fans_out_to_many_subscribers():
                     return
 
         consumers = [asyncio.create_task(consumer(i)) for i in range(n_subs)]
-        # Wait until every consumer has registered its queue.
-        while broker.subscriber_count(channel) < n_subs:
-            await asyncio.sleep(0.005)
+
+        # Wait until every consumer has registered its queue — bounded so a
+        # regression in subscription setup fails fast instead of hanging.
+        async def _all_registered() -> None:
+            while broker.subscriber_count(channel) < n_subs:
+                await asyncio.sleep(0.005)
+
+        await asyncio.wait_for(_all_registered(), timeout=5)
 
         for seq in range(n_msgs):
             await broker.publish(channel, {"sequence": seq})
