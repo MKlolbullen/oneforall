@@ -6,7 +6,7 @@ binary: certgraph
 risk: passive
 requires_authorization: false
 inputs:
-- name: target
+- name: {{target}}
   type: domain
   required: true
 - name: depth
