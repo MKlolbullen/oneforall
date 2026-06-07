@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 from typing import Any, AsyncIterator
 
@@ -76,24 +77,26 @@ class RunEventBus:
         settings = get_settings()
         channel = settings.run_event_channel(run_id)
 
-        # Redis transport: stream from Pub/Sub. If Redis is unreachable, drop
-        # through to the shared in-process broker so live delivery still works.
+        # Redis transport: stream from Pub/Sub. If Redis is unreachable — at
+        # setup OR mid-stream — drop through to the shared in-process broker so
+        # live delivery still works. Client disconnect raises GeneratorExit
+        # (not Exception), so it propagates out instead of falling through.
         if settings.resolved_event_transport != "memory":
+            pubsub = get_redis().pubsub()
             try:
-                pubsub = get_redis().pubsub()
                 await pubsub.subscribe(channel)
-            except Exception:  # noqa: BLE001 - Redis down: use the in-proc broker below
-                pass
-            else:
-                try:
-                    async for message in pubsub.listen():
-                        if message.get("type") != "message":
-                            continue
-                        yield json.loads(message["data"])
-                finally:
-                    await pubsub.unsubscribe(channel)
-                    await pubsub.close()
+                async for message in pubsub.listen():
+                    if message.get("type") != "message":
+                        continue
+                    yield json.loads(message["data"])
                 return
+            except Exception:  # noqa: BLE001 - Redis down: fall through to the in-proc broker
+                pass
+            finally:
+                with contextlib.suppress(Exception):
+                    await pubsub.unsubscribe(channel)
+                with contextlib.suppress(Exception):
+                    await pubsub.close()
 
         # Memory transport, or the Redis fallback above.
         async for body in broker.subscribe(channel):
