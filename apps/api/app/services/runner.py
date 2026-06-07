@@ -228,7 +228,10 @@ async def _cancel_requested(session_factory: SessionFactory, run_id: str) -> boo
         return True
     with session_factory() as session:
         run = session.get(Run, run_id)
-        return bool(run and run.status == RunStatus.cancelled)
+        return bool(
+            run
+            and (run.cancel_requested_at is not None or run.status == RunStatus.cancelled)
+        )
 
 
 def _get_or_create_step(

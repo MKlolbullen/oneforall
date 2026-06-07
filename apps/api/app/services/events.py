@@ -10,18 +10,26 @@ from sqlmodel import Session, select
 
 from app.core.config import get_settings
 from app.models import RunEvent
+from app.services.memory_transport import broker
 from app.services.redis_client import get_redis
 
 
 class RunEventBus:
-    """Persist run events and fan them out over Redis Pub/Sub.
+    """Persist run events and fan them out to live WebSocket subscribers.
 
-    The first scaffold used process-local subscribers. That breaks as soon as the
-    runner becomes a separate worker container. This bus keeps the database as
-    source of truth and uses Redis only for live delivery.
+    The database is always the source of truth (history replay on connect).
+    Live delivery uses one of two transports, chosen by settings:
+
+    - ``redis``  — Pub/Sub, so an API process and a separate worker process can
+      exchange events. Used in queue mode. Falls back to the in-process broker
+      if Redis is unreachable, so a flaky Redis can't black-hole live events.
+    - ``memory`` — the in-process broker. Used in embedded/in_process mode where
+      publisher and subscriber share one loop; never touches Redis.
     """
 
     def __init__(self) -> None:
+        # Retained only as a safety net for the redis transport when a publish
+        # fails mid-flight; the memory transport uses the shared broker.
         self._fallback_subscribers: dict[str, set[asyncio.Queue[dict[str, Any]]]] = defaultdict(set)
 
     def next_sequence(self, session: Session, run_id: str) -> int:
@@ -53,12 +61,16 @@ class RunEventBus:
         session.refresh(event)
 
         body = self._event_to_body(event)
-        raw = json.dumps(body, separators=(",", ":"), default=str)
         settings = get_settings()
 
+        if settings.resolved_event_transport == "memory":
+            await broker.publish(settings.run_event_channel(run_id), body)
+            return event
+
+        raw = json.dumps(body, separators=(",", ":"), default=str)
         try:
             await get_redis().publish(settings.run_event_channel(run_id), raw)
-        except Exception:  # noqa: BLE001 - Redis may be absent in local one-process dev mode
+        except Exception:  # noqa: BLE001 - Redis hiccup: keep live events flowing via the in-proc net
             for queue in list(self._fallback_subscribers[run_id]):
                 await queue.put(body)
 
@@ -67,6 +79,12 @@ class RunEventBus:
     async def subscribe(self, run_id: str) -> AsyncIterator[dict[str, Any]]:
         settings = get_settings()
         channel = settings.run_event_channel(run_id)
+
+        if settings.resolved_event_transport == "memory":
+            async for body in broker.subscribe(channel):
+                yield body
+            return
+
         try:
             pubsub = get_redis().pubsub()
             await pubsub.subscribe(channel)

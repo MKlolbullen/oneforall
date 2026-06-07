@@ -269,6 +269,9 @@ async def cancel_run(
         return run
 
     await request_run_cancel(run_id)
+    # cancel_requested_at is the durable, Redis-free signal the runner observes;
+    # status is flipped here too so the UI reflects the cancel immediately.
+    run.cancel_requested_at = now_utc()
     run.status = RunStatus.cancelled
     run.finished_at = now_utc() if run.started_at is None else run.finished_at
     session.add(run)

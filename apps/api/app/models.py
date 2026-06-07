@@ -102,6 +102,10 @@ class Run(SQLModel, table=True):
     config_snapshot: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    # Durable cancellation flag. Set when an operator requests cancel; the
+    # runner observes it (alongside status) and stops. Being a DB column, it
+    # works across processes without Redis — the embedded/desktop signal path.
+    cancel_requested_at: datetime | None = None
     created_at: datetime = Field(default_factory=now_utc)
 
 
