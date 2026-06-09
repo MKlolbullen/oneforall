@@ -615,12 +615,121 @@ def render_ui_tool_catalog():
     print(f"wrote {out.relative_to(REPO)}")
 
 
+def render_deployment_modes():
+    """Three side-by-side panels: docker compose, hybrid dev, desktop.
+
+    Encodes the same architectural choice the README's "How to run it" section
+    documents — same palette so it reads as part of the rest of the imagery.
+    """
+    fig, ax = new_canvas(16, 8)
+
+    ax.text(60, 740, "How to run it",
+            fontsize=22, color=TEXT, weight="bold", family="sans-serif")
+    ax.text(60, 705, "three deployment topologies share the same FastAPI + React stack",
+            fontsize=12, color=MUTED, family="monospace")
+
+    cards = [
+        {
+            "title": "Docker compose",
+            "subtitle": "full prod-shaped stack",
+            "color": CYAN,
+            "x": 60,
+            "tag": "RUNNER_MODE=queue",
+            "boxes": [
+                ("React UI", PURPLE),
+                ("FastAPI", CYAN),
+                ("Worker", PINK_HOT),
+                ("Postgres", GREEN),
+                ("Redis", ORANGE),
+                ("MinIO/S3", PURPLE),
+            ],
+            "footer": "docker compose up\n→ closest to real deploy",
+        },
+        {
+            "title": "Hybrid local",
+            "subtitle": "infra in compose, app on host",
+            "color": PINK_HOT,
+            "x": 555,
+            "tag": "RUNNER_MODE=queue",
+            "boxes": [
+                ("Vite dev (host)", PURPLE),
+                ("uvicorn (host)", CYAN),
+                ("python -m app.worker", PINK_HOT),
+                ("Postgres (compose)", GREEN),
+                ("Redis (compose)", ORANGE),
+                ("local artifacts", PURPLE),
+            ],
+            "footer": "docker compose up postgres redis minio\n+ uvicorn --reload + npm run dev",
+        },
+        {
+            "title": "Desktop app",
+            "subtitle": "single process, no Docker",
+            "color": GREEN,
+            "x": 1050,
+            "tag": "RUNNER_MODE=embedded",
+            "boxes": [
+                ("Electron main", PURPLE),
+                ("React renderer (app://)", PURPLE),
+                ("FastAPI + worker", CYAN),
+                ("(no Postgres)", DIM),
+                ("(no Redis)", DIM),
+                ("SQLite + ~/.reconforge", GREEN),
+            ],
+            "footer": "cd apps/desktop && npm run dev\n→ Phases 1–3 (PRs #11, #16, #19)",
+        },
+    ]
+
+    for c in cards:
+        x = c["x"]
+        panel(ax, x, 130, 430, 540, fc=PANEL, ec=BORDER, radius=1.2)
+        ax.add_patch(Rectangle((x, 130), 6, 540, facecolor=c["color"]))
+        chip(ax, x + 22, 640, c["tag"], fc=PANEL_DEEP, ec=c["color"],
+             color=c["color"], fs=10)
+        ax.text(x + 22, 600, c["title"],
+                fontsize=20, color=TEXT, weight="bold",
+                family="sans-serif", va="center")
+        ax.text(x + 22, 575, c["subtitle"],
+                fontsize=10, color=MUTED, family="monospace", va="center")
+        # component stack
+        ty = 535
+        for label, color in c["boxes"]:
+            panel(ax, x + 22, ty - 25, 386, 38, fc=PANEL_DEEP, ec=BORDER, radius=0.5)
+            ax.add_patch(Rectangle((x + 22, ty - 25), 4, 38, facecolor=color))
+            ax.text(x + 36, ty - 6, label,
+                    fontsize=11, color=TEXT, family="monospace", va="center")
+            ty -= 50
+        # footer command
+        ax.text(x + 22, 175, c["footer"],
+                fontsize=9, color=MUTED, family="monospace", va="bottom")
+
+    # arrows between cards to imply progression
+    for x_from, x_to in [(490, 555), (985, 1050)]:
+        arr = FancyArrowPatch(
+            (x_from, 400), (x_to, 400),
+            arrowstyle="-|>", mutation_scale=18,
+            color=DIM, lw=1.4,
+        )
+        ax.add_patch(arr)
+
+    # legend / outcome bar
+    panel(ax, 60, 50, 1490, 50, fc=PANEL_DEEP, ec=BORDER, radius=0.8)
+    ax.text(85, 75, "All three modes share the same code path; flipping RUNNER_MODE "
+                    "and EVENT_TRANSPORT picks Redis vs. in-process.",
+            fontsize=10, color=MUTED, family="monospace", va="center")
+
+    out = OUT_DIR / "deployment-modes.png"
+    fig.savefig(out, facecolor=BG, bbox_inches="tight", pad_inches=0.1)
+    plt.close(fig)
+    print(f"wrote {out.relative_to(REPO)}")
+
+
 def main():
     render_banner()
     render_workflow()
     render_ui_dashboard()
     render_ui_run_console()
     render_ui_tool_catalog()
+    render_deployment_modes()
 
 
 if __name__ == "__main__":
