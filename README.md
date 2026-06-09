@@ -116,7 +116,7 @@ The three main panels — dashboard, live run console, and tool catalog — are 
 
 ## Network graph
 
-The web UI ships a Network Graph page that renders every workspace as a force-laid graph of `target → domain → url → ip → finding` (plus internal `host` and captured `cred` nodes once `internal_pivot` lands creds). Node size scales with networkx betweenness centrality so pivot points jump out; edges are colored by relationship kind so an operator can spot the critical hops at a glance.
+The web UI ships a Network Graph page that renders every workspace as a force-directed graph of `target → domain → url → ip → finding` (plus internal `host` and captured `cred` nodes once `internal_pivot` lands creds). Node size scales with networkx betweenness centrality so pivot points jump out; edges are colored by relationship kind so an operator can spot the critical hops at a glance.
 
 The simulated screenshots below are produced by `scripts/render-graph-screenshots.py`, which uses the same color palette, edge kinds, and centrality logic as the live endpoint at `GET /api/workspaces/{id}/graph`.
 
