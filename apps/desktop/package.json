@@ -6,7 +6,7 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "RECONFORGE_DESKTOP_DEV=1 electron .",
+    "dev": "electron . --dev",
     "build:web": "cd ../web && npm run build -- --base=./",
     "build:sidecar": "cd ../api && ./scripts/build-sidecar.sh"
   },

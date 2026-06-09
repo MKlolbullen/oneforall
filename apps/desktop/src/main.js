@@ -21,7 +21,12 @@ const {
 } = require('./sidecar.js');
 const { registerSchemes, registerHandler } = require('./protocol.js');
 
-const IS_DEV = process.env.RECONFORGE_DESKTOP_DEV === '1';
+// `--dev` is the cross-shell flag the npm script uses (env-var prefixes don't
+// work in cmd.exe). RECONFORGE_DESKTOP_DEV=1 stays supported as a fallback so
+// existing CI / debug flows aren't broken.
+const IS_DEV =
+  process.argv.includes('--dev') ||
+  process.env.RECONFORGE_DESKTOP_DEV === '1';
 
 // Repo paths (apps/desktop/src/main.js → ../../api, ../../web/dist).
 const API_DIR = path.resolve(__dirname, '..', '..', 'api');

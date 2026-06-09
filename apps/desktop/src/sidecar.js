@@ -40,11 +40,12 @@ function buildEnv(home) {
     DATABASE_URL: `sqlite:///${path.join(home, 'reconforge.db')}`,
     ARTIFACT_BACKEND: 'local',
     ARTIFACT_DIR: path.join(home, 'artifacts'),
-    // The renderer page lives at app://reconforge, so the API must accept it.
-    // Phase 1: vite-dev fallback is included for `npm run dev`.
-    CORS_ORIGINS: 'app://reconforge,http://localhost:5173,http://127.0.0.1:5173',
     EXECUTION_MODE: 'dry_run',
     ALLOW_LIVE_EXECUTION: 'false',
+    // CORS: deliberately NOT set here. The API default in
+    // apps/api/app/core/config.py already includes `app://reconforge` plus the
+    // vite-dev origins, so leaving CORS_ORIGINS unset lets that single source
+    // of truth win. Anyone overriding it via .env still takes precedence.
   };
 }
 

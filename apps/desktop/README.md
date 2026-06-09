@@ -48,7 +48,7 @@ cd apps/web && npm install && npm run dev
 cd apps/desktop && npm install && npm run dev
 ```
 
-`npm run dev` sets `RECONFORGE_DESKTOP_DEV=1`, which:
+`npm run dev` passes `--dev` to Electron (cross-shell, works in `cmd.exe`/PowerShell as well as bash/zsh), which:
 
 - Spawns `python -m uvicorn app.main:app` from `apps/api` instead of looking for
   the bundled binary. Set `RECONFORGE_PYTHON=/path/to/venv/bin/python` if your
@@ -61,7 +61,9 @@ The sidecar is started with:
 - `DATABASE_URL=sqlite:///~/.reconforge/reconforge.db` — per-user state.
 - `ARTIFACT_BACKEND=local`, `ARTIFACT_DIR=~/.reconforge/artifacts`.
 - `EXECUTION_MODE=dry_run`, `ALLOW_LIVE_EXECUTION=false` — safe defaults.
-- `CORS_ORIGINS=app://reconforge,http://localhost:5173,http://127.0.0.1:5173`.
+- CORS is **not** overridden — the API's default in `apps/api/app/core/config.py`
+  already includes `app://reconforge` plus the vite-dev origins. A `.env`
+  override still wins if you set one.
 
 Override the home directory with `RECONFORGE_HOME=/some/path` if you want
 isolation (e.g. for tests).
