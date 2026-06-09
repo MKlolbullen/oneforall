@@ -1,6 +1,6 @@
 ![ReconForge — multi-panel web GUI for recon, ASM, and bug-bounty workflows](docs/screenshots/banner.png)
 
-# ReconForge - Multi panel Web GUI with recon/ASM/bug bounty workflows.
+# ReconForge - Multi-panel Web GUI with recon/ASM/bug bounty workflows.
 
 
 > **History note.** This repo previously hosted a CLI-only 10-stage pipeline called *OneForAll*. That package is preserved under [`legacy/`](./legacy) and wired into the new system as registry tools (`oneforall`, `oneforall_s01_passive` … `oneforall_s10_report`) and a profile (`oneforall_chain`). See [`legacy/README.md`](./legacy/README.md).
