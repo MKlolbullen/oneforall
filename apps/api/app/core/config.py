@@ -12,7 +12,10 @@ class Settings(BaseSettings):
     environment: str = "dev"
     database_url: str = "sqlite:///./reconforge.db"
     redis_url: str = "redis://localhost:6379/0"
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    # app://reconforge is the origin of the Electron desktop shell's renderer
+    # (Phase 3); kept in the defaults so a freshly-spawned sidecar can talk to
+    # the bundled UI with no extra configuration.
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,app://reconforge"
 
     tool_registry_dir: Path = Field(default=Path("../../packages/tool-registry/tools"))
     profile_registry_dir: Path = Field(default=Path("../../packages/tool-registry/profiles"))

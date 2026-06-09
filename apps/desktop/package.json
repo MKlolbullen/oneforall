@@ -1,0 +1,16 @@
+{
+  "name": "reconforge-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ReconForge Electron shell — wraps the React UI and an in-process FastAPI sidecar (Phase 3 of the desktop track).",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build:web": "cd ../web && npm run build -- --base=./",
+    "build:sidecar": "cd ../api && ./scripts/build-sidecar.sh"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0"
+  }
+}
