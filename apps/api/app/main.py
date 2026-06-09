@@ -1,6 +1,7 @@
+import asyncio
 import logging
 import os
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,7 +40,26 @@ async def lifespan(app: FastAPI):
     init_db()
     seed_dev_data()
     seed_default_admin()
-    yield
+
+    # Embedded mode runs the worker inside the API's own loop — no Redis, no
+    # second process. This is the path a packaged desktop build takes.
+    worker_task: asyncio.Task | None = None
+    worker_stop: asyncio.Event | None = None
+    if get_settings().embedded_runner_enabled:
+        from app.worker import drain_queue
+
+        worker_stop = asyncio.Event()
+        worker_task = asyncio.create_task(drain_queue(worker_stop, label="embedded"))
+        logger.info("embedded worker started in API process")
+
+    try:
+        yield
+    finally:
+        if worker_task is not None and worker_stop is not None:
+            worker_stop.set()
+            worker_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await worker_task
 
 
 settings = get_settings()
@@ -86,6 +106,8 @@ def health():
         "execution_mode": current.execution_mode,
         "live_execution_enabled": current.live_execution_enabled,
         "runner_mode": current.runner_mode,
+        "event_transport": current.resolved_event_transport,
+        "queue_backend": current.resolved_queue_backend,
         "artifact_backend": current.artifact_backend,
         "run_queue_name": current.run_queue_name,
         "block_live_runs_on_missing_tools": current.block_live_runs_on_missing_tools,

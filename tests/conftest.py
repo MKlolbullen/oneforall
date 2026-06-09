@@ -40,3 +40,13 @@ def rebind_engine_to_database_url() -> None:
     # spawn execute_run with their own session_factory). Same trick.
     import app.api.routes.workflows as workflows_mod
     workflows_mod.engine = new_engine
+    # The embedded worker (RUNNER_MODE=embedded) runs execute_run with its own
+    # session_factory built from worker.engine, captured at import. Rebind it too
+    # or the in-loop worker reads the wrong DB ("no such table: run").
+    import app.worker as worker_mod
+    worker_mod.engine = new_engine
+    # The WebSocket route opens its own Session(engine) to replay event history.
+    # Without rebinding, a second test's socket queries the first test's DB,
+    # finds no history, sends nothing, and the client blocks forever.
+    import app.api.routes.ws as ws_mod
+    ws_mod.engine = new_engine
