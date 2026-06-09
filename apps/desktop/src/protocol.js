@@ -37,7 +37,14 @@ function registerHandler(webDistDir) {
     if (url.host !== 'reconforge') {
       return new Response('Unknown app host', { status: 404 });
     }
-    let pathname = decodeURIComponent(url.pathname);
+    let pathname;
+    try {
+      pathname = decodeURIComponent(url.pathname);
+    } catch {
+      // Malformed percent-encoding — return a controlled 400 rather than
+      // letting the URIError bubble out of the handler.
+      return new Response('Bad Request', { status: 400 });
+    }
     if (!pathname || pathname === '/') pathname = '/index.html';
     const resolved = path.normalize(path.join(root, pathname));
     // Defence in depth: refuse anything that escaped the dist root.

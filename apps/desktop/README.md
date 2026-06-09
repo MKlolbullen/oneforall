@@ -15,7 +15,7 @@ depends on:
 
 ## Architecture
 
-```
+```text
 ┌───────────────────────────────┐         ┌──────────────────────────┐
 │  Electron main (Node)          │ spawn   │  reconforge-sidecar       │
 │   - pick free localhost port   │────────▶│  (PyInstaller binary OR   │
@@ -100,7 +100,7 @@ In prod mode, the main process:
 
 ## File map
 
-```
+```text
 apps/desktop/
 ├── package.json              # Electron deps + npm scripts
 ├── README.md                 # this file

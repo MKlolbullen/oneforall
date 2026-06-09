@@ -103,9 +103,17 @@ async function bootstrap() {
   await createWindow(port);
 }
 
-app.whenReady().then(bootstrap).catch((e) => {
+app.whenReady().then(bootstrap).catch(async (e) => {
   console.error('[reconforge-desktop] startup failed:', e);
   isQuitting = true;
+  // bootstrap can throw after the sidecar was spawned (e.g. health-check
+  // timeout, createWindow failure). Tear it down explicitly so we never leave
+  // an orphan Python process behind.
+  try {
+    await killSidecar(sidecarProc);
+  } catch (killErr) {
+    console.error('[reconforge-desktop] failed to stop sidecar after startup error:', killErr);
+  }
   app.exit(1);
 });
 

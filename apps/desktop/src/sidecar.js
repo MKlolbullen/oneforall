@@ -37,7 +37,9 @@ function buildEnv(home) {
     // Phase 2: in-process worker, no Redis, no second process.
     RUNNER_MODE: 'embedded',
     // SQLite + local artifacts under the user's home — survives reinstalls.
-    DATABASE_URL: `sqlite:///${path.join(home, 'reconforge.db')}`,
+    // SQLAlchemy URLs require forward slashes; path.join uses backslashes on
+    // Windows, which would produce an invalid `sqlite:///C:\Users\...` URL.
+    DATABASE_URL: `sqlite:///${path.join(home, 'reconforge.db').replace(/\\/g, '/')}`,
     ARTIFACT_BACKEND: 'local',
     ARTIFACT_DIR: path.join(home, 'artifacts'),
     EXECUTION_MODE: 'dry_run',
