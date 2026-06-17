@@ -36,7 +36,7 @@ After docker compose the stack listens on:
 ```mermaid
 flowchart LR
     UI[React Web UI] --> API[FastAPI control plane]
-    UI -. ws .-> WS[/ws/runs/:id]
+    UI -. ws .-> WS["/ws/runs/:id"]
 
     API --> DB[(SQLite or Postgres)]
     API --> REG[Tool Registry]
