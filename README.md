@@ -36,7 +36,7 @@
 ```mermaid
 flowchart LR
     UI[React Web UI] --> API[FastAPI Control Plane]
-    UI --> WS[WebSocket /ws/runs/:id]
+    UI --> WS["WebSocket /ws/runs/:id"]
 
     API --> DB[(PostgreSQL)]
     API --> REDIS[(Redis)]

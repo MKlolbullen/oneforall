@@ -11,6 +11,6 @@
     "build:sidecar": "cd ../api && ./scripts/build-sidecar.sh"
   },
   "devDependencies": {
-    "electron": "^32.0.0"
+    "electron": "^42.4.0"
   }
 }
